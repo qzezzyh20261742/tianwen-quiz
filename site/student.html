@@ -424,6 +424,12 @@ function refreshCloudConfigFromServer(){
         if(!j || !j.url) return;
         DEFAULT_CLOUD.url = j.url.replace(/\/+$/, '');
         if(j.apiKey) DEFAULT_CLOUD.apiKey = j.apiKey;
+        try {
+          var savedCfg = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}');
+          if(savedCfg && savedCfg.url && savedCfg.url.replace(/\/+$/, '') !== DEFAULT_CLOUD.url){
+            localStorage.removeItem('astro_quiz_cloud');
+          }
+        } catch(e){}
       })
       .catch(function(){ return null; });
   } catch(e){ return Promise.resolve(null); }
