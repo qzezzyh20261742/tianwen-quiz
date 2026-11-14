@@ -2983,9 +2983,9 @@ function renderSchoolMgmt(){
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<b>' + esc(s) + '</b>'
       + '<span style="color:var(--muted);font-size:13px">' + stuCount + ' 名学生 · 自由注册' + (free ? '开' : '关') + ' · ' + groupsOfSchool.join('/') + '</span>'
-      + '<div style="display:flex;flex-direction:column;gap:8px;align-items:stretch">'
-      + '<button class="btn btn-ghost btn-sm" type="button" data-setschool="' + esc(s) + '">学校设置</button>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex:none">'
       + '<button class="btn btn-ghost btn-sm" type="button" data-viewstudents="' + esc(s) + '">查看学生</button>'
+      + '<button class="btn btn-ghost btn-sm" type="button" data-setschool="' + esc(s) + '">学校设置</button>'
       + '</div></div>'
       + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
       + '</div>';
