@@ -1943,6 +1943,7 @@ function renderExamBoard(){
     html += '<div style="border:1px solid rgba(91,200,255,.22);border-radius:14px;padding:16px;margin-bottom:14px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<div><b style="font-size:17px">' + esc(e.name) + '</b>'
+      + '<div style="font-size:12.5px;color:var(--muted);margin-top:4px">适用学段：' + esc((e.groups || []).join('、') || '未设置') + '</div>'
       + '<span style="margin-left:10px;font-size:12.5px;font-weight:700;color:' + (isOpen ? 'var(--green)' : (e.status === 'closed' ? 'var(--muted)' : 'var(--gold)')) + '">' + examStatusText(e.status) + '</span></div>'
       + '<div style="font-size:12px;color:var(--muted)">更新 ' + esc(e.updatedAt || '') + '</div></div>'
       + '<div style="margin-top:12px">' + groupsHtml + '</div>'
@@ -1977,7 +1978,7 @@ function openCreateExam(){
     + '<label class="radio-pill"><input type="checkbox" id="newExamAll" checked><span>全选</span></label>'
     + ['小学组','初中组','高中组'].map(g => '<label class="radio-pill"><input type="checkbox" name="newExamGroup" value="' + g + '" checked><span>' + g + '</span></label>').join('')
     + '</div></div>'
-    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需为每个组别导入试题；导入并点击「开始此次考试」后，学生端才会出现该场次入口。</p>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需导入试题，一份题可同时套用到多个学段；导入并点击「开始此次考试」后，学生端才会出现该场次入口。</p>'
     + '<div style="display:flex;gap:10px;margin-top:18px">'
     + '<button class="btn btn-ghost" style="flex:1" id="createExamCancel" type="button">取消</button>'
     + '<button class="btn btn-gold" style="flex:1" id="createExamOk" type="button">创建考试</button></div>');
@@ -2141,6 +2142,10 @@ function openImportModal(exam, group){
     + '<button class="modal-close" id="modalX" type="button">×</button></div>'
     + '<p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:12px">支持 <b>.xlsx / .xls / .csv / .json</b>。表格首行可为表头，列顺序固定：'
     + '题号、题干、选项A、选项B、选项C、选项D、正确答案、分值、解析、知识点（可选）、易错提醒（可选）。</p>'
+    + '<div class="field" style="margin-bottom:10px"><label>适用学段（可多选，同一份题会同时套用到所选学段）</label>'
+    + '<div class="radio-row" style="flex-wrap:wrap">'
+    + (exam.groups && exam.groups.length ? exam.groups : [group]).map(g => '<label class="radio-pill"><input type="checkbox" name="importSegment" value="' + g + '"' + (g === group ? ' checked' : '') + '><span>' + g + '</span></label>').join('')
+    + '</div></div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
     + '<button class="btn btn-ghost btn-sm" id="downloadTplBtn" type="button">下载导入模板</button>'
     + '<span style="font-size:12.5px;color:var(--muted);align-self:center">当前已有 ' + existing.length + ' 题，导入将整组替换</span></div>'
@@ -2155,6 +2160,16 @@ function openImportModal(exam, group){
   document.getElementById('downloadTplBtn').addEventListener('click', downloadExamTemplate);
   const input = document.getElementById('examFileInput');
   const confirmBtn = document.getElementById('importConfirm');
+  document.querySelectorAll('input[name="importSegment"]').forEach(function(b){
+    b.addEventListener('change', function(){
+      const anyOn = document.querySelectorAll('input[name="importSegment"]:checked').length > 0;
+      if(!anyOn){
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '请至少选择一个学段';
+        EXAM_IMPORT = null;
+      }
+    });
+  });
   input.addEventListener('change', async function(){
     const file = input.files && input.files[0];
     if(!file) return;
@@ -2164,14 +2179,17 @@ function openImportModal(exam, group){
     try {
       const list = await readExamFile(file);
       const errors = validateQuestionList(list);
+      const segmentSel = Array.from(document.querySelectorAll('input[name="importSegment"]:checked')).map(x => x.value);
+      if(!segmentSel.length) errors.push({ idx: -1, msg: '请至少选择一个适用学段' });
       const total = list.reduce((s, q) => s + (Number(q.score) || 0), 0);
       const min = list.length ? Math.min.apply(null, list.map(q => q.no)) : 0;
       const max = list.length ? Math.max.apply(null, list.map(q => q.no)) : 0;
-      EXAM_IMPORT = errors.length ? null : { examId: exam.id, group: group, list: list };
+      EXAM_IMPORT = errors.length ? null : { examId: exam.id, groups: segmentSel, list: list };
       let head = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 8px;font-size:13px">'
         + '<span>题数 <b style="color:var(--gold)">' + list.length + '</b></span>'
         + '<span>总分 <b style="color:var(--gold)">' + total + '</b></span>'
         + '<span>题号范围 <b>' + min + ' - ' + max + '</b></span>'
+        + '<span>适用学段 <b style="color:var(--accent)">' + esc(segmentSel.join('、') || '未选择') + '</b></span>'
         + '<span style="color:' + (errors.length ? 'var(--red)' : 'var(--green)') + '">' + (errors.length ? errors.length + ' 处待修正' : '校验通过') + '</span></div>';
       if(errors.length){
         head += '<div style="max-height:120px;overflow:auto;border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:var(--red);line-height:1.7">'
@@ -2208,13 +2226,17 @@ function openImportModal(exam, group){
     const exam2 = EXAMS.find(x => x.id === EXAM_IMPORT.examId);
     if(!exam2) return;
     if(!exam2.questions) exam2.questions = {};
-    exam2.questions[EXAM_IMPORT.group] = EXAM_IMPORT.list;
+    const groups = EXAM_IMPORT.groups && EXAM_IMPORT.groups.length ? EXAM_IMPORT.groups : [];
+    if(!groups.length){ toast('请至少选择一个适用学段'); return; }
+    groups.forEach(function(g){
+      exam2.questions[g] = JSON.parse(JSON.stringify(EXAM_IMPORT.list));
+    });
     exam2.updatedAt = new Date().toLocaleString();
     saveLocalExams();
     closeModal();
     renderExamBoard();
-    toast('已导入 ' + EXAM_IMPORT.list.length + ' 题，记得上传到云端');
-    log('导入试题', exam2.name + ' · ' + EXAM_IMPORT.group + ' · ' + EXAM_IMPORT.list.length + ' 题');
+    toast('已导入 ' + EXAM_IMPORT.list.length + ' 题到 ' + groups.join('、') + '，记得上传到云端');
+    log('导入试题', exam2.name + ' · ' + groups.join('/') + ' · ' + EXAM_IMPORT.list.length + ' 题');
   });
 }
 
