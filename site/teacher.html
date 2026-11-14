@@ -1689,13 +1689,17 @@ function settingsPayload(){
 }
 function pushSettingsToCloud(keepalive){
   const cfg = getCloudConfig();
-  if(!cfg.url) return;
-  cloudCall('/settings', { method: 'POST', body: { settings: settingsPayload() }, keepalive: !!keepalive })
+  if(!cfg.url) return Promise.resolve(false);
+  return cloudCall('/settings', { method: 'POST', body: { settings: settingsPayload() }, keepalive: !!keepalive })
     .then(function(j){
       if(j && j.updatedAt) localStorage.setItem('astro_quiz_settings_sync', j.updatedAt);
       updateCloudStatus();
+      return true;
     })
-    .catch(function(){ /* 网络异常时保留本机数据，下一次修改会自动重试 */ });
+    .catch(function(){
+      /* 网络异常时保留本机数据，下一次修改会自动重试 */
+      return false;
+    });
 }
 function triggerCloudPush(){
   const cfg = getCloudConfig();
@@ -2385,6 +2389,23 @@ document.getElementById('saveNowBtn').addEventListener('click', function(){
 document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
 document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false); });
+const cloudSyncBtnEl = document.getElementById('cloudSyncBtn');
+if(cloudSyncBtnEl) cloudSyncBtnEl.addEventListener('click', async function(){
+  const cfg = getCloudConfig();
+  if(!cfg.url){ toast('云端地址未配置'); return; }
+  const label = cloudSyncBtnEl.textContent;
+  cloudSyncBtnEl.disabled = true;
+  cloudSyncBtnEl.textContent = '同步中…';
+  const ok = await pushSettingsToCloud(false);
+  cloudSyncBtnEl.disabled = false;
+  cloudSyncBtnEl.textContent = label;
+  if(ok){
+    log('同步云端', '手动立即同步管理员设置');
+    toast('已同步到云端');
+  } else {
+    toast('同步失败，请检查网络后重试');
+  }
+});
 document.getElementById('settingsRollbackBtn').addEventListener('click', function(){
   let b = null;
   try { b = JSON.parse(localStorage.getItem('astro_quiz_settings_backup') || 'null'); } catch(e){ b = null; }
