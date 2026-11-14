@@ -245,6 +245,10 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .picker-item:hover{background:rgba(91,200,255,.09)}
 .picker-item.active{background:rgba(91,200,255,.17);color:var(--accent);font-weight:700}
 .picker-empty{padding:12px 10px;color:var(--muted);font-size:12.5px;line-height:1.7}
+.admin-set-title{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:4px 0 9px;padding-top:12px;border-top:1px solid var(--line)}
+.admin-set-danger{margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);display:flex;justify-content:flex-end;align-items:center}
+.btn-text-danger{background:none;border:0;color:var(--red);font-family:inherit;font-size:13px;cursor:pointer;padding:4px 0}
+.btn-text-danger:hover{text-decoration:underline}
 /* ===== 操作日志：折叠 + 毛玻璃 + 分页 ===== */
 .log-shell{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(9,14,34,.42)}
 .log-scroll{max-height:250px;overflow-y:auto;padding:2px 14px;scrollbar-width:thin;scrollbar-color:rgba(132,168,255,.4) transparent}
@@ -3076,23 +3080,15 @@ function renderAdminList(){
     + '<span>账号：<b style="color:var(--accent)">' + esc(a.user) + '</b></span>'
     + '<span>密码：<b style="color:var(--gold)">' + esc(a.pass) + '</b></span>'
     + '<span>角色：<b style="color:' + (a.role === 'admin' ? 'var(--gold)' : 'var(--accent)') + '">' + roleLabel(a) + '</b></span>'
-    + (isSub ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-editpass="' + esc(a.user) + '">修改密码</button>'
-      + '<button type="button" class="btn btn-ghost btn-sm" data-setrole="' + esc(a.user) + '">设置权限</button>'
-      + (a.role === 'admin' ? '' : '<button type="button" class="btn btn-danger btn-sm" data-deladmin="' + esc(a.user) + '">删除</button>'))
+    + (isSub ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-teacher-setting="' + esc(a.user) + '">教师设置</button>')
     + '</div>'
   ).join('');
   if(isSub && !visible.length){
     html += '<div class="empty">尚无普通教师账号，点击右上角「添加教师账号」。</div>';
   }
   el.innerHTML = html;
-  el.querySelectorAll('[data-editpass]').forEach(btn => {
-    btn.addEventListener('click', () => openEditPass(btn.dataset.editpass));
-  });
-  el.querySelectorAll('[data-setrole]').forEach(btn => {
-    btn.addEventListener('click', () => openSetRole(btn.dataset.setrole));
-  });
-  el.querySelectorAll('[data-deladmin]').forEach(btn => {
-    btn.addEventListener('click', () => deleteAdmin(btn.dataset.deladmin));
+  el.querySelectorAll('[data-teacher-setting]').forEach(btn => {
+    btn.addEventListener('click', () => openTeacherSettings(btn.dataset.teacherSetting));
   });
 }
 
@@ -3204,6 +3200,116 @@ function openSetRole(user){
     }
     log('设置权限', a.name + '（' + user + '）→ ' + roleLabel(a));
     toast('权限已更新');
+  });
+}
+
+function openTeacherSettings(user){
+  const initial = getAdmins().find(x => x.user === user);
+  if(!initial){ toast('未找到该账号'); return; }
+  if(!(currentAdmin && currentAdmin.role === 'admin')){ toast('仅超级管理员可修改教师设置'); return; }
+  const fallbackScope = ['小学组','初中组','高中组'].find(g => groupSchools(g).length) || '小学组';
+  const pickerScope = initial.role === 'teacher' ? (initial.scope || fallbackScope) : fallbackScope;
+  const pickerSchool = initial.role === 'teacher' ? (initial.schoolScope || '全部') : '全部';
+  openModal('<div class="modal-head"><h3>教师设置</h3></div>'
+    + '<p style="color:var(--muted);font-size:13px;margin:-6px 0 16px">当前账号：' + esc(initial.user) + ' · ' + esc(roleLabel(initial)) + '</p>'
+    + '<div class="admin-set-title">基本信息</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="tsName">姓名</label>'
+    + '<input id="tsName" type="text" maxlength="20" value="' + esc(initial.name || '') + '" placeholder="请输入教师真实姓名">'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="tsUser">账号</label>'
+    + '<input id="tsUser" type="text" maxlength="20" value="' + esc(initial.user) + '" placeholder="请输入登录账号">'
+    + '<p style="font-size:12px;color:var(--muted);line-height:1.7;margin:7px 0 0">修改账号后，该教师需要用新账号登录；修改自己的账号会保持当前登录。</p>'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="tsPass">密码</label>'
+    + '<input id="tsPass" type="text" maxlength="40" value="' + esc(initial.pass) + '" placeholder="请输入登录密码">'
+    + '</div>'
+    + '<div class="admin-set-title">权限设置</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label>权限等级</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="tsRole" value="admin" ' + (initial.role === 'admin' ? 'checked' : '') + '><span>超级管理员</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="tsRole" value="subadmin" ' + (initial.role === 'subadmin' ? 'checked' : '') + '><span>子管理员</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="tsRole" value="teacher" ' + (initial.role === 'teacher' ? 'checked' : '') + '><span>普通教师</span></label>'
+    + '</div>'
+    + '</div>'
+    + '<div class="field" id="tsTeacherField" style="' + (initial.role === 'teacher' ? '' : 'display:none') + '">'
+    + '<label>组别 → 学校（先选组别，再选学校）</label>'
+    + '<div class="picker-grid"><div class="picker-col" id="tsScopeCol"></div><div class="picker-col" id="tsSchoolCol"></div></div>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin:8px 0 0">学校列表只显示已开设所选组别的学校。</p>'
+    + '</div>'
+    + (initial.role === 'admin'
+      ? '<div class="admin-set-danger"><span style="font-size:12.5px;color:var(--muted)">超级管理员账号不可删除</span></div>'
+      : '<div class="admin-set-danger"><button type="button" class="btn-text-danger" id="tsDelete">删除该教师账号</button></div>')
+    + '<div style="display:flex;gap:10px;margin-top:18px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="tsCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="tsOk" type="button">保存设置</button></div>');
+  const picker = buildCascadePicker('ts', pickerScope, pickerSchool);
+  document.getElementById('tsCancel').addEventListener('click', closeModal);
+  document.querySelectorAll('input[name="tsRole"]').forEach(r => {
+    r.addEventListener('change', function(){
+      document.getElementById('tsTeacherField').style.display = this.value === 'teacher' ? '' : 'none';
+    });
+  });
+  const delBtn = document.getElementById('tsDelete');
+  if(delBtn){
+    delBtn.addEventListener('click', function(){
+      closeModal();
+      deleteAdmin(user);
+    });
+  }
+  document.getElementById('tsOk').addEventListener('click', function(){
+    const newName = (document.getElementById('tsName').value || '').trim();
+    const newUser = (document.getElementById('tsUser').value || '').trim();
+    const newPass = document.getElementById('tsPass').value || '';
+    if(!newName){ toast('请输入教师姓名'); return; }
+    if(!newUser){ toast('请输入登录账号'); return; }
+    if(/\s/.test(newUser)){ toast('账号不能包含空格'); return; }
+    if(!newPass){ toast('请输入密码'); return; }
+    const role = document.querySelector('input[name="tsRole"]:checked').value;
+    const picked = picker.get();
+    if(role === 'teacher' && !picked.hasSchool){ toast('所选组别下还没有学校，请先为学校设置组别'); return; }
+    const scope = role === 'teacher' ? picked.scope : '';
+    const schoolScope = role === 'teacher' ? picked.school : '';
+    const admins = getAdmins();
+    const idx = admins.findIndex(x => x.user === user);
+    if(idx < 0){ toast('未找到该账号'); return; }
+    const a = admins[idx];
+    if(newUser !== user && admins.some((x, i) => i !== idx && x.user === newUser)){
+      toast('该账号已存在');
+      return;
+    }
+    if(a.role === 'admin' && role !== 'admin'){
+      const superCount = admins.filter(x => x.role === 'admin').length;
+      if(superCount <= 1){ toast('至少保留一个超级管理员'); return; }
+    }
+    const oldName = a.name || '';
+    const oldUser = a.user;
+    const oldPass = a.pass;
+    const oldRole = a.role;
+    a.name = newName;
+    a.user = newUser;
+    a.pass = newPass;
+    a.role = role;
+    a.scope = scope;
+    a.schoolScope = schoolScope;
+    saveAdmins(admins);
+    closeModal();
+    renderAdminList();
+    if(currentAdmin && currentAdmin.user === oldUser){
+      currentAdmin = a;
+      saveAdminSession(a);
+      renderAdmin();
+    }
+    const changes = [];
+    if(oldName !== newName) changes.push('姓名 ' + oldName + ' → ' + newName);
+    if(oldUser !== newUser) changes.push('账号 ' + oldUser + ' → ' + newUser);
+    if(oldRole !== role) changes.push('权限 ' + roleLabel({ role: oldRole }) + ' → ' + roleLabel(a));
+    if(oldPass !== newPass) changes.push('密码已更新');
+    log('教师设置', newName + '（' + newUser + '）：' + (changes.length ? changes.join('；') : '未修改字段'));
+    toast('教师设置已保存');
   });
 }
 
