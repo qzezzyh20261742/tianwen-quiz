@@ -2710,6 +2710,7 @@ document.getElementById('downloadBackupBtn').addEventListener('click', downloadB
 document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false, true); });
 /* 教师端在学校管理页每 5 秒读取一次云端设置，其他页面每 30 秒；
    学生手机注册后，学校名单基本能在 5 秒内自动出现，且不覆盖正在编辑的弹窗 */
+let adminPage = 'scores';
 let settingsPollTimer = null;
 let settingsPollBusy = false;
 async function pollSettingsForStudents(){
@@ -3519,7 +3520,6 @@ function openTeacherSettings(user){
   });
 }
 
-let adminPage = 'scores';
 function switchAdminPage(page){
   const manageTab = document.getElementById('tabManage');
   const manageAllowed = manageTab && manageTab.style.display !== 'none';
