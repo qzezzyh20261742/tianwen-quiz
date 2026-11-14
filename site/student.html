@@ -31,6 +31,7 @@ body{
   color:var(--text);
   line-height:1.7;
   -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
 }
 /* ===== 宇宙背景 ===== */
 #starCanvas{position:fixed;inset:0;z-index:0;display:block}
@@ -70,7 +71,7 @@ h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;backgrou
 .radio-pill input:checked+span{border-color:var(--accent);background:rgba(91,200,255,.16);color:#fff;font-weight:700}
 .radio-pill input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;border-radius:11px;padding:13px 26px;font-size:16px;font-weight:700;font-family:inherit;transition:.2s}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;border-radius:11px;padding:13px 26px;font-size:16px;font-weight:700;font-family:inherit;transition:.2s;touch-action:manipulation}
 .btn-primary{background:linear-gradient(135deg,#2b8fe0,#3f6fe0);color:#fff;width:100%;box-shadow:0 10px 26px rgba(45,118,224,.4)}
 .btn-primary:hover{transform:translateY(-2px);filter:brightness(1.08)}
 .btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
@@ -83,9 +84,9 @@ h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;backgrou
 
 /* ===== 顶栏 ===== */
 .topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:18px}
-.who{display:flex;flex-direction:column}
-.who b{font-size:16px}
-.who span{font-size:13px;color:var(--muted)}
+.who{display:flex;flex-direction:column;min-width:0}
+.who b{font-size:16px;overflow-wrap:anywhere}
+.who span{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 .timer{font-variant-numeric:tabular-nums;color:var(--gold);font-weight:700;font-size:15px}
 
 .progress-meta{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px}
@@ -93,12 +94,13 @@ h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;backgrou
 .progress i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),#6f8bff);transition:width .35s}
 
 /* ===== 题目 ===== */
-.q-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.q-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .q-no{background:linear-gradient(135deg,var(--accent-deep),#3f6fd0);color:#fff;font-weight:800;border-radius:9px;padding:5px 13px;font-size:14px}
 .q-tag{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,212,121,.4);border-radius:20px;padding:2px 11px}
-.q-stem{font-size:17.5px;font-weight:700;margin-bottom:20px;line-height:1.75}
+.q-stem{font-size:17.5px;font-weight:700;margin-bottom:20px;line-height:1.75;overflow-wrap:anywhere}
+.q-stem img,.option .otext img,.detail-box img{display:block;max-width:100%;height:auto;border-radius:9px;margin:10px 0}
 .options{display:flex;flex-direction:column;gap:12px}
-.option{display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(9,14,34,.75);cursor:pointer;transition:.18s;min-height:48px}
+.option{display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(9,14,34,.75);cursor:pointer;transition:.18s;min-height:48px;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .option:hover{border-color:var(--accent);background:rgba(91,200,255,.09)}
 .option .key{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--muted)}
 .option .otext{font-size:16px;padding-top:2px}
@@ -140,7 +142,7 @@ h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;backgrou
 .verdict.unknown{color:var(--gold);background:rgba(255,212,121,.12)}
 .ans-line{font-size:14.5px;margin-bottom:8px;color:var(--muted)}
 .ans-line b{color:var(--text)}
-.detail-box{background:rgba(8,13,32,.7);border:1px solid var(--line);border-radius:11px;padding:15px 17px;margin-top:10px;font-size:14.5px}
+.detail-box{background:rgba(8,13,32,.7);border:1px solid var(--line);border-radius:11px;padding:15px 17px;margin-top:10px;font-size:14.5px;overflow-wrap:anywhere}
 .detail-box h4{font-size:14px;color:var(--accent);margin:10px 0 5px}
 .detail-box h4:first-child{margin-top:0}
 .detail-box li{list-style:none;margin-bottom:7px;padding-left:16px;position:relative}
@@ -207,21 +209,53 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .q-expand-body .mini-li::before{content:"";position:absolute;left:0;top:10px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .q-expand-body .mini-meta{font-size:13.5px;color:var(--muted);margin-top:10px}
 
-/* ===== 响应式 ===== */
+/* ===== 手机端底部答题操作条 ===== */
+.mobile-quiz-bar{display:none}
 @media (max-width:760px){
-  .app-wrap{padding:18px 13px 46px}
+  .app-wrap{padding:18px 13px calc(46px + env(safe-area-inset-bottom))}
   .card{padding:18px 15px}
   h1{font-size:21px}
+  .subtitle{font-size:13px;margin-bottom:18px}
   .q-stem{font-size:16.5px}
-  .option .otext{font-size:15.5px}
+  .option{padding:13px 14px;gap:11px;min-height:52px}
+  .option .otext{font-size:15.5px;overflow-wrap:anywhere}
+  .option .key{width:32px;height:32px;font-size:15px}
   .kpi-row{grid-template-columns:repeat(2,1fr)}
   .stat-grid{grid-template-columns:repeat(2,1fr);min-width:0;width:100%}
   .q-actions{flex-direction:column}
-  .q-actions .btn{width:100%}
-  .nav-dot{width:36px;height:36px}
-  .topbar{gap:8px}
-  .float-actions{right:12px;bottom:70px;gap:8px}
-  .float-btn{min-width:56px;padding:9px 10px}
+  .q-actions .btn{width:100% !important;min-width:0 !important}
+  .q-nav{justify-content:center;gap:7px}
+  .nav-dot{width:38px;height:38px;touch-action:manipulation}
+  .topbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:center}
+  .topbar .who{grid-column:1/-1;min-width:0}
+  .topbar > div{grid-column:1;justify-content:flex-start;gap:10px}
+  .topbar > .btn{grid-column:2;justify-self:end;align-self:center}
+  .float-actions{left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));flex-direction:row;gap:8px}
+  .float-btn{flex:1;min-width:0;flex-direction:row;justify-content:center;min-height:46px;padding:10px 8px;font-size:12.5px}
+  .float-btn svg{width:19px;height:19px}
+  #view-result.active{padding-bottom:78px}
+  .score-hero{flex-direction:column;gap:14px}
+  .score-big{font-size:44px}
+  .review-block .card{padding:16px 13px !important}
+  .review-block .q-stem{font-size:15.5px !important}
+  .modal-mask{padding:12px;align-items:flex-end}
+  .modal{padding:18px 16px calc(18px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;max-height:86vh}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom));width:calc(100% - 32px);max-width:calc(100% - 32px);text-align:center}
+  #view-quiz.active{padding-bottom:82px}
+  .mobile-quiz-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:36;gap:9px;align-items:center;padding:9px 12px calc(9px + env(safe-area-inset-bottom));background:rgba(7,11,28,.94);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+  .mobile-quiz-bar button{flex:1;min-height:46px;border-radius:10px;font-family:inherit;font-size:15.5px;font-weight:700;cursor:pointer;touch-action:manipulation}
+  .mobile-quiz-bar .mq-prev{background:transparent;border:1px solid var(--line-strong);color:var(--text)}
+  .mobile-quiz-bar .mq-prev:disabled{opacity:.4}
+  .mobile-quiz-bar .mq-next{background:linear-gradient(135deg,#2b8fe0,#3f6fe0);border:1px solid transparent;color:#fff}
+  .mobile-quiz-bar .mq-progress{flex:none;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:54px;text-align:center}
+  .mobile-quiz-bar .mq-progress b{color:var(--accent);font-size:16px}
+}
+@media (max-width:400px){
+  .radio-pill span{padding:12px 6px;font-size:14px}
+  .radio-row{gap:8px}
+  .app-wrap{padding-left:10px;padding-right:10px}
+  .mobile-quiz-bar .mq-progress{display:none}
+  .mobile-quiz-bar button{font-size:15px}
 }
 /* 移除发布平台注入的右下角水印 */
 [data-custom-element]{display:none !important;visibility:hidden !important;pointer-events:none !important}
@@ -334,6 +368,12 @@ tbody td.name-cell{text-align:left;font-weight:600}
   <div class="card" style="margin-top:18px" id="quizCard"></div>
 
   <div class="q-nav" id="quizNav"></div>
+
+  <div class="mobile-quiz-bar" id="mobileQuizBar">
+    <button class="mq-prev" id="mqPrev" type="button">上一题</button>
+    <div class="mq-progress"><b id="mqIdx">1</b> / <span id="mqTotal">1</span></div>
+    <button class="mq-next" id="mqNext" type="button">下一题</button>
+  </div>
 
   <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
     <button class="btn btn-gold" id="submitBtn" type="button" style="flex:1;min-width:200px">提交试卷</button>
@@ -1123,6 +1163,19 @@ function renderQuiz(){
 
   renderProgress();
   renderNav();
+  updateMobileQuizBar();
+}
+function updateMobileQuizBar(){
+  const prev = document.getElementById('mqPrev');
+  const next = document.getElementById('mqNext');
+  const idxEl = document.getElementById('mqIdx');
+  const totalEl = document.getElementById('mqTotal');
+  if(!prev || !next || !idxEl || !totalEl) return;
+  const total = state.questions.length || 0;
+  prev.disabled = state.curIdx <= 0;
+  next.textContent = state.curIdx >= total - 1 ? '去提交' : '下一题';
+  idxEl.textContent = Math.min(state.curIdx + 1, total);
+  totalEl.textContent = total;
 }
 
 function selectOption(no, key){
@@ -1186,6 +1239,13 @@ document.getElementById('submitBtn').addEventListener('click', function(){
   openModal(html);
   document.getElementById('cancelSubmit').addEventListener('click', closeModal);
   document.getElementById('confirmSubmit').addEventListener('click', doSubmit);
+});
+document.getElementById('mqPrev').addEventListener('click', function(){
+  if(state.curIdx > 0) goQuestion(state.curIdx - 1);
+});
+document.getElementById('mqNext').addEventListener('click', function(){
+  if(state.curIdx < state.questions.length - 1) goQuestion(state.curIdx + 1);
+  else document.getElementById('submitBtn').click();
 });
 
 async function submitWithRetry(payload){
