@@ -485,9 +485,27 @@ async function cloudApi(path, opts){
   var headers = { 'X-API-Key': cfg.apiKey || '' };
   var body;
   if(opts.body){ headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.body); }
-  var res = await fetch(cfg.url.replace(/\/+$/, '') + path, { method: opts.method || 'GET', headers: headers, body: body });
+  var fetchOpts = { method: opts.method || 'GET', headers: headers, body: body };
+  var timer = null;
+  if(opts.timeoutMs){
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    if(ctrl){
+      fetchOpts.signal = ctrl.signal;
+      timer = setTimeout(function(){ try { ctrl.abort(); } catch(e){} }, opts.timeoutMs);
+    }
+  }
+  var res;
+  try {
+    res = await fetch(cfg.url.replace(/\/+$/, '') + path, fetchOpts);
+  } catch(err){
+    var te = new Error(err && err.name === 'AbortError' ? '请求超时' : (err.message || '网络异常'));
+    te.network = true;
+    throw te;
+  } finally {
+    if(timer) clearTimeout(timer);
+  }
   var j = await res.json();
-  if(!j.ok) throw new Error(j.error || ('HTTP ' + res.status));
+  if(!j.ok){ var se = new Error(j.error || ('HTTP ' + res.status)); se.server = true; throw se; }
   return j;
 }
 /* 试卷缓存（同一场次同组别 3 分钟内复用，刷新页面不再重新拉题） */
@@ -1108,10 +1126,29 @@ document.getElementById('submitBtn').addEventListener('click', function(){
   document.getElementById('confirmSubmit').addEventListener('click', doSubmit);
 });
 
+async function submitWithRetry(payload){
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++){
+    try {
+      const j = await cloudApi('/submit', { method: 'POST', body: payload, timeoutMs: 9000 });
+      return j.record;
+    } catch(err){
+      lastErr = err;
+      if(err && err.server) break; // 服务端明确拒绝，重试无意义
+      await new Promise(function(res){ setTimeout(res, 350); });
+    }
+  }
+  throw lastErr || new Error('提交失败');
+}
+
 async function doSubmit(){
   closeModal();
   settleQTime();
   stopTimer();
+  const btn = document.getElementById('submitBtn');
+  const oldBtnText = btn ? btn.textContent : '提交试卷';
+  if(btn){ btn.disabled = true; btn.textContent = '判分中…'; }
+  toast('正在判分并生成解析，请稍候…');
   const qTimesInt = {};
   Object.keys(state.qTimes).forEach(k => { qTimesInt[k] = Math.round(state.qTimes[k]); });
   const payload = {
@@ -1126,10 +1163,10 @@ async function doSubmit(){
   };
   let record;
   try {
-    const j = await cloudApi('/submit', { method: 'POST', body: payload });
-    record = j.record;
+    record = await submitWithRetry(payload);
   } catch(err){
     toast('提交失败：' + (err.message || err) + '，请检查网络后重试');
+    if(btn){ btn.disabled = false; btn.textContent = oldBtnText; }
     startTimer();
     return;
   }
@@ -1139,6 +1176,7 @@ async function doSubmit(){
   saveRecords(records);
   clearDraft();
   state.record = record;
+  if(btn){ btn.disabled = false; btn.textContent = oldBtnText; }
   renderResult(record);
   showView('view-result');
   toast('已提交，成绩已上传');
@@ -1173,15 +1211,14 @@ function renderResult(record){
   document.getElementById('resultTime').textContent = fmtTime(record.duration);
 
   const list = document.getElementById('reviewList');
-  let html = '';
-  qs.forEach((q) => {
+  function buildCard(q){
     const stuAns = details ? q.stu : record.answers[q.no];
     const v = details ? q.verdict : judgeAnswer(stuAns, q);
     let verdictCls, verdictTxt;
     if(v === 'correct'){ verdictCls = 'ok'; verdictTxt = '回答正确'; }
     else if(v === 'unknown'){ verdictCls = 'unknown'; verdictTxt = '选了“不知道”（计 0 分）'; }
     else { verdictCls = 'no'; verdictTxt = '回答错误'; }
-    html += '<div class="card" style="box-shadow:none;margin-bottom:16px;padding:20px 18px">'
+    let html = '<div class="card" style="box-shadow:none;margin-bottom:16px;padding:20px 18px">'
       + '<div class="q-head"><span class="q-no">第 ' + q.no + ' 题</span>'
       + (q.time != null ? '<span class="q-tag">本题用时 ' + fmtShort(q.time) + '</span>' : '')
       + '<span class="verdict ' + verdictCls + '">' + verdictTxt + '</span></div>'
@@ -1209,8 +1246,19 @@ function renderResult(record){
     }
     if(q.tips){ html += '<h4>易错提醒</h4><div class="mini-li">' + esc(q.tips) + '</div>'; }
     html += '</div></div>';
-  });
-  list.innerHTML = html;
+    return html;
+  }
+  /* 分数先出来，逐题解析分批插入，长卷子也不会卡住页面 */
+  list.innerHTML = '';
+  let rendered = 0;
+  function renderChunk(){
+    let chunk = '';
+    const end = Math.min(rendered + 10, qs.length);
+    for(; rendered < end; rendered++) chunk += buildCard(qs[rendered]);
+    if(chunk) list.insertAdjacentHTML('beforeend', chunk);
+    if(rendered < qs.length) setTimeout(renderChunk, 0);
+  }
+  renderChunk();
 }
 
 document.getElementById('backLoginBtn').addEventListener('click', () => { clearSession(); showView('view-exams'); });
