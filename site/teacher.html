@@ -418,7 +418,10 @@ tbody td.name-cell{text-align:left;font-weight:600}
     <div class="card" style="margin-top:18px" id="schoolMgmtCard">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
         <h2 class="sec-title" style="margin-bottom:0">学校与学生管理</h2>
-        <button class="btn btn-gold btn-sm" id="addSchoolBtn" type="button">添加学校</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="syncSchoolsBtn" type="button" title="立即把学校和学生的数据保存到云端，并更新 GitHub 私有仓库的学校与学生备份">学校同步</button>
+          <button class="btn btn-gold btn-sm" id="addSchoolBtn" type="button">添加学校</button>
+        </div>
       </div>
       <div id="schoolMgmtBody"></div>
     </div>
@@ -453,11 +456,11 @@ tbody td.name-cell{text-align:left;font-weight:600}
           <button class="btn btn-ghost btn-sm" id="pickSaveDirBtn" type="button">选择文件夹自动保存</button>
           <button class="btn btn-gold btn-sm" id="saveNowBtn" type="button">立即保存</button>
           <button class="btn btn-ghost btn-sm" id="downloadBackupBtn" type="button">下载JSON备份</button>
-          <button class="btn btn-ghost btn-sm" id="cloudPullBtn" type="button">从云端恢复设置</button>
+          <button class="btn btn-ghost btn-sm" id="cloudPullBtn" type="button">合并云端设置</button>
           <button class="btn btn-ghost btn-sm" id="settingsRollbackBtn" type="button">回滚本机设置</button>
         </div>
       </div>
-      <div id="saveStatus" style="color:var(--muted);font-size:13px">管理员设置会自动保存到云端服务器，云端每 5 分钟自动备份到 GitHub 私有仓库（教师数据在 data/teachers.json）。</div>
+      <div id="saveStatus" style="color:var(--muted);font-size:13px">管理员设置会自动保存到云端服务器，云端每 5 分钟自动备份到 GitHub 私有仓库（教师 data/teachers.json；学校 data/schools.json；学生 data/students.json）。</div>
       <div id="cloudStatus" style="color:var(--muted);font-size:13px;margin-top:6px">云端：未配置</div>
     </div>
   </div>
@@ -1653,6 +1656,9 @@ const SCHOOLS_KEY = 'astro_quiz_schools';
 const STUDENTS_KEY = 'astro_quiz_students';
 const SCHOOL_SETTINGS_KEY = 'astro_quiz_school_settings';
 const LOG_KEY = 'astro_quiz_logs';
+const SETTINGS_PENDING_KEY = 'astro_quiz_settings_pending';
+const SETTINGS_CHANGE_KEY = 'astro_quiz_settings_change_at';
+const DELETED_ADMINS_KEY = 'astro_quiz_deleted_admins';
 const DEFAULT_ADMINS = [
   { user: 'admin', pass: 'hi@tw2026', role: 'admin', name: '管理员' }
 ];
@@ -1679,6 +1685,108 @@ function getAdmins(){
 function saveAdmins(list){
   localStorage.setItem(ADMIN_KEY, JSON.stringify(list));
   triggerAutoSave();
+}
+
+/* ===== 多端合并：本机修改优先，同时保留云端独有的账号/学校/学生 ===== */
+function adminUpdatedAtMs(a){
+  if(!a) return 0;
+  if(typeof a.updatedAt === 'number') return a.updatedAt;
+  const t = Date.parse(a.updatedAt || '');
+  return Number.isFinite(t) ? t : 0;
+}
+function getDeletedAdminNames(){
+  try {
+    const list = JSON.parse(localStorage.getItem(DELETED_ADMINS_KEY) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch(e){ return []; }
+}
+function markDeletedAdmin(user){
+  if(!user) return;
+  const list = getDeletedAdminNames().filter(x => x !== user);
+  list.push(user);
+  try { localStorage.setItem(DELETED_ADMINS_KEY, JSON.stringify(list)); } catch(e){}
+}
+function clearDeletedAdmin(user){
+  if(!user) return;
+  const list = getDeletedAdminNames().filter(x => x !== user);
+  try { localStorage.setItem(DELETED_ADMINS_KEY, JSON.stringify(list)); } catch(e){}
+}
+function mergeAdmins(local, cloud){
+  const deleted = new Set(getDeletedAdminNames());
+  const byUser = new Map();
+  (cloud || []).forEach(function(a){ if(a && a.user && !deleted.has(a.user)) byUser.set(a.user, a); });
+  const out = [];
+  const used = new Set();
+  (local || []).forEach(function(a){
+    if(!a || !a.user || deleted.has(a.user)) return;
+    const c = byUser.get(a.user);
+    let chosen = a;
+    if(c && adminUpdatedAtMs(c) > adminUpdatedAtMs(a)) chosen = c;
+    out.push(chosen);
+    used.add(a.user);
+  });
+  byUser.forEach(function(c, u){ if(!used.has(u)) out.push(c); });
+  return out;
+}
+function mergeStringList(local, cloud){
+  const out = [];
+  (local || []).forEach(function(x){ if(x && out.indexOf(x) < 0) out.push(x); });
+  (cloud || []).forEach(function(x){ if(x && out.indexOf(x) < 0) out.push(x); });
+  return out;
+}
+function studentKey(st){
+  if(!st) return '';
+  return String(st.examNo || '') + '|' + String(st.school || '') + '|' + String(st.name || '');
+}
+function mergeStudents(local, cloud){
+  const map = new Map();
+  (local || []).forEach(function(st){ if(st) map.set(studentKey(st), st); });
+  (cloud || []).forEach(function(st){
+    const k = studentKey(st);
+    if(k && !map.has(k)) map.set(k, st);
+  });
+  return Array.from(map.values());
+}
+function mergeSchoolSettings(local, cloud){
+  const out = Object.assign({}, cloud || {});
+  Object.keys(local || {}).forEach(function(k){
+    const l = local[k];
+    const c = out[k];
+    if(!c){ out[k] = l; return; }
+    const lt = Date.parse((l && l.updatedAt) || '') || 0;
+    const ct = Date.parse((c && c.updatedAt) || '') || 0;
+    if(lt >= ct) out[k] = l;
+  });
+  return out;
+}
+function mergeLogs(local, cloud){
+  const out = [];
+  const seen = new Set();
+  function add(item){
+    if(!item) return;
+    const k = [item.time || '', item.action || '', item.operator || '', item.detail || ''].join('|');
+    if(seen.has(k)) return;
+    seen.add(k);
+    out.push(item);
+  }
+  (local || []).forEach(add);
+  (cloud || []).forEach(add);
+  return out.slice(0, 500);
+}
+function sameJson(a, b){
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch(e){ return false; }
+}
+function hasPendingSettings(){
+  try { return localStorage.getItem(SETTINGS_PENDING_KEY) === '1'; } catch(e){ return false; }
+}
+function markSettingsChanged(){
+  try {
+    localStorage.setItem(SETTINGS_PENDING_KEY, '1');
+    localStorage.setItem(SETTINGS_CHANGE_KEY, String(Date.now()));
+  } catch(e){}
+}
+function settingsChangeToken(){
+  try { return localStorage.getItem(SETTINGS_CHANGE_KEY) || ''; } catch(e){ return ''; }
 }
 
 /* ===== 存储工具 ===== */
@@ -1772,9 +1880,13 @@ function settingsPayload(){
 function pushSettingsToCloud(keepalive){
   const cfg = getCloudConfig();
   if(!cfg.url) return Promise.resolve(false);
+  const token = settingsChangeToken();
   return cloudCall('/settings', { method: 'POST', body: { settings: settingsPayload() }, keepalive: !!keepalive })
     .then(function(j){
       if(j && j.updatedAt) localStorage.setItem('astro_quiz_settings_sync', j.updatedAt);
+      if(token === settingsChangeToken()){
+        try { localStorage.removeItem(SETTINGS_PENDING_KEY); } catch(e){}
+      }
       updateCloudStatus();
       return true;
     })
@@ -1786,6 +1898,7 @@ function pushSettingsToCloud(keepalive){
 function triggerCloudPush(){
   const cfg = getCloudConfig();
   if(!cfg.url) return;
+  markSettingsChanged();
   clearTimeout(triggerCloudPush._t);
   triggerCloudPush._t = setTimeout(function(){ pushSettingsToCloud(false); }, 250);
 }
@@ -1802,25 +1915,46 @@ async function pullSettingsFromCloud(silent){
     const hasData = (s.schools || []).length || (s.students || []).length || (s.admins || []).length;
     if(!hasData) return false;
     const localStamp = localStorage.getItem('astro_quiz_settings_sync') || '';
-    if(s.updatedAt && s.updatedAt === localStamp) return false;
+    if(!hasPendingSettings() && s.updatedAt && s.updatedAt === localStamp) return false;
     try {
       localStorage.setItem('astro_quiz_settings_backup', JSON.stringify({
         at: localStamp, payload: settingsPayload()
       }));
     } catch(e){}
-    localStorage.setItem(SCHOOLS_KEY, JSON.stringify(s.schools || []));
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(s.students || []));
-    localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(s.schoolSettings || {}));
-    localStorage.setItem(LOG_KEY, JSON.stringify(s.logs || []));
-    const admins = s.admins || [];
-    const me = currentAdmin ? admins.find(function(x){ return x.user === currentAdmin.user; }) : null;
-    if(admins.length && (me || !currentAdmin)) localStorage.setItem(ADMIN_KEY, JSON.stringify(admins));
+    const localAdmins = getAdmins();
+    const localSchools = getSchools();
+    const localStudents = getStudents();
+    const localSchoolSettings = getSchoolSettings();
+    const localLogs = getLogs();
+    const mergedAdmins = mergeAdmins(localAdmins, s.admins || []);
+    const mergedSchools = mergeStringList(localSchools, s.schools || []);
+    const mergedStudents = mergeStudents(localStudents, s.students || []);
+    const mergedSchoolSettings = mergeSchoolSettings(localSchoolSettings, s.schoolSettings || {});
+    const mergedLogs = mergeLogs(localLogs, s.logs || []);
+    const localChanged = !sameJson(localAdmins, mergedAdmins)
+      || !sameJson(localSchools, mergedSchools)
+      || !sameJson(localStudents, mergedStudents)
+      || !sameJson(localSchoolSettings, mergedSchoolSettings);
+    const cloudChanged = !sameJson(s.admins || [], mergedAdmins)
+      || !sameJson(s.schools || [], mergedSchools)
+      || !sameJson(s.students || [], mergedStudents)
+      || !sameJson(s.schoolSettings || {}, mergedSchoolSettings);
+    localStorage.setItem(SCHOOLS_KEY, JSON.stringify(mergedSchools));
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(mergedStudents));
+    localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(mergedSchoolSettings));
+    localStorage.setItem(LOG_KEY, JSON.stringify(mergedLogs));
+    if(mergedAdmins.length){
+      const me = currentAdmin ? mergedAdmins.find(function(x){ return x.user === currentAdmin.user; }) : null;
+      if(me) currentAdmin = me;
+      localStorage.setItem(ADMIN_KEY, JSON.stringify(mergedAdmins));
+    }
     localStorage.setItem('astro_quiz_settings_sync', s.updatedAt || '');
     renderAdminList();
     renderSchoolMgmt();
     renderAdmin();
     updateCloudStatus();
-    if(!silent) toast('已从云端读取管理员设置');
+    if(localChanged || cloudChanged || hasPendingSettings()) triggerCloudPush();
+    if(!silent) toast('已合并云端与本机数据（本机修改优先，未删除任何账号）');
     return true;
   } catch(e){
     if(!silent) toast('云端读取失败：' + (e.message || e));
@@ -1959,7 +2093,7 @@ function updateCloudStatus(){
   const cfg = getCloudConfig();
   const t = localStorage.getItem('astro_quiz_settings_sync') || '';
   el.textContent = cfg.url
-    ? ('云端：已连接，管理员设置自动保存到云端；每 5 分钟备份到 GitHub 私有仓库 tianwen-data（教师数据 data/teachers.json）' + (t ? '（云端最后更新 ' + t + '）' : ''))
+    ? ('云端：已连接，管理员设置自动保存到云端；每 5 分钟备份到 GitHub 私有仓库 tianwen-data（教师 data/teachers.json；学校 data/schools.json；学生 data/students.json）' + (t ? '（云端最后更新 ' + t + '）' : ''))
     : '云端：未配置（管理员设置只保存在本机浏览器）';
 }
 
@@ -2721,7 +2855,7 @@ document.getElementById('adminForm').addEventListener('submit', function(e){
     renderAdmin();
     syncCloudThenRender();
     refreshExamBoard();
-    pullSettingsFromCloud(true).then(function(){ triggerCloudPush(); });
+    pullSettingsFromCloud(true);
   } else {
     toast('管理员账号或密码错误');
   }
@@ -2756,7 +2890,7 @@ function restoreAdminSession(){
   renderAdmin();
   syncCloudThenRender();
   refreshExamBoard();
-  pullSettingsFromCloud(true).then(function(){ triggerCloudPush(); });
+  pullSettingsFromCloud(true);
   return true;
 }
 
@@ -3107,6 +3241,7 @@ function deleteAdmin(user){
     + '<button class="btn btn-danger" style="flex:1" id="daOk" type="button">确认删除</button></div>');
   document.getElementById('daCancel').addEventListener('click', closeModal);
   document.getElementById('daOk').addEventListener('click', function(){
+    markDeletedAdmin(user);
     saveAdmins(getAdmins().filter(x => x.user !== user));
     closeModal();
     renderAdminList();
@@ -3132,6 +3267,7 @@ function openEditPass(user){
     const a = admins.find(x => x.user === user);
     if(!a){ toast('未找到该账号'); return; }
     a.pass = np;
+    a.updatedAt = new Date().toISOString();
     saveAdmins(admins);
     closeModal();
     renderAdminList();
@@ -3193,6 +3329,7 @@ function openSetRole(user){
     a.role = role;
     a.scope = scope;
     a.schoolScope = schoolScope;
+    a.updatedAt = new Date().toISOString();
     saveAdmins(admins);
     closeModal();
     renderAdminList();
@@ -3292,12 +3429,17 @@ function openTeacherSettings(user){
     const oldUser = a.user;
     const oldPass = a.pass;
     const oldRole = a.role;
+    if(newUser !== oldUser){
+      markDeletedAdmin(oldUser);
+      clearDeletedAdmin(newUser);
+    }
     a.name = newName;
     a.user = newUser;
     a.pass = newPass;
     a.role = role;
     a.scope = scope;
     a.schoolScope = schoolScope;
+    a.updatedAt = new Date().toISOString();
     saveAdmins(admins);
     closeModal();
     renderAdminList();
@@ -3362,6 +3504,8 @@ function applyAdminRole(){
   if(clearBtn){ clearBtn.style.display = isAdmin ? '' : 'none'; }
   const syncTeachersBtn = document.getElementById('syncTeachersBtn');
   if(syncTeachersBtn){ syncTeachersBtn.style.display = isAdmin ? '' : 'none'; }
+  const syncSchoolsBtn = document.getElementById('syncSchoolsBtn');
+  if(syncSchoolsBtn){ syncSchoolsBtn.style.display = isAdmin ? '' : 'none'; }
 }
 
 function visibleRecords(){
@@ -3427,6 +3571,7 @@ async function syncTeachersNow(){
   try {
     const cfg = getCloudConfig();
     if(!cfg.url){ toast('未配置云端地址，无法同步教师数据'); return; }
+    await pullSettingsFromCloud(true);
     const admins = getAdmins();
     if(!admins.length){ toast('当前没有教师账号可同步'); return; }
     log('教师同步', '教师账号 ' + admins.length + ' 个提交云端，GitHub 私有仓库 data/teachers.json 自动备份');
@@ -3434,7 +3579,31 @@ async function syncTeachersNow(){
     if(!ok){ toast('教师数据同步失败，请检查云端连接'); return; }
     localStorage.setItem('astro_quiz_teacher_sync_at', new Date().toLocaleString('zh-CN'));
     updateCloudStatus();
-    toast('教师数据已同步到云端：' + admins.length + ' 个账号；GitHub 专属备份文件将自动更新');
+    toast('教师数据已同步并合并：' + admins.length + ' 个账号；GitHub 专属备份文件将自动更新');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+async function syncSchoolsNow(){
+  const btn = document.getElementById('syncSchoolsBtn');
+  if(!btn) return;
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '同步中…';
+  try {
+    const cfg = getCloudConfig();
+    if(!cfg.url){ toast('未配置云端地址，无法同步学校数据'); return; }
+    await pullSettingsFromCloud(true);
+    const schools = getSchools();
+    const students = getStudents();
+    log('学校同步', '学校 ' + schools.length + ' 所、学生 ' + students.length + ' 名提交云端，GitHub 私有仓库 data/schools.json、data/students.json 自动备份');
+    const ok = await pushSettingsToCloud(false);
+    if(!ok){ toast('学校与学生数据同步失败，请检查云端连接'); return; }
+    localStorage.setItem('astro_quiz_school_sync_at', new Date().toLocaleString('zh-CN'));
+    updateCloudStatus();
+    toast('学校与学生数据已同步并合并：' + schools.length + ' 所学校、' + students.length + ' 名学生');
   } finally {
     btn.disabled = false;
     btn.textContent = label;
@@ -3442,6 +3611,7 @@ async function syncTeachersNow(){
 }
 
 document.getElementById('syncTeachersBtn').addEventListener('click', syncTeachersNow);
+document.getElementById('syncSchoolsBtn').addEventListener('click', syncSchoolsNow);
 document.getElementById('addAdminBtn').addEventListener('click', function(){
   const isAdmin = currentAdmin && currentAdmin.role === 'admin';
   const defaultScope = ['小学组','初中组','高中组'].find(g => groupSchools(g).length) || '小学组';
@@ -3496,7 +3666,8 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     const schoolScope = role === 'teacher' ? picked.school : '';
     const admins = getAdmins();
     if(admins.some(a => a.user === u)){ toast('该账号已存在'); return; }
-    admins.push({ user: u, pass: p, name: nm, role: role, scope: scope, schoolScope: schoolScope });
+    admins.push({ user: u, pass: p, name: nm, role: role, scope: scope, schoolScope: schoolScope, updatedAt: new Date().toISOString() });
+    clearDeletedAdmin(u);
     saveAdmins(admins);
     closeModal();
     renderAdminList();
