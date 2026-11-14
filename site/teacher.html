@@ -1808,7 +1808,7 @@ function downloadBackup(){
   toast('已下载备份文件');
 }
 
-/* ===== 云端汇总（飞书多维表格） ===== */
+/* ===== 云端汇总（自建云服务器） ===== */
 var DEFAULT_CLOUD = { url: 'https://usually-talented-aluminum-prozac.trycloudflare.com', apiKey: 'astro2026' };
 function getCloudConfig(){
   var saved = {};
@@ -2306,7 +2306,7 @@ bindExamMgmtButtons();
 function openCloudSetup(){
   const cfg = getCloudConfig();
   openModal('<div class="modal-head"><h3>云端汇总设置</h3></div>'
-    + '<p style="color:var(--muted);font-size:13.5px;margin-bottom:12px">填入云端服务地址与密钥后，学生提交与教师汇总将自动走飞书多维表格。</p>'
+    + '<p style="color:var(--muted);font-size:13.5px;margin-bottom:12px">填入云端服务地址与密钥后，学生提交与教师汇总将自动走自建云服务器，并定时备份到 GitHub 私有仓库。</p>'
     + '<div class="field" style="margin-bottom:12px"><label for="cloudUrl">云端地址</label>'
     + '<input id="cloudUrl" type="text" value="' + esc(cfg.url || '') + '" placeholder="例如 http://服务器:3000"></div>'
     + '<div class="field" style="margin-bottom:12px"><label for="cloudKey">API Key</label>'
