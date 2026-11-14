@@ -1967,9 +1967,10 @@ function openCreateExam(){
   openModal('<div class="modal-head"><h3>创建考试</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
     + '<div class="field" style="margin-bottom:14px"><label for="newExamName">考试名称</label>'
     + '<input id="newExamName" type="text" placeholder="例如：2026 年预赛第一场"></div>'
-    + '<div class="field" style="margin-bottom:8px"><label>参加组别（必须选择至少一个）</label>'
+    + '<div class="field" style="margin-bottom:8px"><label>参加组别（可多选，默认全选）</label>'
     + '<div class="radio-row" style="flex-wrap:wrap">'
-    + ['小学组','初中组','高中组'].map(g => '<label class="radio-pill"><input type="checkbox" name="newExamGroup" value="' + g + '"><span>' + g + '</span></label>').join('')
+    + '<label class="radio-pill"><input type="checkbox" id="newExamAll" checked><span>全选</span></label>'
+    + ['小学组','初中组','高中组'].map(g => '<label class="radio-pill"><input type="checkbox" name="newExamGroup" value="' + g + '" checked><span>' + g + '</span></label>').join('')
     + '</div></div>'
     + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需为每个组别导入试题；导入并点击「开始此次考试」后，学生端才会出现该场次入口。</p>'
     + '<div style="display:flex;gap:10px;margin-top:18px">'
@@ -1977,6 +1978,18 @@ function openCreateExam(){
     + '<button class="btn btn-gold" style="flex:1" id="createExamOk" type="button">创建考试</button></div>');
   document.getElementById('modalX').addEventListener('click', closeModal);
   document.getElementById('createExamCancel').addEventListener('click', closeModal);
+  const allGroupBox = document.getElementById('newExamAll');
+  const groupBoxes = Array.from(document.querySelectorAll('input[name="newExamGroup"]'));
+  if(allGroupBox && groupBoxes.length){
+    allGroupBox.addEventListener('change', function(){
+      groupBoxes.forEach(function(b){ b.checked = allGroupBox.checked; });
+    });
+    groupBoxes.forEach(function(b){
+      b.addEventListener('change', function(){
+        allGroupBox.checked = groupBoxes.every(function(x){ return x.checked; });
+      });
+    });
+  }
   document.getElementById('createExamOk').addEventListener('click', function(){
     const name = document.getElementById('newExamName').value.trim();
     const groups = Array.from(document.querySelectorAll('input[name="newExamGroup"]:checked')).map(x => x.value);
