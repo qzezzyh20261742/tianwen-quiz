@@ -1595,6 +1595,7 @@ const RECORD_KEY = 'astro_quiz_records';
 const ADMIN_KEY = 'astro_quiz_admins';
 const SCHOOLS_KEY = 'astro_quiz_schools';
 const STUDENTS_KEY = 'astro_quiz_students';
+const SCHOOL_SETTINGS_KEY = 'astro_quiz_school_settings';
 const LOG_KEY = 'astro_quiz_logs';
 const DEFAULT_ADMINS = [
   { user: 'admin', pass: 'hi@tw2026', role: 'admin', name: '管理员' }
@@ -1648,6 +1649,29 @@ function saveStudents(list){
   localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
   triggerAutoSave();
 }
+/* 学校级设置：自由注册开关 + 可报名组别 */
+function getSchoolSettings(){
+  try { return JSON.parse(localStorage.getItem(SCHOOL_SETTINGS_KEY) || '{}') || {}; } catch(e){ return {}; }
+}
+function saveSchoolSettings(map){
+  localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(map || {}));
+  triggerAutoSave();
+}
+function getSchoolSetting(name){
+  var map = getSchoolSettings();
+  return map[name] || null;
+}
+function isSchoolFreeRegister(name){
+  var ss = getSchoolSetting(name);
+  if(ss && typeof ss.freeRegister === 'boolean') return ss.freeRegister;
+  /* 旧数据没有设置时沿用原规则：名单里有手动添加的学生则视为锁定 */
+  return !getStudents().some(st => st.school === name && !st.auto);
+}
+function schoolAllowedGroups(name){
+  var ss = getSchoolSetting(name);
+  if(ss && Array.isArray(ss.groups) && ss.groups.length) return ss.groups;
+  return ['小学组','初中组','高中组'];
+}
 function getLogs(){
   try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
   catch(e){ return []; }
@@ -1683,6 +1707,7 @@ function settingsPayload(){
   return {
     schools: getSchools(),
     students: getStudents(),
+    schoolSettings: getSchoolSettings(),
     admins: getAdmins(),
     logs: getLogs()
   };
@@ -1728,6 +1753,7 @@ async function pullSettingsFromCloud(silent){
     } catch(e){}
     localStorage.setItem(SCHOOLS_KEY, JSON.stringify(s.schools || []));
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(s.students || []));
+    localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(s.schoolSettings || {}));
     localStorage.setItem(LOG_KEY, JSON.stringify(s.logs || []));
     const admins = s.admins || [];
     const me = currentAdmin ? admins.find(function(x){ return x.user === currentAdmin.user; }) : null;
@@ -2491,6 +2517,7 @@ document.getElementById('settingsRollbackBtn').addEventListener('click', functio
   if(!b || !b.payload){ toast('没有可回滚的本机备份'); return; }
   localStorage.setItem(SCHOOLS_KEY, JSON.stringify(b.payload.schools || []));
   localStorage.setItem(STUDENTS_KEY, JSON.stringify(b.payload.students || []));
+  localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(b.payload.schoolSettings || {}));
   localStorage.setItem(ADMIN_KEY, JSON.stringify(b.payload.admins || []));
   localStorage.setItem(LOG_KEY, JSON.stringify(b.payload.logs || []));
   localStorage.removeItem('astro_quiz_settings_sync');
@@ -2699,24 +2726,77 @@ function renderSchoolMgmt(){
         + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + st.group + (st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
         + (canDelete ? ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a>' : '') + '</span>';
     });
+    const free = isSchoolFreeRegister(s);
+    const groupsOfSchool = schoolAllowedGroups(s);
     html += '<div style="border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px;margin-bottom:10px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<b>' + esc(s) + '</b>'
-      + '<span style="color:var(--muted);font-size:13px">' + stuCount + ' 名学生</span>'
+      + '<span style="color:var(--muted);font-size:13px">' + stuCount + ' 名学生 · 自由注册' + (free ? '开' : '关') + ' · ' + groupsOfSchool.join('/') + '</span>'
       + '<div style="display:flex;gap:8px">'
-      + '<button class="btn btn-ghost btn-sm" type="button" data-addstu="' + esc(s) + '">添加学生</button>'
-      + (canDelete ? '<button class="btn btn-danger btn-sm" type="button" data-delschool="' + esc(s) + '">删除学校</button>' : '')
+      + '<button class="btn btn-ghost btn-sm" type="button" data-setschool="' + esc(s) + '">学校设置</button>'
       + '</div></div>'
       + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
       + '</div>';
   });
   el.innerHTML = html;
+  el.querySelectorAll('[data-setschool]').forEach(b => b.addEventListener('click', () => openSchoolSettings(b.dataset.setschool)));
   el.querySelectorAll('[data-addstu]').forEach(b => b.addEventListener('click', () => openAddStudent(b.dataset.addstu)));
   el.querySelectorAll('[data-delschool]').forEach(b => b.addEventListener('click', () => deleteSchool(b.dataset.delschool)));
   el.querySelectorAll('[data-delstu]').forEach(a => a.addEventListener('click', () => deleteStudent(parseInt(a.dataset.delstu, 10))));
 }
 
-function openAddStudent(school){
+function openSchoolSettings(school){
+  const isAdmin = currentAdmin && currentAdmin.role === 'admin';
+  const free = isSchoolFreeRegister(school);
+  const allowed = schoolAllowedGroups(school);
+  const allGroups = ['小学组','初中组','高中组'];
+  const stuCount = getStudents().filter(st => st.school === school).length;
+  openModal('<div class="modal-head"><h3>学校设置 · ' + esc(school) + '</h3></div>'
+    + '<div style="border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px;margin-bottom:14px">'
+    + '<h4 style="margin:0 0 10px;font-size:15px">Ⅰ 学生设置</h4>'
+    + '<div class="field" style="margin-bottom:6px"><label>学生是否可自由注册（登录时自动登记）</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="ssFree" value="1" ' + (free ? 'checked' : '') + '><span>允许自由注册</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="ssFree" value="0" ' + (!free ? 'checked' : '') + '><span>仅名单内学生可登录</span></label>'
+    + '</div></div>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin:0 0 10px">允许自由注册时，学生输入该校名称即可自动登记；关闭后，只有下方名单中的学生能进入考试。</p>'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" id="ssAddStudent" type="button">管理员手动添加学生</button>'
+    + '<span style="font-size:12.5px;color:var(--muted)">当前 ' + stuCount + ' 名学生</span></div>'
+    + '</div>'
+    + '<div style="border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px;margin-bottom:14px">'
+    + '<h4 style="margin:0 0 10px;font-size:15px">Ⅱ 组别设置</h4>'
+    + '<div class="radio-row" style="flex-wrap:wrap">'
+    + allGroups.map(g => '<label class="radio-pill"><input type="checkbox" name="ssGroup" value="' + g + '" ' + (allowed.indexOf(g) >= 0 ? 'checked' : '') + '><span>' + g + '</span></label>').join('')
+    + '</div>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin:8px 0 0">只允许该校学生报名勾选的组别；至少保留一个组别。</p>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost" style="flex:1" id="ssCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="ssSave" type="button">保存设置</button></div>'
+    + (isAdmin ? '<button class="btn btn-danger" style="width:100%;margin-top:10px" id="ssDelete" type="button">删除该校及全部学生</button>' : ''));
+  document.getElementById('ssCancel').addEventListener('click', closeModal);
+  document.getElementById('ssAddStudent').addEventListener('click', function(){
+    openAddStudent(school, true);
+  });
+  document.getElementById('ssSave').addEventListener('click', function(){
+    const freeVal = document.querySelector('input[name="ssFree"]:checked').value === '1';
+    const groups = Array.from(document.querySelectorAll('input[name="ssGroup"]:checked')).map(x => x.value);
+    if(!groups.length){ toast('请至少保留一个组别'); return; }
+    const map = getSchoolSettings();
+    map[school] = { freeRegister: freeVal, groups: groups, updatedAt: new Date().toLocaleString('zh-CN') };
+    saveSchoolSettings(map);
+    closeModal();
+    renderSchoolMgmt();
+    log('学校设置', school + ' · 自由注册' + (freeVal ? '开' : '关') + ' · ' + groups.join('/'));
+    toast('学校设置已保存');
+  });
+  const del = document.getElementById('ssDelete');
+  if(del) del.addEventListener('click', function(){ deleteSchool(school); });
+}
+
+function openAddStudent(school, reopenSettings){
+  const groups = schoolAllowedGroups(school);
   openModal('<div class="modal-head"><h3>添加学生 · ' + esc(school) + '</h3></div>'
     + '<div class="field" style="margin-bottom:12px">'
     + '<label for="stuName">姓名</label>'
@@ -2729,9 +2809,7 @@ function openAddStudent(school){
     + '<div class="field" style="margin-bottom:12px">'
     + '<label>组别</label>'
     + '<div class="radio-row">'
-    + '<label class="radio-pill"><input type="radio" name="stuGroup" value="小学组" checked><span>小学组</span></label>'
-    + '<label class="radio-pill"><input type="radio" name="stuGroup" value="初中组"><span>初中组</span></label>'
-    + '<label class="radio-pill"><input type="radio" name="stuGroup" value="高中组"><span>高中组</span></label>'
+    + groups.map((g, i) => '<label class="radio-pill"><input type="radio" name="stuGroup" value="' + g + '" ' + (i === 0 ? 'checked' : '') + '><span>' + g + '</span></label>').join('')
     + '</div>'
     + '</div>'
     + '<div style="display:flex;gap:10px;margin-top:20px">'
@@ -2741,7 +2819,9 @@ function openAddStudent(school){
   document.getElementById('stuOk').addEventListener('click', function(){
     const name = document.getElementById('stuName').value.trim();
     const examNo = document.getElementById('stuExamNo').value.trim();
-    const group = document.querySelector('input[name="stuGroup"]:checked').value;
+    const groupEl = document.querySelector('input[name="stuGroup"]:checked');
+    if(!groupEl){ toast('请选择组别'); return; }
+    const group = groupEl.value;
     if(!name || !examNo){ toast('请填写姓名与考号'); return; }
     const students = getStudents();
     if(students.some(st => st.school === school && st.examNo === examNo && st.group === group)){
@@ -2753,6 +2833,7 @@ function openAddStudent(school){
     renderSchoolMgmt();
     log('添加学生', school + ' ' + name + '（' + examNo + '，' + group + '）');
     toast('学生已添加');
+    if(reopenSettings) openSchoolSettings(school);
   });
 }
 
@@ -2766,6 +2847,8 @@ function deleteSchool(school){
   document.getElementById('dsOk').addEventListener('click', function(){
     saveSchools(getSchools().filter(s => s !== school));
     saveStudents(getStudents().filter(st => st.school !== school));
+    const map = getSchoolSettings();
+    if(map[school]){ delete map[school]; saveSchoolSettings(map); }
     closeModal();
     renderSchoolMgmt();
     log('删除学校', school);

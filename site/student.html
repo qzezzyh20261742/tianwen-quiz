@@ -528,6 +528,59 @@ async function fetchExamPaper(examId, group){
   writePaperCache(key, j.exam);
   return j.exam;
 }
+/* 学校策略（是否自由注册、可报名组别）来自云端管理员设置，本地缓存 5 分钟 */
+var POLICY_CACHE_KEY = 'astro_quiz_policy_cache';
+function readPolicyCache(){
+  try {
+    var c = JSON.parse(localStorage.getItem(POLICY_CACHE_KEY) || 'null');
+    if(c && c.data) return c;
+  } catch(e){}
+  return null;
+}
+function savePolicyCache(settings){
+  var data = {
+    students: settings.students || [],
+    schools: settings.schools || [],
+    schoolSettings: settings.schoolSettings || {}
+  };
+  try { localStorage.setItem(POLICY_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: data })); } catch(e){}
+  return data;
+}
+function fetchSchoolPolicy(){
+  return cloudApi('/settings').then(function(j){ return savePolicyCache(j.settings || {}); });
+}
+async function ensureSchoolPolicy(){
+  var c = readPolicyCache();
+  if(c){
+    if(Date.now() - c.ts > 300000){ fetchSchoolPolicy().catch(function(){}); }
+    return c.data;
+  }
+  try { return await fetchSchoolPolicy(); } catch(e){ return null; }
+}
+function getSchoolPolicy(name, policy){
+  if(policy && policy.schoolSettings && policy.schoolSettings[name]) return policy.schoolSettings[name];
+  return null;
+}
+/* 已选场次 + 学校组别限制，刷新登录页的组别选项 */
+function refreshSchoolGroups(){
+  var box = document.getElementById('groupOptions');
+  var schoolEl = document.getElementById('stuSchool');
+  if(!box || !schoolEl) return;
+  var policy = readPolicyCache() ? readPolicyCache().data : null;
+  var ss = getSchoolPolicy(schoolEl.value.trim(), policy);
+  var examGroups = (state.exam && state.exam.groups && state.exam.groups.length) ? state.exam.groups : ['小学组','初中组','高中组'];
+  var allowed = (ss && Array.isArray(ss.groups) && ss.groups.length) ? ss.groups : ['小学组','初中组','高中组'];
+  var effective = examGroups.filter(function(g){ return allowed.indexOf(g) >= 0; });
+  if(!effective.length) effective = examGroups;
+  var first = true;
+  box.querySelectorAll('.radio-pill').forEach(function(pill){
+    var inp = pill.querySelector('input');
+    var on = effective.indexOf(inp.value) >= 0;
+    pill.style.display = on ? '' : 'none';
+    inp.checked = on && first;
+    if(on) first = false;
+  });
+}
 
 /* ===== 考试场次选择 ===== */
 var EXAM_LIST = [];
@@ -616,6 +669,7 @@ function chooseExam(id){
       inp.checked = on && firstAllowed;
       if(on) firstAllowed = false;
     });
+    refreshSchoolGroups();
   }
   showView('view-login');
 }
@@ -848,27 +902,35 @@ document.getElementById('studentForm').addEventListener('submit', async function
   if(!name || !school || !examNo){ toast('请完整填写姓名、学校与考号'); return; }
   if((state.exam.groups || []).indexOf(group) < 0){ toast('该组别不参加此次考试'); return; }
 
-  /* 按学校锁定：仅管理员给该校手动添加过学生的学校才锁定；未锁定学校的学生登录后自动登记 */
-  const students = getStudents();
-  const schoolLocked = students.some(st => st.school === school && !st.auto);
-  if(schoolLocked){
-    const registered = students.some(st =>
-      st.name === name && st.examNo === examNo && st.school === school && st.group === group);
-    if(!registered){
-      toast('该学校已开启名单锁定，你未登记，请联系老师录入后再登录');
-      return;
-    }
-  } else {
+  /* 学校策略：自由注册开关 + 可报名组别（来自云端管理员设置） */
+  const policy = await ensureSchoolPolicy();
+  const policyStudents = (policy && policy.students && policy.students.length) ? policy.students : getStudents();
+  const ss = getSchoolPolicy(school, policy);
+  const freeRegister = (ss && typeof ss.freeRegister === 'boolean')
+    ? ss.freeRegister
+    : !policyStudents.some(st => st.school === school && !st.auto);
+  const registered = policyStudents.some(st =>
+    st.name === name && st.examNo === examNo && st.school === school && st.group === group);
+  if(!freeRegister && !registered){
+    toast('该学校已关闭自由注册，你不在名单中，请联系老师录入后再登录');
+    return;
+  }
+  const allowedSchoolGroups = (ss && Array.isArray(ss.groups) && ss.groups.length) ? ss.groups : ['小学组','初中组','高中组'];
+  if(allowedSchoolGroups.indexOf(group) < 0){
+    toast('该校未开放' + group + '报名，请联系老师');
+    return;
+  }
+  if(freeRegister){
     const schools = getSchools();
     if(!schools.includes(school)){
       schools.push(school);
       saveSchools(schools);
     }
-    const already = students.some(st =>
-      st.name === name && st.examNo === examNo && st.school === school && st.group === group);
-    if(!already){
-      students.push({ name: name, examNo: examNo, school: school, group: group, auto: true });
-      saveStudents(students);
+    const localStudents = getStudents();
+    if(!localStudents.some(st =>
+      st.name === name && st.examNo === examNo && st.school === school && st.group === group)){
+      localStudents.push({ name: name, examNo: examNo, school: school, group: group, auto: true });
+      saveStudents(localStudents);
     }
   }
 
@@ -1278,7 +1340,13 @@ document.getElementById('changeExamBtn').addEventListener('click', function(){
   showView('view-exams');
   loadExamHall();
 });
+var stuSchoolEl = document.getElementById('stuSchool');
+if(stuSchoolEl){
+  stuSchoolEl.addEventListener('change', refreshSchoolGroups);
+  stuSchoolEl.addEventListener('blur', refreshSchoolGroups);
+}
 (async function boot(){
+  fetchSchoolPolicy().then(function(){ refreshSchoolGroups(); }).catch(function(){});
   var restored = false;
   try { restored = await restoreSession(); } catch(e){ restored = false; }
   if(!restored) loadExamHall();
