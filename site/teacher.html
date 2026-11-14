@@ -308,7 +308,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 
   <div class="tabs admin-tabs" id="adminTabs" role="tablist" aria-label="管理员功能板块">
     <button class="tab admin-tab on" id="tabScores" type="button" role="tab" aria-selected="true" aria-controls="adminPageScores" data-page="scores">成绩与考试</button>
-    <button class="tab admin-tab" id="tabManage" type="button" role="tab" aria-selected="false" aria-controls="adminPageManage" data-page="manage" tabindex="-1">权限与账号</button>
+    <button class="tab admin-tab" id="tabManage" type="button" role="tab" aria-selected="false" aria-controls="adminPageManage" data-page="manage" tabindex="-1">后台管理</button>
   </div>
 
   <!-- ===== 板块一：成绩与考试 ===== -->
@@ -371,7 +371,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
     </div>
   </div>
 
-  <!-- ===== 板块二：权限与账号 ===== -->
+  <!-- ===== 板块二：后台管理 ===== -->
   <div class="admin-page" id="adminPageManage" role="tabpanel" aria-labelledby="tabManage">
     <div class="card" style="margin-top:18px" id="adminMgmtCard">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
@@ -3115,7 +3115,7 @@ function applyAdminRole(){
   if(tabsBar){ tabsBar.style.display = isAdminOrSub ? '' : 'none'; }
   if(manageTab){
     manageTab.style.display = isAdminOrSub ? '' : 'none';
-    manageTab.textContent = '权限与账号';
+    manageTab.textContent = '后台管理';
   }
   if(!isAdminOrSub && adminPage === 'manage'){ switchAdminPage('scores'); }
   const mgmt = document.getElementById('adminMgmtCard');
