@@ -2713,6 +2713,8 @@ document.getElementById('cloudPullBtn').addEventListener('click', function(){ pu
 /* 教师端每 30 秒轻量读取一次云端设置，学生手机注册后学校名单能自动出现 */
 setInterval(function(){
   if(document.hidden) return;
+  const maskEl = document.getElementById('modalMask');
+  if(maskEl && maskEl.classList.contains('show')) return;
   if(currentAdmin && !hasPendingSettings()) pullSettingsFromCloud(true);
 }, 30000);
 const cloudSyncBtnEl = document.getElementById('cloudSyncBtn');
