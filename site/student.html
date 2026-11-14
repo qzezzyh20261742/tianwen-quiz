@@ -885,6 +885,19 @@ document.getElementById('studentForm').addEventListener('submit', async function
   const paperPromise = fetchExamPaper(exam.id, group);
   recordPromise.catch(function(){});
   paperPromise.catch(function(){});
+  /* 若历史记录在 1.8 秒之后才返回，进入答题后补一次检查，避免同一人重复作答 */
+  function watchLateRecord(){
+    recordPromise.then(function(rec){
+      if(!rec || state.record) return;
+      var v = document.getElementById('view-quiz');
+      if(!v || getComputedStyle(v).display === 'none') return;
+      var rs = getRecords();
+      rs.push(rec);
+      saveRecords(rs);
+      stopTimer();
+      showOldResult(rec);
+    }).catch(function(){});
+  }
   const cloudRecord = await Promise.race([
     recordPromise,
     new Promise(function(res){ setTimeout(function(){ res(null); }, 1800); })
@@ -930,6 +943,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
     renderQuiz();
     showView('view-quiz');
     toast('检测到未完成的作答，已为你接续');
+    watchLateRecord();
     return;
   }
 
@@ -946,6 +960,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
   startTimer();
   renderQuiz();
   showView('view-quiz');
+  watchLateRecord();
 });
 
 function setQuizHeader(name, school, group, examName, count, totalScore){
