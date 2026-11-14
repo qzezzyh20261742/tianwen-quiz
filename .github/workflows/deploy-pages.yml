@@ -24,20 +24,22 @@ jobs:
           mkdir -p out site
           S_URL=$(sed -n '1p' site/source.txt 2>/dev/null)
           T_URL=$(sed -n '2p' site/source.txt 2>/dev/null)
-          if [ -n "$S_URL" ] && curl -fsSL -A "Mozilla/5.0" "$S_URL" -o out/student.html; then
+          if [ -n "$S_URL" ] && curl -fsSL -m 30 -A "Mozilla/5.0" "$S_URL" -o out/student.html; then
             echo "student: downloaded from source"
           else
             cp site/student.html out/student.html
             echo "student: using repo copy"
           fi
-          if [ -n "$T_URL" ] && curl -fsSL -A "Mozilla/5.0" "$T_URL" -o out/teacher.html; then
+          if [ -n "$T_URL" ] && curl -fsSL -m 30 -A "Mozilla/5.0" "$T_URL" -o out/teacher.html; then
             echo "teacher: downloaded from source"
           else
             cp site/teacher.html out/teacher.html
             echo "teacher: using repo copy"
           fi
+          cp site/cloud.json out/cloud.json
           test -s out/student.html
           test -s out/teacher.html
+          test -s out/cloud.json
           cat > out/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
