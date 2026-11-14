@@ -22,12 +22,22 @@ jobs:
       - name: Prepare site files
         run: |
           mkdir -p out site
-          if [ ! -s site/student.html ] || [ ! -s site/teacher.html ]; then
-            curl -fsSL -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/DiIFtX3Wd5" -o site/student.html
-            curl -fsSL -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/Mlmxssr42t" -o site/teacher.html
+          S_URL=$(sed -n '1p' site/source.txt 2>/dev/null)
+          T_URL=$(sed -n '2p' site/source.txt 2>/dev/null)
+          if [ -n "$S_URL" ] && curl -fsSL -A "Mozilla/5.0" "$S_URL" -o out/student.html; then
+            echo "student: downloaded from source"
+          else
+            cp site/student.html out/student.html
+            echo "student: using repo copy"
           fi
-          cp site/student.html out/student.html
-          cp site/teacher.html out/teacher.html
+          if [ -n "$T_URL" ] && curl -fsSL -A "Mozilla/5.0" "$T_URL" -o out/teacher.html; then
+            echo "teacher: downloaded from source"
+          else
+            cp site/teacher.html out/teacher.html
+            echo "teacher: using repo copy"
+          fi
+          test -s out/student.html
+          test -s out/teacher.html
           cat > out/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
@@ -67,8 +77,10 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
-      - name: Persist site files in repo
+      - name: Archive site files in repo
         run: |
+          cp out/student.html site/student.html
+          cp out/teacher.html site/teacher.html
           git add site
           if ! git diff --cached --quiet; then
             git config user.email "ci@users.noreply.github.com"
