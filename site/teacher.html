@@ -2708,13 +2708,34 @@ document.getElementById('saveNowBtn').addEventListener('click', function(){
 document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
 document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false, true); });
-/* 教师端每 30 秒轻量读取一次云端设置，学生手机注册后学校名单能自动出现 */
-setInterval(function(){
-  if(document.hidden) return;
+/* 教师端在学校管理页每 5 秒读取一次云端设置，其他页面每 30 秒；
+   学生手机注册后，学校名单基本能在 5 秒内自动出现，且不覆盖正在编辑的弹窗 */
+let settingsPollTimer = null;
+let settingsPollBusy = false;
+async function pollSettingsForStudents(){
+  if(settingsPollBusy) return;
+  if(document.hidden || !currentAdmin || hasPendingSettings()) return;
   const maskEl = document.getElementById('modalMask');
   if(maskEl && maskEl.classList.contains('show')) return;
-  if(currentAdmin && !hasPendingSettings()) pullSettingsFromCloud(true);
-}, 30000);
+  settingsPollBusy = true;
+  try {
+    await pullSettingsFromCloud(true);
+  } catch(e){
+  } finally {
+    settingsPollBusy = false;
+  }
+}
+function scheduleSettingsPoll(){
+  clearTimeout(settingsPollTimer);
+  const delay = document.hidden ? 30000 : (adminPage === 'manage' ? 5000 : 30000);
+  settingsPollTimer = setTimeout(function(){
+    pollSettingsForStudents().then(scheduleSettingsPoll, scheduleSettingsPoll);
+  }, delay);
+}
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden) pollSettingsForStudents();
+});
+scheduleSettingsPoll();
 const cloudSyncBtnEl = document.getElementById('cloudSyncBtn');
 if(cloudSyncBtnEl) cloudSyncBtnEl.addEventListener('click', async function(){
   const cfg = getCloudConfig();
@@ -3514,7 +3535,10 @@ function switchAdminPage(page){
     btn.setAttribute('aria-selected', on ? 'true' : 'false');
     btn.tabIndex = on ? 0 : -1;
   });
-  if(target === 'manage') renderLogs();
+  if(target === 'manage'){
+    renderLogs();
+    if(currentAdmin && !hasPendingSettings()) pollSettingsForStudents();
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
