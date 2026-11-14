@@ -1,0 +1,41 @@
+name: debug
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe
+        run: |
+          {
+            echo "== curl student CDN =="
+            curl -sS -o student.html -w "http=%{http_code} size=%{size_download}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "https://aka.doubaocdn.com/s/yBsIDh3qrt" || echo "curl1 fail exit=$?"
+            echo "== curl admin CDN =="
+            curl -sS -o teacher.html -w "http=%{http_code} size=%{size_download}\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "https://aka.doubaocdn.com/s/Sw70td8S5a" || echo "curl2 fail exit=$?"
+            echo "== curl doubao.link =="
+            curl -sS -o dob.html -w "http=%{http_code} size=%{size_download}\n" -A "Mozilla/5.0" "https://hcnmqth5egf4.doubao.link/app/app_17j0qmgdxhs" || echo "curl3 fail exit=$?"
+            echo "== curl raw github =="
+            curl -sS -o raw.txt -w "http=%{http_code} size=%{size_download}\n" -A "Mozilla/5.0" "https://raw.githubusercontent.com/qzezzyh20261742/tianwen-quiz/main/README.md" || echo "curl4 fail exit=$?"
+            echo "== ls =="
+            ls -la
+            echo "== head student =="
+            head -c 200 student.html 2>/dev/null | base64
+            echo "== head dob =="
+            head -c 200 dob.html 2>/dev/null | base64
+          } > diag.log 2>&1 || true
+      - name: Push diag
+        run: |
+          git config user.email "ci@example.com"
+          git config user.name "ci"
+          git checkout -B diag
+          git add diag.log
+          git commit -m "diag $(date -u +%s)" || true
+          git push origin diag --force
