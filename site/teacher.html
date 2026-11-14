@@ -390,16 +390,17 @@ tbody td.name-cell{text-align:left;font-weight:600}
 
     <div class="card" style="margin-top:18px" id="saveCard">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
-        <h2 class="sec-title" style="margin-bottom:0">数据保存到文件</h2>
+        <h2 class="sec-title" style="margin-bottom:0">数据保存与云端同步</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" id="cloudSetupBtn" type="button">云端汇总设置</button>
           <button class="btn btn-gold btn-sm" id="cloudSyncBtn" type="button">立即同步云端</button>
           <button class="btn btn-ghost btn-sm" id="pickSaveDirBtn" type="button">选择文件夹自动保存</button>
           <button class="btn btn-gold btn-sm" id="saveNowBtn" type="button">立即保存</button>
           <button class="btn btn-ghost btn-sm" id="downloadBackupBtn" type="button">下载JSON备份</button>
+          <button class="btn btn-ghost btn-sm" id="cloudPullBtn" type="button">从云端恢复设置</button>
         </div>
       </div>
-      <div id="saveStatus" style="color:var(--muted);font-size:13px">未选择文件夹：数据仅保存在浏览器本地，更换浏览器或清除缓存会丢失。</div>
+      <div id="saveStatus" style="color:var(--muted);font-size:13px">管理员设置会自动保存到云端服务器，云端每 10 分钟自动备份到 GitHub 私有仓库（data 目录）。</div>
       <div id="cloudStatus" style="color:var(--muted);font-size:13px;margin-top:6px">云端：未配置</div>
     </div>
   </div>
@@ -1675,6 +1676,61 @@ function saveDataPayload(){
   };
 }
 
+/* ===== 管理员设置：保存到云端 + 云端自动备份到 GitHub ===== */
+function settingsPayload(){
+  return {
+    schools: getSchools(),
+    students: getStudents(),
+    admins: getAdmins(),
+    logs: getLogs()
+  };
+}
+function pushSettingsToCloud(){
+  const cfg = getCloudConfig();
+  if(!cfg.url) return;
+  cloudCall('/settings', { method: 'POST', body: { settings: settingsPayload() } })
+    .then(function(j){
+      if(j && j.updatedAt) localStorage.setItem('astro_quiz_settings_sync', j.updatedAt);
+      updateCloudStatus();
+    })
+    .catch(function(){ /* 网络异常时保留本机数据，下一次修改会自动重试 */ });
+}
+function triggerCloudPush(){
+  const cfg = getCloudConfig();
+  if(!cfg.url) return;
+  clearTimeout(triggerCloudPush._t);
+  triggerCloudPush._t = setTimeout(pushSettingsToCloud, 900);
+}
+async function pullSettingsFromCloud(silent){
+  const cfg = getCloudConfig();
+  if(!cfg.url) return false;
+  try {
+    const j = await cloudCall('/settings');
+    const s = j && j.settings;
+    if(!s) return false;
+    const hasData = (s.schools || []).length || (s.students || []).length || (s.admins || []).length;
+    if(!hasData) return false;
+    const localStamp = localStorage.getItem('astro_quiz_settings_sync') || '';
+    if(s.updatedAt && s.updatedAt === localStamp) return false;
+    localStorage.setItem(SCHOOLS_KEY, JSON.stringify(s.schools || []));
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(s.students || []));
+    localStorage.setItem(LOG_KEY, JSON.stringify(s.logs || []));
+    const admins = s.admins || [];
+    const me = currentAdmin ? admins.find(function(x){ return x.user === currentAdmin.user; }) : null;
+    if(admins.length && (me || !currentAdmin)) localStorage.setItem(ADMIN_KEY, JSON.stringify(admins));
+    localStorage.setItem('astro_quiz_settings_sync', s.updatedAt || '');
+    renderAdminList();
+    renderSchoolMgmt();
+    renderAdmin();
+    updateCloudStatus();
+    if(!silent) toast('已从云端读取管理员设置');
+    return true;
+  } catch(e){
+    if(!silent) toast('云端读取失败：' + (e.message || e));
+    return false;
+  }
+}
+
 function updateSaveStatus(){
   const el = document.getElementById('saveStatus');
   if(!el) return;
@@ -1702,6 +1758,7 @@ async function writeDataFiles(){
 }
 
 function triggerAutoSave(){
+  triggerCloudPush();
   if(!autoSaveDir) return;
   clearTimeout(triggerAutoSave._t);
   triggerAutoSave._t = setTimeout(writeDataFiles, 400);
@@ -1752,7 +1809,10 @@ function updateCloudStatus(){
   const el = document.getElementById('cloudStatus');
   if(!el) return;
   const cfg = getCloudConfig();
-  el.textContent = cfg.url ? ('云端：已配置 ' + cfg.url) : '云端：未配置（学生作答仍只存本机）';
+  const t = localStorage.getItem('astro_quiz_settings_sync') || '';
+  el.textContent = cfg.url
+    ? ('云端：已连接，管理员设置自动保存到云端；云端每 10 分钟自动备份到 GitHub 私有仓库 tianwen-data' + (t ? '（云端最后更新 ' + t + '）' : ''))
+    : '云端：未配置（管理员设置只保存在本机浏览器）';
 }
 
 /* ===== 考试管理：场次创建、试题导入、开放与关闭 ===== */
@@ -2301,6 +2361,7 @@ document.getElementById('saveNowBtn').addEventListener('click', function(){
 });
 document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
+document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false); });
 document.getElementById('cloudSetupBtn').addEventListener('click', openCloudSetup);
 document.getElementById('cloudSyncBtn').addEventListener('click', syncCloudThenRender);
 updateSaveStatus();
@@ -2412,6 +2473,7 @@ document.getElementById('adminForm').addEventListener('submit', function(e){
     renderAdmin();
     syncCloudThenRender();
     refreshExamBoard();
+    pullSettingsFromCloud(true);
   } else {
     toast('管理员账号或密码错误');
   }
@@ -2446,6 +2508,7 @@ function restoreAdminSession(){
   renderAdmin();
   syncCloudThenRender();
   refreshExamBoard();
+  pullSettingsFromCloud(true);
   return true;
 }
 
