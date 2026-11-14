@@ -2710,6 +2710,11 @@ document.getElementById('saveNowBtn').addEventListener('click', function(){
 document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
 document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false, true); });
+/* 教师端每 30 秒轻量读取一次云端设置，学生手机注册后学校名单能自动出现 */
+setInterval(function(){
+  if(document.hidden) return;
+  if(currentAdmin && !hasPendingSettings()) pullSettingsFromCloud(true);
+}, 30000);
 const cloudSyncBtnEl = document.getElementById('cloudSyncBtn');
 if(cloudSyncBtnEl) cloudSyncBtnEl.addEventListener('click', async function(){
   const cfg = getCloudConfig();
