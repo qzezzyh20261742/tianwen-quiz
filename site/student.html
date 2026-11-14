@@ -960,6 +960,20 @@ document.getElementById('studentForm').addEventListener('submit', async function
     toast('该校未开放' + group + '报名，请联系老师');
     return;
   }
+  /* 把本次注册/登录写入云端学校名单，教师端学校卡片才能看到这名学生 */
+  try {
+    await cloudApi('/student-register', {
+      method: 'POST',
+      body: { name: name, school: school, examNo: examNo, group: group, examId: state.exam.id },
+      timeoutMs: 6000
+    });
+  } catch(regErr){
+    if(regErr && regErr.server){
+      toast(regErr.message || '该学校当前不允许注册');
+      return;
+    }
+    /* 网络异常时仍允许答题，提交前会再尝试写入一次名单 */
+  }
   if(freeRegister){
     const schools = getSchools();
     if(!schools.includes(school)){
@@ -1283,6 +1297,20 @@ async function doSubmit(){
     qTimes: qTimesInt,
     duration: state.seconds
   };
+  /* 提交前再补一次学校名单，避免登录时网络抖动导致学生未汇入学校 */
+  try {
+    await cloudApi('/student-register', {
+      method: 'POST',
+      body: {
+        name: state.student.name,
+        school: state.student.school,
+        examNo: state.student.examNo,
+        group: state.student.group,
+        examId: state.exam ? state.exam.id : ''
+      },
+      timeoutMs: 4000
+    });
+  } catch(e){}
   let record;
   try {
     record = await submitWithRetry(payload);
