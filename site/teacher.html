@@ -2473,7 +2473,7 @@ document.getElementById('adminForm').addEventListener('submit', function(e){
     renderAdmin();
     syncCloudThenRender();
     refreshExamBoard();
-    pullSettingsFromCloud(true);
+    pullSettingsFromCloud(true).then(function(){ triggerCloudPush(); });
   } else {
     toast('管理员账号或密码错误');
   }
@@ -2508,7 +2508,7 @@ function restoreAdminSession(){
   renderAdmin();
   syncCloudThenRender();
   refreshExamBoard();
-  pullSettingsFromCloud(true);
+  pullSettingsFromCloud(true).then(function(){ triggerCloudPush(); });
   return true;
 }
 
