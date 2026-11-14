@@ -1673,7 +1673,7 @@ function getAdmins(){
       const mapped = list.map(x => {
         let pass = x.pass;
         if(x.user === 'admin' && pass === 'hi@tianwen2026'){ pass = 'hi@tw2026'; changed = true; }
-        return { user: x.user, pass, name: x.name || (x.user === 'admin' ? '管理员' : ''), role: x.role || (x.user === 'admin' ? 'admin' : 'teacher'), scope: x.scope || '', schoolScope: x.schoolScope || '' };
+        return { user: x.user, pass, name: x.name || (x.user === 'admin' ? '管理员' : ''), role: x.role || (x.user === 'admin' ? 'admin' : 'teacher'), scope: x.scope || '', schoolScope: x.schoolScope || '', updatedAt: x.updatedAt || '' };
       });
       if(changed) localStorage.setItem(ADMIN_KEY, JSON.stringify(mapped));
       return mapped;
