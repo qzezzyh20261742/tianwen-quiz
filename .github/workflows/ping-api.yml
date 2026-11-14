@@ -1,0 +1,16 @@
+name: Keep API warm
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping cloud API
+        run: |
+          for i in 1 2 3; do
+            curl -fsS -m 20 -o /dev/null -w "health %{http_code} %{time_total}s\n" https://astro-quiz-api.pages.dev/health || true
+          done
