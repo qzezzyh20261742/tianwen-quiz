@@ -2404,6 +2404,7 @@ document.getElementById('adminForm').addEventListener('submit', function(e){
   const matched = getAdmins().find(x => x.user === u && x.pass === p);
   if(matched){
     currentAdmin = matched;
+    saveAdminSession(matched);
     showView('view-admin');
     switchAdminPage('scores');
     document.getElementById('admPass').value = '';
@@ -2415,6 +2416,38 @@ document.getElementById('adminForm').addEventListener('submit', function(e){
     toast('管理员账号或密码错误');
   }
 });
+
+/* ===== 登录状态保持（刷新 / F5 不退出） ===== */
+var ADMIN_SESSION_KEY = 'astro_quiz_admin_session';
+var ADMIN_PAGE_KEY = 'astro_quiz_admin_page';
+function saveAdminSession(admin){
+  if(!admin) return;
+  try { localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ user: admin.user, at: Date.now() })); } catch(e){}
+}
+function clearAdminSession(){
+  try {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_PAGE_KEY);
+  } catch(e){}
+}
+/* 刷新后按上次登录的账号与板块自动恢复后台 */
+function restoreAdminSession(){
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || 'null'); } catch(e){ saved = null; }
+  if(!saved || !saved.user) return false;
+  var admin = getAdmins().find(function(x){ return x.user === saved.user; });
+  if(!admin){ clearAdminSession(); return false; }
+  var page = 'scores';
+  try { page = localStorage.getItem(ADMIN_PAGE_KEY) || 'scores'; } catch(e){ page = 'scores'; }
+  currentAdmin = admin;
+  applyAdminRole();
+  showView('view-admin');
+  switchAdminPage(page);
+  renderAdmin();
+  syncCloudThenRender();
+  refreshExamBoard();
+  return true;
+}
 
 /* 显示 / 隐藏密码 */
 document.getElementById('toggleAdmPass').addEventListener('click', function(){
@@ -2742,6 +2775,7 @@ function switchAdminPage(page){
   const manageAllowed = manageTab && manageTab.style.display !== 'none';
   const target = (page === 'manage' && manageAllowed) ? 'manage' : 'scores';
   adminPage = target;
+  if(currentAdmin){ try { localStorage.setItem(ADMIN_PAGE_KEY, target); } catch(e){} }
   document.querySelectorAll('.admin-page').forEach(function(el){
     el.classList.toggle('active', el.id === (target === 'manage' ? 'adminPageManage' : 'adminPageScores'));
   });
@@ -3266,12 +3300,15 @@ document.getElementById('adminTabs').addEventListener('keydown', function(e){
   switchAdminPage(next.dataset.page);
 });
 
-document.getElementById('adminLogout').addEventListener('click', () => { switchAdminPage('scores'); showView('view-login'); });
+document.getElementById('adminLogout').addEventListener('click', () => { clearAdminSession(); currentAdmin = null; switchAdminPage('scores'); showView('view-login'); });
 document.getElementById('filterSchool').addEventListener('change', renderAdminTable);
 document.getElementById('filterGroup').addEventListener('change', renderAdminTable);
 document.getElementById('modalMask').addEventListener('click', function(e){
   if(e.target === this) closeModal();
 });
+
+/* 页面打开时恢复上次的登录状态 */
+restoreAdminSession();
 </script>
 </body>
 </html>

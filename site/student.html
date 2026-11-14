@@ -541,6 +541,78 @@ function getDrafts(){
 function saveDrafts(drafts){
   localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
 }
+
+/* ===== 登录状态保持（刷新 / F5 不退出） ===== */
+var SESSION_KEY = 'astro_quiz_session';
+function saveSession(){
+  if(!state.student || !state.exam) return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      examId: state.exam.id, examName: state.exam.name,
+      name: state.student.name, school: state.student.school,
+      examNo: state.student.examNo, group: state.student.group
+    }));
+  } catch(e){}
+}
+function readSession(){
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e){ return null; }
+}
+function clearSession(){
+  try { localStorage.removeItem(SESSION_KEY); } catch(e){}
+}
+/* 刷新后自动恢复：已提交 → 回到成绩页；未提交 → 回到答题页并接续草稿 */
+async function restoreSession(){
+  var s = readSession();
+  if(!s || !s.examId) return false;
+  try {
+    var j = await cloudApi('/exams');
+    EXAM_LIST = j.exams || [];
+    var exam = null;
+    for(var i=0;i<EXAM_LIST.length;i++){ if(EXAM_LIST[i].id === s.examId){ exam = EXAM_LIST[i]; break; } }
+    if(!exam){ clearSession(); return false; }
+    state.exam = exam;
+    var banner = document.getElementById('examBanner');
+    if(banner) banner.textContent = exam.name;
+    var qs = new URLSearchParams({ examId: s.examId, name: s.name, examNo: s.examNo, school: s.school, group: s.group });
+    try {
+      var rj = await cloudApi('/record?' + qs.toString());
+      if(rj.record){
+        var old = rj.record;
+        state.student = { name: s.name, school: s.school, examNo: s.examNo, group: s.group };
+        state.questions = (old.details || []).map(function(d){ return { no: d.no, stem: d.stem, options: d.options, score: d.score }; });
+        state.answers = Object.assign({}, old.answers);
+        state.qTimes = Object.assign({}, old.qTimes || {});
+        state.record = old;
+        renderResult(old);
+        showView('view-result');
+        return true;
+      }
+    } catch(e){}
+    if(exam.status !== 'open'){ clearSession(); return false; }
+    var pj = await cloudApi('/exam?id=' + encodeURIComponent(s.examId) + '&group=' + encodeURIComponent(s.group));
+    var paper = pj.exam;
+    var questions = (paper && paper.questions) || [];
+    if(!questions.length){ clearSession(); return false; }
+    state.paper = paper;
+    state.totalScore = paper.totalScore;
+    state.student = { name: s.name, school: s.school, examNo: s.examNo, group: s.group };
+    state.questions = questions;
+    var draftKey = s.examId + '||' + s.name + '||' + s.school + '||' + s.examNo + '||' + s.group;
+    var draft = getDrafts()[draftKey];
+    state.answers = draft ? Object.assign({}, draft.answers || {}) : {};
+    state.qTimes = draft ? Object.assign({}, draft.qTimes || {}) : {};
+    state.curIdx = (draft && draft.curIdx != null) ? draft.curIdx : 0;
+    if(state.curIdx < 0 || state.curIdx >= questions.length) state.curIdx = 0;
+    state.seconds = draft ? (draft.seconds || 0) : 0;
+    state.enterAt = Date.now();
+    state.record = null;
+    setQuizHeader(s.name, s.school, s.group, exam.name, questions.length, paper.totalScore);
+    startTimer();
+    renderQuiz();
+    showView('view-quiz');
+    return true;
+  } catch(e){ return false; }
+}
 function draftKeyOf(s){
   var prefix = state.exam ? (state.exam.id + '||') : '';
   return prefix + s.name + '||' + s.school + '||' + s.examNo + '||' + s.group;
@@ -727,6 +799,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
     state.answers = Object.assign({}, old.answers);
     state.qTimes = Object.assign({}, old.qTimes || {});
     state.record = old;
+    saveSession();
     renderResult(old);
     showView('view-result');
     toast('检测到你已提交过，已调出历史成绩');
@@ -761,6 +834,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
     state.seconds = draft.seconds || 0;
     state.enterAt = Date.now();
     state.record = null;
+    saveSession();
     setQuizHeader(name, school, group, exam.name, questions.length, paper.totalScore);
     startTimer();
     renderQuiz();
@@ -777,6 +851,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
   state.curIdx = 0;
   state.seconds = 0;
   state.record = null;
+  saveSession();
   setQuizHeader(name, school, group, exam.name, questions.length, paper.totalScore);
   startTimer();
   renderQuiz();
@@ -973,7 +1048,7 @@ document.getElementById('logoutQuiz').addEventListener('click', function(){
     + '<button class="btn btn-gold" style="flex:1" id="mOk" type="button">退出登录</button></div>');
   document.getElementById('mCancel').addEventListener('click', closeModal);
   document.getElementById('mOk').addEventListener('click', function(){
-    saveDraft(); closeModal(); stopTimer(); showView('view-exams');
+    saveDraft(); closeModal(); stopTimer(); clearSession(); showView('view-exams'); loadExamHall();
   });
 });
 /* ===== 结果页渲染 ===== */
@@ -1033,23 +1108,28 @@ function renderResult(record){
   list.innerHTML = html;
 }
 
-document.getElementById('backLoginBtn').addEventListener('click', () => showView('view-exams'));
+document.getElementById('backLoginBtn').addEventListener('click', () => { clearSession(); showView('view-exams'); });
 
 /* ===== 悬浮功能键 ===== */
 document.getElementById('floatTop').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
-document.getElementById('floatExit').addEventListener('click', () => showView('view-exams'));
+document.getElementById('floatExit').addEventListener('click', () => { clearSession(); showView('view-exams'); });
 document.getElementById('modalMask').addEventListener('click', function(e){
   if(e.target === this) closeModal();
 });
 
 /* ===== 考试大厅加载 ===== */
 document.getElementById('changeExamBtn').addEventListener('click', function(){
+  clearSession();
   showView('view-exams');
   loadExamHall();
 });
-loadExamHall();
+(async function boot(){
+  var restored = false;
+  try { restored = await restoreSession(); } catch(e){ restored = false; }
+  if(!restored) loadExamHall();
+})();
 setInterval(function(){
   if(document.getElementById('view-exams').classList.contains('active')) loadExamHall();
 }, 60000);
