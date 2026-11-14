@@ -398,6 +398,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
           <button class="btn btn-gold btn-sm" id="saveNowBtn" type="button">立即保存</button>
           <button class="btn btn-ghost btn-sm" id="downloadBackupBtn" type="button">下载JSON备份</button>
           <button class="btn btn-ghost btn-sm" id="cloudPullBtn" type="button">从云端恢复设置</button>
+          <button class="btn btn-ghost btn-sm" id="settingsRollbackBtn" type="button">回滚本机设置</button>
         </div>
       </div>
       <div id="saveStatus" style="color:var(--muted);font-size:13px">管理员设置会自动保存到云端服务器，云端每 10 分钟自动备份到 GitHub 私有仓库（data 目录）。</div>
@@ -1685,10 +1686,10 @@ function settingsPayload(){
     logs: getLogs()
   };
 }
-function pushSettingsToCloud(){
+function pushSettingsToCloud(keepalive){
   const cfg = getCloudConfig();
   if(!cfg.url) return;
-  cloudCall('/settings', { method: 'POST', body: { settings: settingsPayload() } })
+  cloudCall('/settings', { method: 'POST', body: { settings: settingsPayload() }, keepalive: !!keepalive })
     .then(function(j){
       if(j && j.updatedAt) localStorage.setItem('astro_quiz_settings_sync', j.updatedAt);
       updateCloudStatus();
@@ -1699,8 +1700,11 @@ function triggerCloudPush(){
   const cfg = getCloudConfig();
   if(!cfg.url) return;
   clearTimeout(triggerCloudPush._t);
-  triggerCloudPush._t = setTimeout(pushSettingsToCloud, 900);
+  triggerCloudPush._t = setTimeout(function(){ pushSettingsToCloud(false); }, 250);
 }
+/* 刷新或关闭页面前，把最后一次改动补送云端，避免丢失 */
+window.addEventListener('pagehide', function(){ pushSettingsToCloud(true); });
+window.addEventListener('beforeunload', function(){ pushSettingsToCloud(true); });
 async function pullSettingsFromCloud(silent){
   const cfg = getCloudConfig();
   if(!cfg.url) return false;
@@ -1712,6 +1716,11 @@ async function pullSettingsFromCloud(silent){
     if(!hasData) return false;
     const localStamp = localStorage.getItem('astro_quiz_settings_sync') || '';
     if(s.updatedAt && s.updatedAt === localStamp) return false;
+    try {
+      localStorage.setItem('astro_quiz_settings_backup', JSON.stringify({
+        at: localStamp, payload: settingsPayload()
+      }));
+    } catch(e){}
     localStorage.setItem(SCHOOLS_KEY, JSON.stringify(s.schools || []));
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(s.students || []));
     localStorage.setItem(LOG_KEY, JSON.stringify(s.logs || []));
@@ -1833,7 +1842,7 @@ async function cloudCall(path, opts){
   const headers = { 'X-API-Key': cfg.apiKey || '' };
   let body;
   if(opts.body){ headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.body); }
-  const res = await fetch(cfg.url.replace(/\/+$/, '') + path, { method: opts.method || 'GET', headers: headers, body: body });
+  const res = await fetch(cfg.url.replace(/\/+$/, '') + path, { method: opts.method || 'GET', headers: headers, body: body, keepalive: !!opts.keepalive });
   const j = await res.json();
   if(!j.ok){
     const err = new Error(j.error || ('HTTP ' + res.status));
@@ -2362,6 +2371,22 @@ document.getElementById('saveNowBtn').addEventListener('click', function(){
 document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
 document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false); });
+document.getElementById('settingsRollbackBtn').addEventListener('click', function(){
+  let b = null;
+  try { b = JSON.parse(localStorage.getItem('astro_quiz_settings_backup') || 'null'); } catch(e){ b = null; }
+  if(!b || !b.payload){ toast('没有可回滚的本机备份'); return; }
+  localStorage.setItem(SCHOOLS_KEY, JSON.stringify(b.payload.schools || []));
+  localStorage.setItem(STUDENTS_KEY, JSON.stringify(b.payload.students || []));
+  localStorage.setItem(ADMIN_KEY, JSON.stringify(b.payload.admins || []));
+  localStorage.setItem(LOG_KEY, JSON.stringify(b.payload.logs || []));
+  localStorage.removeItem('astro_quiz_settings_sync');
+  renderAdminList();
+  renderSchoolMgmt();
+  renderAdmin();
+  triggerCloudPush();
+  log('回滚设置', '恢复本机上次的管理员设置');
+  toast('已回滚到本机上次设置，并同步到云端');
+});
 document.getElementById('cloudSetupBtn').addEventListener('click', openCloudSetup);
 document.getElementById('cloudSyncBtn').addEventListener('click', syncCloudThenRender);
 updateSaveStatus();
@@ -2867,7 +2892,7 @@ function applyAdminRole(){
   const mgmt = document.getElementById('adminMgmtCard');
   if(mgmt){ mgmt.style.display = isAdmin ? '' : 'none'; }
   const examCard = document.getElementById('examMgmtCard');
-  if(examCard){ examCard.style.display = isAdmin ? '' : 'none'; }
+  if(examCard){ examCard.style.display = isAdminOrSub ? '' : 'none'; }
   const schoolCard = document.getElementById('schoolMgmtCard');
   if(schoolCard){ schoolCard.style.display = isAdmin ? '' : 'none'; }
   const logCard = document.getElementById('logCard');
