@@ -2938,32 +2938,67 @@ function renderSchoolMgmt(){
   }
   let html = '';
   schools.forEach(s => {
-    let stuHtml = '';
-    let stuCount = 0;
+    const schoolStudents = [];
     students.forEach((st, idx) => {
       if(st.school !== s) return;
-      stuCount++;
-      stuHtml += '<span style="font-size:13px;padding:4px 8px;border-radius:8px;background:' + (st.auto ? 'rgba(255,210,120,.1)' : 'rgba(91,200,255,.1)') + ';border:1px solid var(--line);margin:3px">'
-        + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + st.group + (st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
-        + (canDelete ? ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a>' : '') + '</span>';
+      schoolStudents.push({
+        idx: idx,
+        html: '<span style="font-size:13px;padding:4px 8px;border-radius:8px;background:' + (st.auto ? 'rgba(255,210,120,.1)' : 'rgba(91,200,255,.1)') + ';border:1px solid var(--line);margin:3px">'
+          + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + esc(st.group) + (st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
+          + (canDelete ? ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a>' : '') + '</span>'
+      });
     });
+    const stuCount = schoolStudents.length;
+    const visibleStudents = schoolStudents.slice(0, 3);
+    let stuHtml = visibleStudents.map(x => x.html).join('');
+    const hiddenCount = stuCount - visibleStudents.length;
+    if(hiddenCount > 0){
+      stuHtml += '<span style="font-size:12.5px;color:var(--muted);padding:7px 4px">另有 ' + hiddenCount + ' 名，点击「查看学生」查看</span>';
+    }
     const free = isSchoolFreeRegister(s);
     const groupsOfSchool = schoolAllowedGroups(s);
     html += '<div style="border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px;margin-bottom:10px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<b>' + esc(s) + '</b>'
       + '<span style="color:var(--muted);font-size:13px">' + stuCount + ' 名学生 · 自由注册' + (free ? '开' : '关') + ' · ' + groupsOfSchool.join('/') + '</span>'
-      + '<div style="display:flex;gap:8px">'
+      + '<div style="display:flex;flex-direction:column;gap:8px;align-items:stretch">'
       + '<button class="btn btn-ghost btn-sm" type="button" data-setschool="' + esc(s) + '">学校设置</button>'
+      + '<button class="btn btn-ghost btn-sm" type="button" data-viewstudents="' + esc(s) + '">查看学生</button>'
       + '</div></div>'
-      + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
+      + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
       + '</div>';
   });
   el.innerHTML = html;
   el.querySelectorAll('[data-setschool]').forEach(b => b.addEventListener('click', () => openSchoolSettings(b.dataset.setschool)));
+  el.querySelectorAll('[data-viewstudents]').forEach(b => b.addEventListener('click', () => openStudentList(b.dataset.viewstudents)));
   el.querySelectorAll('[data-addstu]').forEach(b => b.addEventListener('click', () => openAddStudent(b.dataset.addstu)));
   el.querySelectorAll('[data-delschool]').forEach(b => b.addEventListener('click', () => deleteSchool(b.dataset.delschool)));
   el.querySelectorAll('[data-delstu]').forEach(a => a.addEventListener('click', () => deleteStudent(parseInt(a.dataset.delstu, 10))));
+}
+
+function openStudentList(school){
+  const canDelete = currentAdmin && currentAdmin.role === 'admin';
+  const list = getStudents().map((st, idx) => ({ st: st, idx: idx })).filter(x => x.st.school === school);
+  const rows = list.map(x => {
+    const st = x.st;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid var(--line);border-radius:8px">'
+      + '<div style="min-width:0"><b style="font-size:13.5px">' + esc(st.name) + '</b>'
+      + '<div style="color:var(--muted);font-size:12.5px;margin-top:2px;overflow-wrap:anywhere">' + esc(st.examNo) + ' · ' + esc(st.group) + '</div></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex:none">'
+      + (st.auto ? '<span style="color:var(--gold);font-size:12px">自动登记</span>' : '')
+      + (canDelete ? '<a href="javascript:void(0)" data-delstu-modal="' + x.idx + '" style="color:var(--red);text-decoration:none;font-size:12px">删除</a>' : '')
+      + '</div></div>';
+  }).join('');
+  openModal('<div class="modal-head"><h3>学生名单 · ' + esc(school) + '</h3></div>'
+    + '<p style="color:var(--muted);font-size:13.5px;margin:0 0 12px">共 ' + list.length + ' 名学生</p>'
+    + (list.length
+      ? '<div style="display:flex;flex-direction:column;gap:8px">' + rows + '</div>'
+      : '<div class="empty">该校暂无学生</div>')
+    + '<div style="display:flex;justify-content:flex-end;margin-top:16px">'
+    + '<button class="btn btn-ghost" id="closeStudentList" type="button">关闭</button></div>');
+  const closeBtn = document.getElementById('closeStudentList');
+  if(closeBtn) closeBtn.addEventListener('click', closeModal);
+  document.querySelectorAll('[data-delstu-modal]').forEach(a => a.addEventListener('click', () => deleteStudent(parseInt(a.dataset.delstuModal, 10))));
 }
 
 function openSchoolSettings(school){
