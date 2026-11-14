@@ -3040,6 +3040,7 @@ function openSchoolSettings(school){
     + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin:0 0 10px">允许自由注册时，学生输入该校名称即可自动登记；关闭后，只有下方名单中的学生能进入考试。</p>'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<button class="btn btn-ghost btn-sm" id="ssAddStudent" type="button">管理员手动添加学生</button>'
+    + '<button class="btn btn-ghost btn-sm" id="ssBatchStudents" type="button">批量添加学生</button>'
     + '<span style="font-size:12.5px;color:var(--muted)">当前 ' + stuCount + ' 名学生</span></div>'
     + '</div>'
     + '<div style="border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px;margin-bottom:14px">'
@@ -3057,6 +3058,9 @@ function openSchoolSettings(school){
   document.getElementById('ssAddStudent').addEventListener('click', function(){
     openAddStudent(school, true);
   });
+  document.getElementById('ssBatchStudents').addEventListener('click', function(){
+    openBatchAddStudents(school);
+  });
   document.getElementById('ssSave').addEventListener('click', function(){
     const freeVal = document.querySelector('input[name="ssFree"]:checked').value === '1';
     const groups = Array.from(document.querySelectorAll('input[name="ssGroup"]:checked')).map(x => x.value);
@@ -3071,6 +3075,183 @@ function openSchoolSettings(school){
   });
   const del = document.getElementById('ssDelete');
   if(del) del.addEventListener('click', function(){ deleteSchool(school); });
+}
+
+/* ===== 批量添加学生：推荐 .xlsx ===== */
+let xlsxLoaderPromise = null;
+function loadXlsxParser(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(xlsxLoaderPromise) return xlsxLoaderPromise;
+  const urls = [
+    'https://fastly.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  ];
+  xlsxLoaderPromise = new Promise(function(resolve, reject){
+    let i = 0;
+    function next(){
+      if(i >= urls.length){
+        xlsxLoaderPromise = null;
+        reject(new Error('Excel 解析库加载失败，请检查网络'));
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = urls[i++];
+      script.async = true;
+      script.onload = function(){
+        if(window.XLSX) resolve(window.XLSX);
+        else next();
+      };
+      script.onerror = function(){ script.remove(); next(); };
+      document.head.appendChild(script);
+    }
+    next();
+  });
+  return xlsxLoaderPromise;
+}
+
+function normalizeImportGroup(value){
+  const s = String(value == null ? '' : value).trim();
+  if(s.indexOf('小学') >= 0) return '小学组';
+  if(s.indexOf('初中') >= 0) return '初中组';
+  if(s.indexOf('高中') >= 0) return '高中组';
+  return s;
+}
+
+function parseStudentImportRows(rows, school){
+  const allowed = schoolAllowedGroups(school);
+  const result = { valid: [], skipped: 0, errors: [] };
+  if(!Array.isArray(rows) || !rows.length) return result;
+  const maxRows = 1000;
+  let headerRow = -1, idxName = 0, idxExamNo = 1, idxGroup = 2;
+  for(let i = 0; i < Math.min(5, rows.length); i++){
+    const cells = (Array.isArray(rows[i]) ? rows[i] : []).map(v => String(v == null ? '' : v).replace(/\s+/g, '').replace(/[：:]/g, '').toLowerCase());
+    const ni = cells.findIndex(c => c === '姓名' || c === '学生姓名' || c === '名字' || c === 'name');
+    const ei = cells.findIndex(c => c === '考号' || c === '准考证号' || c === '编号' || c === 'examno');
+    const gi = cells.findIndex(c => c === '组别' || c === '年级组' || c === 'group');
+    if(ni >= 0 && ei >= 0 && gi >= 0){
+      headerRow = i; idxName = ni; idxExamNo = ei; idxGroup = gi;
+      break;
+    }
+  }
+  const start = headerRow >= 0 ? headerRow + 1 : 0;
+  const end = Math.min(rows.length, start + maxRows);
+  const seen = new Set();
+  for(let i = start; i < end; i++){
+    const row = Array.isArray(rows[i]) ? rows[i] : [];
+    const name = String(row[idxName] == null ? '' : row[idxName]).trim();
+    const examNo = String(row[idxExamNo] == null ? '' : row[idxExamNo]).trim();
+    const rawGroup = String(row[idxGroup] == null ? '' : row[idxGroup]).trim();
+    if(!name && !examNo && !rawGroup) continue;
+    if(!name || !examNo || !rawGroup){
+      result.skipped++;
+      result.errors.push('第 ' + (i + 1) + ' 行：姓名、考号、组别不能为空');
+      continue;
+    }
+    const group = normalizeImportGroup(rawGroup);
+    if(allowed.indexOf(group) < 0){
+      result.skipped++;
+      result.errors.push('第 ' + (i + 1) + ' 行：' + rawGroup + ' 不是该校已开放组别');
+      continue;
+    }
+    const key = examNo + '|' + group;
+    if(seen.has(key)){
+      result.skipped++;
+      result.errors.push('第 ' + (i + 1) + ' 行：文件内考号与组别重复');
+      continue;
+    }
+    seen.add(key);
+    result.valid.push({ name: name, examNo: examNo, school: school, group: group });
+  }
+  if(rows.length > end){
+    result.errors.push('超过 ' + maxRows + ' 行，仅处理前 ' + maxRows + ' 行');
+  }
+  return result;
+}
+
+function openBatchAddStudents(school){
+  const groups = schoolAllowedGroups(school);
+  openModal('<div class="modal-head"><h3>批量添加学生 · ' + esc(school) + '</h3></div>'
+    + '<div style="border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px">'
+    + '<p style="color:var(--muted);font-size:13px;line-height:1.8;margin:0 0 10px">推荐使用 <b style="color:var(--text)">.xlsx</b> 文件。第一行建议使用表头：<b style="color:var(--text)">姓名 / 考号 / 组别</b>；也可以直接按 A/B/C 三列填写。</p>'
+    + '<p style="color:var(--muted);font-size:12.5px;line-height:1.8;margin:0 0 12px">该校已开放组别：' + groups.map(esc).join(' / ') + '</p>'
+    + '<div class="field" style="margin-bottom:10px">'
+    + '<label for="batchStuFile">选择 Excel 文件（.xlsx / .xls / .csv）</label>'
+    + '<input id="batchStuFile" type="file" accept=".xlsx,.xls,.csv" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:rgba(9,14,34,.55);color:var(--text)">'
+    + '</div>'
+    + '<div id="batchStuFileHint" style="color:var(--muted);font-size:12.5px">未选择文件</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="batchStuBack" type="button">返回学校设置</button>'
+    + '<button class="btn btn-ghost" style="flex:1" id="batchStuTemplate" type="button">下载模板</button>'
+    + '<button class="btn btn-gold" style="flex:2" id="batchStuImport" type="button">开始导入</button></div>');
+  const fileInput = document.getElementById('batchStuFile');
+  const hint = document.getElementById('batchStuFileHint');
+  const importBtn = document.getElementById('batchStuImport');
+  const templateBtn = document.getElementById('batchStuTemplate');
+  document.getElementById('batchStuBack').addEventListener('click', function(){ openSchoolSettings(school); });
+  fileInput.addEventListener('change', function(){
+    const file = fileInput.files && fileInput.files[0];
+    hint.textContent = file ? ('已选择：' + file.name + '（' + (file.size / 1024).toFixed(1) + ' KB）') : '未选择文件';
+  });
+  templateBtn.addEventListener('click', async function(){
+    const label = templateBtn.textContent;
+    templateBtn.disabled = true;
+    templateBtn.textContent = '生成中…';
+    try {
+      const XLSX = await loadXlsxParser();
+      const ws = XLSX.utils.aoa_to_sheet([['姓名','考号','组别'], ['示例学生','2026010103', groups[0] || '高中组']]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '学生名单');
+      XLSX.writeFile(wb, '学生批量导入模板.xlsx');
+      toast('Excel 模板已下载');
+    } catch(err){
+      toast('模板生成失败：' + (err.message || err));
+    } finally {
+      templateBtn.disabled = false;
+      templateBtn.textContent = label;
+    }
+  });
+  importBtn.addEventListener('click', async function(){
+    const file = fileInput.files && fileInput.files[0];
+    if(!file){ toast('请先选择 Excel 文件'); return; }
+    if(file.size > 10 * 1024 * 1024){ toast('文件过大，请控制在 10MB 以内'); return; }
+    const label = importBtn.textContent;
+    importBtn.disabled = true;
+    importBtn.textContent = '导入中…';
+    try {
+      const XLSX = await loadXlsxParser();
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const sheetName = wb.SheetNames && wb.SheetNames[0];
+      if(!sheetName) throw new Error('文件里没有可读取的工作表');
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', raw: false });
+      const parsed = parseStudentImportRows(rows, school);
+      const existing = getStudents();
+      const existingKeys = new Set(existing.filter(st => st.school === school).map(st => st.examNo + '|' + st.group));
+      const toAdd = [];
+      let existingDuplicates = 0;
+      parsed.valid.forEach(function(st){
+        if(existingKeys.has(st.examNo + '|' + st.group)) existingDuplicates++;
+        else toAdd.push(st);
+      });
+      const skipped = parsed.skipped + existingDuplicates;
+      if(!toAdd.length){
+        toast('没有可新增的学生：' + (parsed.errors[0] || '考号与组别均已存在或格式不正确'));
+        return;
+      }
+      saveStudents(existing.concat(toAdd));
+      closeModal();
+      renderSchoolMgmt();
+      log('批量添加学生', school + ' · 新增 ' + toAdd.length + ' 名' + (skipped ? '，跳过 ' + skipped + ' 名' : ''));
+      toast('批量导入完成：新增 ' + toAdd.length + ' 名学生' + (skipped ? '，跳过 ' + skipped + ' 名' : ''));
+      openSchoolSettings(school);
+    } catch(err){
+      toast('导入失败：' + (err.message || err));
+    } finally {
+      importBtn.disabled = false;
+      importBtn.textContent = label;
+    }
+  });
 }
 
 function openAddStudent(school, reopenSettings){
