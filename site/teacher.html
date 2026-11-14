@@ -293,7 +293,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 <!-- ===== 视图：管理员 ===== -->
 <section id="view-admin" class="view">
   <div class="topbar">
-    <div class="who"><b>教师管理后台</b><span>成绩、考试场次与账号权限管理</span></div>
+    <div class="who"><b>教师管理后台</b><span id="adminWhoText">成绩、考试场次与账号权限管理</span></div>
     <button class="btn btn-ghost btn-sm" id="adminLogout" type="button">退出后台</button>
   </div>
 
@@ -1597,7 +1597,7 @@ const SCHOOLS_KEY = 'astro_quiz_schools';
 const STUDENTS_KEY = 'astro_quiz_students';
 const LOG_KEY = 'astro_quiz_logs';
 const DEFAULT_ADMINS = [
-  { user: 'admin', pass: 'hi@tw2026', role: 'admin' }
+  { user: 'admin', pass: 'hi@tw2026', role: 'admin', name: '管理员' }
 ];
 let currentAdmin = null;
 const ALL_DATA = QUIZ_DATA;
@@ -1610,7 +1610,7 @@ function getAdmins(){
       const mapped = list.map(x => {
         let pass = x.pass;
         if(x.user === 'admin' && pass === 'hi@tianwen2026'){ pass = 'hi@tw2026'; changed = true; }
-        return { user: x.user, pass, role: x.role || (x.user === 'admin' ? 'admin' : 'teacher'), scope: x.scope || '', schoolScope: x.schoolScope || '' };
+        return { user: x.user, pass, name: x.name || (x.user === 'admin' ? '管理员' : ''), role: x.role || (x.user === 'admin' ? 'admin' : 'teacher'), scope: x.scope || '', schoolScope: x.schoolScope || '' };
       });
       if(changed) localStorage.setItem(ADMIN_KEY, JSON.stringify(mapped));
       return mapped;
@@ -1658,7 +1658,8 @@ function saveLogs(list){
 }
 function log(action, detail){
   const logs = getLogs();
-  logs.unshift({ time: new Date().toLocaleString('zh-CN'), operator: (currentAdmin && currentAdmin.user) || '', action: action, detail: detail || '' });
+  const opName = (currentAdmin && currentAdmin.name) ? currentAdmin.name + '（' + currentAdmin.user + '）' : ((currentAdmin && currentAdmin.user) || '');
+  logs.unshift({ time: new Date().toLocaleString('zh-CN'), operator: opName, action: action, detail: detail || '' });
   if(logs.length > 500) logs.length = 500;
   saveLogs(logs);
 }
@@ -2737,6 +2738,7 @@ function renderAdminList(){
   if(!el) return;
   el.innerHTML = admins.map(a =>
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap">'
+    + '<span>姓名：<b style="color:var(--text)">' + esc(a.name || '未填写') + '</b></span>'
     + '<span>账号：<b style="color:var(--accent)">' + esc(a.user) + '</b></span>'
     + '<span>密码：<b style="color:var(--gold)">' + esc(a.pass) + '</b></span>'
     + '<span>角色：<b style="color:' + (a.role === 'admin' ? 'var(--gold)' : 'var(--accent)') + '">' + roleLabel(a) + '</b></span>'
@@ -2809,7 +2811,11 @@ function openSetRole(user){
   const schoolOpts = '<option value="全部" ' + (curSchoolScope === '全部' ? 'selected' : '') + '>全部学校</option>'
     + getSchools().map(s => '<option value="' + esc(s) + '" ' + (curSchoolScope === s ? 'selected' : '') + '>' + esc(s) + '</option>').join('');
   openModal('<div class="modal-head"><h3>设置权限 · ' + esc(user) + '</h3></div>'
-    + '<p style="color:var(--muted);font-size:13.5px;margin-bottom:14px">超级管理员可管理学校/学生/账号并清空；子管理员仅查看与导出；普通教师仅查看本校指定组别并导出。</p>'
+    + '<p style="color:var(--muted);font-size:13.5px;margin-bottom:14px">超级管理员可管理学校/学生/账号并清空；子管理员可创建与管理考试、查看全部成绩；普通教师仅查看本校指定组别并导出。</p>'
+    + '<div class="field">'
+    + '<label for="roleAdminName">姓名</label>'
+    + '<input id="roleAdminName" type="text" maxlength="20" value="' + esc(initial.name || '') + '" placeholder="请输入教师真实姓名">'
+    + '</div>'
     + '<div class="field">'
     + '<label>权限等级</label>'
     + '<div class="radio-row">'
@@ -2854,6 +2860,9 @@ function openSetRole(user){
       const superCount = admins.filter(x => x.role === 'admin').length;
       if(superCount <= 1){ toast('至少保留一个超级管理员'); return; }
     }
+    const newName = (document.getElementById('roleAdminName').value || '').trim();
+    if(!newName){ toast('请输入教师姓名'); return; }
+    a.name = newName;
     a.role = role;
     a.scope = scope;
     a.schoolScope = schoolScope;
@@ -2865,7 +2874,7 @@ function openSetRole(user){
       currentAdmin = getAdmins().find(x => x.user === user) || currentAdmin;
       renderAdmin();
     }
-    log('设置权限', '账号 ' + user + ' → ' + roleLabel(a));
+    log('设置权限', a.name + '（' + user + '）→ ' + roleLabel(a));
     toast('权限已更新');
   });
 }
@@ -2947,6 +2956,10 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     + getSchools().map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
   openModal('<div class="modal-head"><h3>添加教师账号</h3></div>'
     + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="newAdminName">姓名（必填）</label>'
+    + '<input id="newAdminName" type="text" placeholder="请输入教师真实姓名" maxlength="20">'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
     + '<label for="newAdminUser">教师账号</label>'
     + '<input id="newAdminUser" type="text" placeholder="请输入新教师账号" maxlength="20">'
     + '</div>'
@@ -2988,25 +3001,33 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     });
   });
   document.getElementById('addAdminOk').addEventListener('click', function(){
+    const nm = document.getElementById('newAdminName').value.trim();
     const u = document.getElementById('newAdminUser').value.trim();
     const p = document.getElementById('newAdminPass').value;
+    if(!nm){ toast('请输入教师姓名'); return; }
     if(!u || !p){ toast('请完整填写账号与密码'); return; }
     const role = document.querySelector('input[name="newRole"]:checked').value;
     const scope = role === 'teacher' ? document.querySelector('input[name="newScope"]:checked').value : '';
     const schoolScope = role === 'teacher' ? document.getElementById('newSchoolScope').value : '';
     const admins = getAdmins();
     if(admins.some(a => a.user === u)){ toast('该账号已存在'); return; }
-    admins.push({ user: u, pass: p, role: role, scope: scope, schoolScope: schoolScope });
+    admins.push({ user: u, pass: p, name: nm, role: role, scope: scope, schoolScope: schoolScope });
     saveAdmins(admins);
     closeModal();
     renderAdminList();
-    log('添加账号', '账号 ' + u + ' → ' + roleLabel({ role: role, scope: scope, schoolScope: schoolScope }));
+    log('添加账号', nm + '（' + u + '）→ ' + roleLabel({ role: role, scope: scope, schoolScope: schoolScope }));
     toast('教师账号已添加');
   });
 });
 
 function renderAdmin(){
   applyAdminRole();
+  const whoEl = document.getElementById('adminWhoText');
+  if(whoEl){
+    whoEl.textContent = currentAdmin
+      ? ((currentAdmin.name || '未填写姓名') + '（' + currentAdmin.user + '）· ' + roleLabel(currentAdmin))
+      : '成绩、考试场次与账号权限管理';
+  }
   renderAdminList();
   renderSchoolMgmt();
   renderLogs();
