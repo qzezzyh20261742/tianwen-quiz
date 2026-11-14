@@ -3505,12 +3505,19 @@ function renderAdmin(){
   const scores = records.map(r => r.score);
   const avg = scores.reduce((a,b)=>a+b,0)/count;
   const max = Math.max.apply(null, scores);
-  const avgRate = records.reduce((s,r) => s + r.correct/(r.correct+r.wrong), 0)/count*100;
+  const validRates = records.map(r => {
+    const c = Number(r.correct) || 0;
+    const w = Number(r.wrong) || 0;
+    return (c + w) > 0 ? c / (c + w) : null;
+  }).filter(v => v !== null);
+  const avgRate = validRates.length
+    ? validRates.reduce((s,v) => s + v, 0) / validRates.length * 100
+    : 0;
 
   document.getElementById('kpiCount').textContent = count;
   document.getElementById('kpiAvg').textContent = avg.toFixed(1);
   document.getElementById('kpiMax').textContent = max;
-  document.getElementById('kpiRate').textContent = Math.round(avgRate) + '%';
+  document.getElementById('kpiRate').textContent = Math.round(Number.isFinite(avgRate) ? avgRate : 0) + '%';
 
   /* 分数段分布 */
   const bands = [
