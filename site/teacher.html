@@ -1983,7 +1983,12 @@ function renderExamBoard(){
       const exam = EXAMS.find(x => x.id === btn.dataset.id);
       if(!exam) return;
       if(act === 'import') openImportModal(exam, btn.dataset.group);
-      else if(act === 'upload') uploadExam(exam, true);
+      else if(act === 'upload'){
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '上传中…';
+        uploadExam(exam, true).then(function(){ btn.disabled = false; btn.textContent = oldText; });
+      }
       else if(act === 'start') startExam(exam);
       else if(act === 'end') endExam(exam);
       else if(act === 'delete') deleteExam(exam);
@@ -2285,7 +2290,7 @@ async function uploadExam(exam, silent){
       toast('上传后核对不一致：' + mismatch.join('；') + '。请重新导入后再上传');
       return false;
     }
-    if(!silent) toast('已上传并核对：' + (exam.groups || []).length + ' 个组别，题数与总分一致');
+    toast('已上传到云端并核对一致：' + (exam.groups || []).join('、') + '，题数与总分均与本地相同');
     log('上传考试', exam.name);
     return true;
   } catch(e){
