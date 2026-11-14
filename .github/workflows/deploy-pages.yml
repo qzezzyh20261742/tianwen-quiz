@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -19,13 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download site files
+      - name: Prepare site files
         run: |
-          mkdir -p out
-          curl -fsSL -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/yBsIDh3qrt" -o out/student.html
-          curl -fsSL -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/Sw70td8S5a" -o out/teacher.html
-          test -s out/student.html
-          test -s out/teacher.html
+          mkdir -p out site
+          if [ ! -s site/student.html ] || [ ! -s site/teacher.html ]; then
+            curl -fsSL -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/DiIFtX3Wd5" -o site/student.html
+            curl -fsSL -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/Mlmxssr42t" -o site/teacher.html
+          fi
+          cp site/student.html out/student.html
+          cp site/teacher.html out/teacher.html
           cat > out/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
@@ -65,6 +67,15 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
+      - name: Persist site files in repo
+        run: |
+          git add site
+          if ! git diff --cached --quiet; then
+            git config user.email "ci@users.noreply.github.com"
+            git config user.name "deploy-bot"
+            git commit -m "sync site files [skip ci]"
+            git push || true
+          fi
 
   deploy:
     needs: build
