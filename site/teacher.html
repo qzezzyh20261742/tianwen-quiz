@@ -1,0 +1,3277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全国中学生天文知识竞赛 · 教师管理后台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='13' fill='%235bc8ff'/%3E%3Cellipse cx='32' cy='32' rx='26' ry='8' fill='none' stroke='%23ffd479' stroke-width='4' transform='rotate(-20 32 32)'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#070b1c;
+  --card:rgba(17,24,51,.82);
+  --card-solid:#111833;
+  --line:rgba(132,168,255,.18);
+  --line-strong:rgba(132,168,255,.4);
+  --text:#e9efff;
+  --muted:#9db0d8;
+  --accent:#5bc8ff;
+  --accent-deep:#1d8fd6;
+  --gold:#ffd479;
+  --green:#4ade80;
+  --red:#ff7178;
+  --violet:#a78bfa;
+  --radius:14px;
+  --shadow:0 18px 50px rgba(2,6,20,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Noto Sans CJK SC",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+/* ===== 宇宙背景 ===== */
+#starCanvas{position:fixed;inset:0;z-index:0;display:block}
+.nebula{position:fixed;z-index:0;border-radius:50%;filter:blur(90px);opacity:.5;pointer-events:none}
+.nebula.n1{width:560px;height:560px;top:-160px;left:-120px;background:radial-gradient(circle,#2440b8 0%,transparent 70%)}
+.nebula.n2{width:620px;height:620px;bottom:-220px;right:-160px;background:radial-gradient(circle,#5b2aa0 0%,transparent 70%)}
+.nebula.n3{width:420px;height:420px;top:38%;left:55%;background:radial-gradient(circle,#0e6e8f 0%,transparent 70%);opacity:.35}
+
+.app-wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:28px 22px 60px}
+.view{display:none;animation:fade .45s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view{animation:none}}
+
+/* ===== 通用组件 ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:6px}
+.brand svg{flex:none}
+h1{font-size:26px;font-weight:800;letter-spacing:.5px;text-align:center}
+.subtitle{text-align:center;color:var(--muted);font-size:14px;margin-bottom:26px}
+h2.sec-title{font-size:19px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;background:var(--accent)}
+
+.tabs{display:flex;gap:10px;background:rgba(8,12,30,.7);padding:6px;border-radius:12px;margin-bottom:24px;border:1px solid var(--line)}
+.tab{flex:1;text-align:center;padding:10px;border-radius:9px;cursor:pointer;font-size:15px;color:var(--muted);transition:.2s;user-select:none}
+.tab.on{background:linear-gradient(135deg,var(--accent-deep),#2b6fd0);color:#fff;font-weight:700}
+.admin-tabs{position:sticky;top:8px;z-index:30;margin-bottom:18px;backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(2,6,20,.35)}
+.admin-tabs .tab{border:0;background:transparent;font-family:inherit;font-size:15.5px;padding:11px 10px;appearance:none}
+.admin-tabs .tab.on{background:linear-gradient(135deg,var(--accent-deep),#2b6fd0)}
+.admin-tabs .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.admin-page{display:none}
+.admin-page.active{display:block;animation:fade .3s ease}
+@media (prefers-reduced-motion:reduce){.admin-page.active{animation:none}}
+
+.field{margin-bottom:18px}
+.field label{display:block;font-size:14px;color:var(--muted);margin-bottom:7px;font-weight:600}
+.field input{width:100%;padding:13px 15px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:16px;outline:none;transition:.2s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
+.field input::placeholder{color:#6b7ca3}
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:62px}
+.pass-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);height:34px;padding:0 11px;border:1px solid var(--line-strong);border-radius:8px;background:rgba(8,13,32,.9);color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;transition:.2s}
+.pass-toggle:hover{color:var(--text);border-color:var(--accent)}
+.radio-row{display:flex;gap:12px}
+.radio-pill{flex:1;position:relative}
+.radio-pill input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.radio-pill span{display:block;text-align:center;padding:13px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);font-size:15px;cursor:pointer;transition:.2s}
+.radio-pill input:checked+span{border-color:var(--accent);background:rgba(91,200,255,.16);color:#fff;font-weight:700}
+.radio-pill input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;border-radius:11px;padding:13px 26px;font-size:16px;font-weight:700;font-family:inherit;transition:.2s}
+.btn-primary{background:linear-gradient(135deg,#2b8fe0,#3f6fe0);color:#fff;width:100%;box-shadow:0 10px 26px rgba(45,118,224,.4)}
+.btn-primary:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:transparent;border:1px solid var(--line-strong);color:var(--text)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-gold{background:linear-gradient(135deg,#e8b24b,#d98f2c);color:#1c1304;box-shadow:0 10px 26px rgba(217,143,44,.35)}
+.btn-sm{padding:8px 14px;font-size:13px;border-radius:9px}
+.btn-danger{background:transparent;border:1px solid rgba(255,113,120,.6);color:var(--red)}
+.btn-danger:hover{background:rgba(255,113,120,.13);border-color:var(--red)}
+
+/* ===== 顶栏 ===== */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:18px}
+.who{display:flex;flex-direction:column}
+.who b{font-size:16px}
+.who span{font-size:13px;color:var(--muted)}
+.timer{font-variant-numeric:tabular-nums;color:var(--gold);font-weight:700;font-size:15px}
+
+.progress-meta{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px}
+.progress{height:9px;border-radius:6px;background:rgba(120,150,220,.15);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),#6f8bff);transition:width .35s}
+
+/* ===== 题目 ===== */
+.q-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.q-no{background:linear-gradient(135deg,var(--accent-deep),#3f6fd0);color:#fff;font-weight:800;border-radius:9px;padding:5px 13px;font-size:14px}
+.q-tag{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,212,121,.4);border-radius:20px;padding:2px 11px}
+.q-stem{font-size:17.5px;font-weight:700;margin-bottom:20px;line-height:1.75}
+.options{display:flex;flex-direction:column;gap:12px}
+.option{display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(9,14,34,.75);cursor:pointer;transition:.18s;min-height:48px}
+.option:hover{border-color:var(--accent);background:rgba(91,200,255,.09)}
+.option .key{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--muted)}
+.option .otext{font-size:16px;padding-top:2px}
+.option.selected{border-color:var(--accent);background:rgba(91,200,255,.15)}
+.option.selected .key{background:var(--accent);color:#061226;border-color:var(--accent)}
+.option.correct{border-color:var(--green);background:rgba(74,222,128,.13)}
+.option.correct .key{background:var(--green);color:#06210f;border-color:var(--green)}
+.option.wrong{border-color:var(--red);background:rgba(255,113,120,.13)}
+.option.wrong .key{background:var(--red);color:#2a0708;border-color:var(--red)}
+.option.locked{cursor:default}
+.option.locked:hover{background:rgba(9,14,34,.75);border-color:var(--line-strong)}
+.option.correct.locked:hover{background:rgba(74,222,128,.13);border-color:var(--green)}
+.option.wrong.locked:hover{background:rgba(255,113,120,.13);border-color:var(--red)}
+.option.unknown{border-color:var(--gold);background:rgba(255,212,121,.13)}
+.option.unknown .key{background:var(--gold);color:#2a1c04;border-color:var(--gold)}
+.option.unknown.locked:hover{background:rgba(255,212,121,.13);border-color:var(--gold)}
+.option-e{border-style:dashed}
+.option-e .key{color:var(--gold);border-color:rgba(255,212,121,.55)}
+
+.q-actions{display:flex;gap:12px;margin-top:22px;justify-content:space-between}
+.q-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.nav-dot{width:40px;height:40px;border-radius:9px;border:1px solid var(--line-strong);background:rgba(9,14,34,.7);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.nav-dot.done{color:var(--accent);border-color:var(--accent)}
+.nav-dot.current{background:var(--accent);color:#061226}
+
+/* ===== 结果总览 ===== */
+.score-hero{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-around;text-align:center;padding:10px 0}
+.score-big{font-size:52px;font-weight:800;color:var(--gold);line-height:1.1}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;min-width:260px}
+.stat{background:rgba(9,14,34,.7);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat b{display:block;font-size:24px}
+.stat span{font-size:13px;color:var(--muted)}
+.stat.g b{color:var(--green)}.stat.r b{color:var(--red)}.stat.b b{color:var(--accent)}.stat.p b{color:var(--gold)}.stat.u b{color:var(--gold)}
+
+.review-block{margin-top:20px}
+.verdict{font-size:13.5px;font-weight:700;margin-bottom:10px;display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px}
+.verdict.ok{color:var(--green);background:rgba(74,222,128,.12)}
+.verdict.no{color:var(--red);background:rgba(255,113,120,.12)}
+.verdict.unknown{color:var(--gold);background:rgba(255,212,121,.12)}
+.ans-line{font-size:14.5px;margin-bottom:8px;color:var(--muted)}
+.ans-line b{color:var(--text)}
+.detail-box{background:rgba(8,13,32,.7);border:1px solid var(--line);border-radius:11px;padding:15px 17px;margin-top:10px;font-size:14.5px}
+.detail-box h4{font-size:14px;color:var(--accent);margin:10px 0 5px}
+.detail-box h4:first-child{margin-top:0}
+.detail-box li{list-style:none;margin-bottom:7px;padding-left:16px;position:relative}
+.detail-box li::before{content:"";position:absolute;left:0;top:11px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+/* ===== 管理员 ===== */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:rgba(9,14,34,.75);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+.kpi b{display:block;font-size:25px;color:var(--accent)}
+.kpi span{font-size:13px;color:var(--muted)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:830px}
+thead th{background:#1a2550;color:var(--text);padding:12px 10px;text-align:center;font-weight:700;white-space:nowrap}
+tbody td{padding:11px 10px;border-top:1px solid var(--line);text-align:center;vertical-align:middle}
+tbody tr:hover{background:rgba(91,200,255,.06)}
+tbody td.name-cell{text-align:left;font-weight:600}
+.pill-tag{font-size:12px;border-radius:20px;padding:2px 10px;border:1px solid var(--line-strong);color:var(--muted)}
+.bar-chart{display:flex;align-items:flex-end;gap:10px;height:150px;padding:14px 8px 0;margin-bottom:20px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bar-col i{width:70%;background:linear-gradient(180deg,var(--accent),#3f6fd0);border-radius:6px 6px 0 0;min-width:18px}
+.bar-col span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* ===== 模态框 ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(3,6,18,.72);z-index:50;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-mask.show{display:flex}
+.modal{width:100%;max-width:860px;max-height:88vh;overflow-y:auto;background:var(--card-solid);border:1px solid var(--line-strong);border-radius:16px;padding:24px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-close{background:none;border:1px solid var(--line-strong);color:var(--text);width:36px;height:36px;border-radius:9px;cursor:pointer;font-size:17px}
+
+.toast{position:fixed;left:50%;bottom:38px;transform:translateX(-50%) translateY(20px);background:#1d294f;border:1px solid var(--line-strong);color:var(--text);padding:12px 22px;border-radius:11px;font-size:14.5px;opacity:0;transition:.3s;z-index:80;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+.empty{text-align:center;color:var(--muted);padding:46px 0;font-size:15px}
+.footer-note{text-align:center;color:#6678a0;font-size:12.5px;margin-top:34px}
+
+/* ===== 结果页悬浮功能键 ===== */
+.float-actions{position:fixed;right:22px;bottom:92px;z-index:40;display:none;flex-direction:column;gap:10px}
+.float-actions.show{display:flex}
+.float-btn{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:66px;background:rgba(18,26,58,.93);border:1px solid var(--line-strong);color:var(--text);border-radius:12px;padding:11px 12px;cursor:pointer;font-size:12px;font-family:inherit;box-shadow:var(--shadow);transition:.2s}
+.float-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+.float-btn svg{width:22px;height:22px}
+.float-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== 管理员筛选 ===== */
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filter-row select{padding:9px 13px;border-radius:9px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:14px;font-family:inherit;min-width:150px;cursor:pointer;outline:none}
+.filter-row select:focus{border-color:var(--accent)}
+.filter-row select option{background:#0d1533}
+
+/* ===== 详情可展开题目 ===== */
+.q-expand-head{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;border:none;color:var(--text);padding:13px 15px;cursor:pointer;font-family:inherit;font-size:14.5px;text-align:left}
+.q-expand-head:hover{background:rgba(91,200,255,.07)}
+.q-expand-head .chev{margin-left:auto;transition:.25s;flex:none}
+.q-expand-head.open .chev{transform:rotate(180deg)}
+.q-expand-body{padding:0 15px 15px;border-top:1px solid var(--line)}
+.q-expand-body .mini-stem{font-weight:700;margin:13px 0 10px;font-size:14.5px;line-height:1.7}
+.q-expand-body .mini-opt{display:flex;gap:9px;align-items:flex-start;padding:8px 11px;border-radius:9px;margin-bottom:7px;font-size:13.5px;border:1px solid var(--line);line-height:1.6}
+.q-expand-body .mini-opt .mk{flex:none;font-weight:800}
+.q-expand-body .mini-opt.is-correct{border-color:var(--green);background:rgba(74,222,128,.1)}
+.q-expand-body .mini-opt.is-wrong{border-color:var(--red);background:rgba(255,113,120,.1)}
+.q-expand-body .mini-opt.is-unknown{border-color:var(--gold);background:rgba(255,212,121,.1)}
+.q-expand-body h5{color:var(--accent);font-size:13.5px;margin:13px 0 5px}
+.q-expand-body .mini-li{font-size:13.5px;margin-bottom:6px;padding-left:15px;position:relative}
+.q-expand-body .mini-li::before{content:"";position:absolute;left:0;top:10px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.q-expand-body .mini-meta{font-size:13.5px;color:var(--muted);margin-top:10px}
+
+/* ===== 响应式 ===== */
+@media (max-width:760px){
+  .app-wrap{padding:18px 13px 46px}
+  .card{padding:18px 15px}
+  h1{font-size:21px}
+  .q-stem{font-size:16.5px}
+  .option .otext{font-size:15.5px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .stat-grid{grid-template-columns:repeat(2,1fr);min-width:0;width:100%}
+  .q-actions{flex-direction:column}
+  .q-actions .btn{width:100%}
+  .nav-dot{width:36px;height:36px}
+  .topbar{gap:8px}
+  .float-actions{right:12px;bottom:70px;gap:8px}
+  .float-btn{min-width:56px;padding:9px 10px}
+}
+/* 移除发布平台注入的右下角水印 */
+[data-custom-element]{display:none !important;visibility:hidden !important;pointer-events:none !important}
+</style>
+</head>
+<body>
+<script>
+/* 移除发布平台注入的右下角水印（运行时删除 + 监听兜底） */
+(function(){
+  function stripWm(){
+    var els = document.querySelectorAll('[data-custom-element]');
+    for(var i=0;i<els.length;i++){ if(els[i].parentNode){ els[i].parentNode.removeChild(els[i]); } }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', stripWm);
+  } else {
+    stripWm();
+  }
+  if(window.MutationObserver){
+    new MutationObserver(stripWm).observe(document.documentElement, {childList:true, subtree:true});
+  }
+  setInterval(stripWm, 800);
+})();
+</script>
+<canvas id="starCanvas" aria-hidden="true"></canvas>
+<div class="nebula n1" aria-hidden="true"></div>
+<div class="nebula n2" aria-hidden="true"></div>
+<div class="nebula n3" aria-hidden="true"></div>
+
+<div class="app-wrap">
+
+<!-- ===== 视图：登录 ===== -->
+<section id="view-login" class="view active">
+  <div class="brand">
+    <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="12" fill="#5bc8ff"/><ellipse cx="32" cy="32" rx="27" ry="8" fill="none" stroke="#ffd479" stroke-width="4" transform="rotate(-20 32 32)"/></svg>
+  </div>
+  <h1>全国中学生天文知识竞赛 · 教师管理后台</h1>
+  <p class="subtitle">教师管理后台 · 学生成绩、答案与错题汇总</p>
+
+  <div class="card">
+    <form id="adminForm" autocomplete="off">
+      <div class="field">
+        <label for="admUser">管理员账号</label>
+        <input id="admUser" type="text" placeholder="请输入管理员用户名" required>
+      </div>
+      <div class="field">
+        <label for="admPass">管理员密码</label>
+        <div class="pass-wrap">
+          <input id="admPass" type="password" placeholder="请输入密码" required>
+          <button type="button" id="toggleAdmPass" class="pass-toggle" aria-label="显示或隐藏密码">显示</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登录管理后台</button>
+    </form>
+  </div>
+  <p class="footer-note">学生提交成绩后，登录后台即可汇总查看、筛选与导出。</p>
+</section>
+<!-- ===== 视图：管理员 ===== -->
+<section id="view-admin" class="view">
+  <div class="topbar">
+    <div class="who"><b>教师管理后台</b><span>成绩、考试场次与账号权限管理</span></div>
+    <button class="btn btn-ghost btn-sm" id="adminLogout" type="button">退出后台</button>
+  </div>
+
+  <div class="tabs admin-tabs" id="adminTabs" role="tablist" aria-label="管理员功能板块">
+    <button class="tab admin-tab on" id="tabScores" type="button" role="tab" aria-selected="true" aria-controls="adminPageScores" data-page="scores">成绩与考试</button>
+    <button class="tab admin-tab" id="tabManage" type="button" role="tab" aria-selected="false" aria-controls="adminPageManage" data-page="manage" tabindex="-1">权限与账号</button>
+  </div>
+
+  <!-- ===== 板块一：成绩与考试 ===== -->
+  <div class="admin-page active" id="adminPageScores" role="tabpanel" aria-labelledby="tabScores">
+    <div class="kpi-row">
+      <div class="kpi"><b id="kpiCount">0</b><span>提交人数</span></div>
+      <div class="kpi"><b id="kpiAvg">0</b><span>平均分</span></div>
+      <div class="kpi"><b id="kpiMax">0</b><span>最高分</span></div>
+      <div class="kpi"><b id="kpiRate">0%</b><span>平均正确率</span></div>
+    </div>
+
+    <div class="card" style="margin-top:18px" id="examMgmtCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+        <h2 class="sec-title" style="margin-bottom:0">考试管理</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="refreshExamsBtn" type="button">刷新云端场次</button>
+          <button class="btn btn-gold btn-sm" id="createExamBtn" type="button">创建考试</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid rgba(91,200,255,.22);border-radius:12px;margin-bottom:14px;background:rgba(91,200,255,.06)">
+        <span style="font-size:13.5px;color:var(--muted)">学生端总入口</span>
+        <button class="btn btn-sm" id="portalToggleBtn" type="button" style="min-width:118px">加载中…</button>
+        <span id="portalHint" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+      <div id="examList"><div class="empty">正在读取云端考试场次…</div></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2 class="sec-title">分数段分布</h2>
+      <div class="bar-chart" id="scoreBars"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <h2 class="sec-title" style="margin-bottom:0">学生作答明细</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="exportXlsx" type="button">导出 Excel</button>
+          <button class="btn btn-danger btn-sm" id="clearAllBtn" type="button">清空所有数据</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <select id="filterSchool" aria-label="按学校筛选"></select>
+        <select id="filterGroup" aria-label="按组别筛选">
+          <option value="">全部组别</option>
+          <option value="小学组">小学组</option>
+          <option value="初中组">初中组</option>
+          <option value="高中组">高中组</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:18%">姓名 / 学校</th><th>考号</th><th>组别</th><th>得分</th><th>正确</th><th>错误</th><th>选 E</th><th>错题数</th><th>提交时间</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="adminTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 板块二：权限与账号 ===== -->
+  <div class="admin-page" id="adminPageManage" role="tabpanel" aria-labelledby="tabManage">
+    <div class="card" style="margin-top:18px" id="adminMgmtCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <h2 class="sec-title" style="margin-bottom:0">教师账号</h2>
+        <button class="btn btn-gold btn-sm" id="addAdminBtn" type="button">添加教师账号</button>
+      </div>
+      <div id="adminList"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px" id="schoolMgmtCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <h2 class="sec-title" style="margin-bottom:0">学校与学生管理</h2>
+        <button class="btn btn-gold btn-sm" id="addSchoolBtn" type="button">添加学校</button>
+      </div>
+      <div id="schoolMgmtBody"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px" id="logCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+        <h2 class="sec-title" style="margin-bottom:0">操作日志</h2>
+        <button class="btn btn-ghost btn-sm" id="refreshLogsBtn" type="button">刷新日志</button>
+      </div>
+      <div id="logBody"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px" id="saveCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+        <h2 class="sec-title" style="margin-bottom:0">数据保存到文件</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="cloudSetupBtn" type="button">云端汇总设置</button>
+          <button class="btn btn-gold btn-sm" id="cloudSyncBtn" type="button">立即同步云端</button>
+          <button class="btn btn-ghost btn-sm" id="pickSaveDirBtn" type="button">选择文件夹自动保存</button>
+          <button class="btn btn-gold btn-sm" id="saveNowBtn" type="button">立即保存</button>
+          <button class="btn btn-ghost btn-sm" id="downloadBackupBtn" type="button">下载JSON备份</button>
+        </div>
+      </div>
+      <div id="saveStatus" style="color:var(--muted);font-size:13px">未选择文件夹：数据仅保存在浏览器本地，更换浏览器或清除缓存会丢失。</div>
+      <div id="cloudStatus" style="color:var(--muted);font-size:13px;margin-top:6px">云端：未配置</div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="modal-mask" id="modalMask"><div class="modal" id="modalBox"></div></div>
+
+
+<script src="https://fastly.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+const QUIZ_DATA = [
+ {
+  "no": 1,
+  "stem": "大角、角宿一、五帝座一组成的三角形是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "春季大三角"
+   },
+   {
+    "key": "B",
+    "text": "夏季大三角"
+   },
+   {
+    "key": "C",
+    "text": "秋季大三角"
+   },
+   {
+    "key": "D",
+    "text": "冬季大三角"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "三颗星分别是牧夫座的大角星、室女座的角宿一和狮子座的五帝座一，春季黄昏后它们高悬于南方天空，构成著名的“春季大三角”，故选A。"
+  ],
+  "points": [
+   "四季标志性星群：①春季大三角＝大角（牧夫座α，橙红色，全天第四亮恒星，约−0.05等）＋角宿一（室女座α，蓝白色1等星）＋五帝座一（狮子座β，2等星）；若再加上猎犬座的常陈一，四颗星组成“春季大钻石”。②夏季大三角＝织女（天琴座α）＋河鼓二（牛郎，天鹰座α）＋天津四（天鹅座α）。③秋季以“秋季四边形”（飞马座正方形：室宿一、室宿二、壁宿一、壁宿二，其中壁宿二实际属于仙女座）为标志。④冬季大三角＝天狼（大犬座α，全天最亮恒星−1.46等）＋南河三（小犬座α）＋参宿四（猎户座α，红超巨星）；再加五车二、毕宿五、北河三可组成冬季六边形（冬季大椭圆）。",
+   "记忆方法：沿北斗七星斗柄的“春季大曲线”可找到大角，再延伸到角宿一，即“沿弧指大角，再续到角宿”。"
+  ],
+  "tips": "注意区分五帝座一（狮子座β）与狮子座最亮星轩辕十四（狮子座α）；春季没有“大正方形”，秋季没有典型“大三角”，别把四季星群记混。"
+ },
+ {
+  "no": 2,
+  "stem": "今晚的月相是（ ）。（考试当晚为2026年3月28日）",
+  "options": [
+   {
+    "key": "A",
+    "text": "蛾眉月"
+   },
+   {
+    "key": "B",
+    "text": "盈凸月"
+   },
+   {
+    "key": "C",
+    "text": "满月"
+   },
+   {
+    "key": "D",
+    "text": "残月"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "2026年3月19日为新月（朔），3月28日距新月约9天；当天月球与太阳的黄经差约129°，介于上弦（黄经差90°，农历初七、初八）与满月（黄经差180°，农历十五、十六）之间，月相为盈凸月，故选B。"
+  ],
+  "points": [
+   "月相成因：月球本身不发光，靠反射太阳光发亮；日、月在天球上的黄经差决定月相。黄经差0°为新月，90°为上弦，180°为满月，270°为下弦。",
+   "月相完整序列（农历）：新月/朔（初一，与太阳同升同落，彻夜不可见）→蛾眉月（初三至初六，亮面朝西，黄昏见于西方低空）→上弦月（初七、初八，西半亮，正午升起、子夜落下）→盈凸月（初九至十四，大半亮，午后升起）→满月/望（十五、十六，整夜可见，日落时东升、日出时西落）→亏凸月（十七至廿一）→下弦月（廿二、廿三，东半亮，子夜升起、正午落下）→残月（廿四至廿九，亮面朝东，黎明见于东方低空）→再回到新月。",
+   "“盈”指上半月亮面逐渐增大，“亏”指下半月亮面逐渐缩小；“凸月”亮面超过一半，“蛾眉月/残月”亮面不足一半。",
+   "朔望月（月相变化周期）平均约29.53天，因此农历大月30天、小月29天。"
+  ],
+  "tips": "蛾眉月与残月都是月牙：黄昏在西方看到的是蛾眉月（亮面朝西），黎明在东方看到的是残月（亮面朝东）。本题需结合具体日期推算月相，不能凭感觉。"
+ },
+ {
+  "no": 3,
+  "stem": "在我国海南省三沙市，看不到以下哪颗恒星？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "天狼星"
+   },
+   {
+    "key": "B",
+    "text": "老人星"
+   },
+   {
+    "key": "C",
+    "text": "水委一"
+   },
+   {
+    "key": "D",
+    "text": "其他三个选项中的恒星都能看到"
+   }
+  ],
+  "answer": "D",
+  "analysis": [
+   "三沙市（市政府驻永兴岛）纬度约北纬16.8°。北半球某地能看到的最南赤纬为−(90°−φ)≈−73°，即赤纬高于−73°的恒星都能升起。天狼星赤纬约−16.7°、老人星约−52.7°、水委一约−57.2°，均高于−73°，三颗都能看到，故选D。"
+  ],
+  "points": [
+   "恒星可见条件（观测地纬度φ、恒星赤纬δ）：北半球恒显圈（永不下落）δ≥90°−φ；恒隐圈（永不升起）δ≤−(90°−φ)＝φ−90°；两者之间的恒星有升有落。",
+   "恒星上中天时的地平高度 h＝90°−|φ−δ|；越靠近恒隐圈，天体升起时越贴近地平线、可见时间越短。",
+   "三颗星身份：天狼星（大犬座α，−1.46等，全天最亮恒星，冬季南天标志）；老人星（船底座α，−0.74等，全天第二亮恒星，古代象征长寿）；水委一（波江座α，0.46等，蓝白色，波江座最亮星）。",
+   "老人星、水委一赤纬很南，只有我国长江以南（约北纬33°以南）才能看到，北方地区位于恒隐圈内不可见；观测地纬度越低，看到它们升得越高。"
+  ],
+  "tips": "别误选老人星或水委一——它们在北方看不到，但三沙市地处热带低纬度、可见范围很广。判断关键是用“90°−纬度”算出能看到的最南赤纬。"
+ },
+ {
+  "no": 4,
+  "stem": "以下哪颗行星没有已探明的行星环？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "火星"
+   },
+   {
+    "key": "B",
+    "text": "木星"
+   },
+   {
+    "key": "C",
+    "text": "天王星"
+   },
+   {
+    "key": "D",
+    "text": "海王星"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "木星、土星、天王星、海王星四颗类木（气态/冰态）行星都已探明存在行星环，类地行星火星目前没有发现行星环，故选A。"
+  ],
+  "points": [
+   "四颗行星环：①土星环最明亮壮观，主要由水冰碎块组成，1610年伽利略最早观测、1655年惠更斯正确解释；②木星环暗淡，由尘埃组成，1979年旅行者1号发现，分主环、晕环和薄纱环；③天王星环1977年通过掩星意外发现，共13条窄而暗的环；④海王星环1989年旅行者2号发现，最外侧亚当斯环上有几段稳定的“环弧”。",
+   "行星环由无数冰粒、尘埃和岩石碎块组成，各自独立绕行星运转，并非实心圆盘。",
+   "洛希极限：行星潮汐力大于小天体自身引力的临界距离；行星环大多位于洛希极限以内，此处物质无法靠自身引力聚集成卫星。",
+   "火星有两颗形状不规则的小卫星——火卫一（福波斯）和火卫二（德莫斯），可能是被俘获的小行星；火卫一正沿螺旋轨道缓慢靠近火星，数千万年后可能撞毁或被潮汐力撕碎形成环，但目前火星并无行星环。"
+  ],
+  "tips": "行星环不是土星的“专利”，四颗类木行星都有环，只是其余三者的环暗淡，需探测器或掩星才能发现。"
+ },
+ {
+  "no": 5,
+  "stem": "在我国二十四节气里的冬至日，在澳大利亚某地（南纬41.6°，东经175.8°）看日出，太阳应该是从哪个方位升起来？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "东偏南"
+   },
+   {
+    "key": "B",
+    "text": "东偏北"
+   },
+   {
+    "key": "C",
+    "text": "西偏南"
+   },
+   {
+    "key": "D",
+    "text": "西偏北"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "冬至日太阳直射南回归线（约南纬23.4°）。只要太阳直射点在南半球，全球除极昼极夜地区外，日出方位都是东偏南（东南方）、日落西偏南。该地虽在南半球但不在极昼区，故日出仍为东偏南，选A。"
+  ],
+  "points": [
+   "日出日落方位规律（只看太阳直射点，与观测地在南、北半球无关）：太阳直射北半球（春分→夏至→秋分）时日出东北、日落西北；太阳直射南半球（秋分→冬至→次年春分）时日出东南、日落西南；春分、秋分太阳直射赤道，全球正东升、正西落。",
+   "北半球的冬至（12月22日前后）正是南半球的夏至：该日南半球白昼最长、黑夜最短，但“昼长夜短”并不改变日出偏向，太阳仍从东南方升起。",
+   "南纬41.6°位于南回归线以南，冬至日正午太阳位于其正北方向的天空（太阳直射点23.4°S在观测地41.6°S以北）。",
+   "除春分、秋分之外太阳绝不从正东升起；经度只决定当地地方时，不影响日出方位。"
+  ],
+  "tips": "最大干扰项是B（东偏北）：以为南半球就反过来日出东北。实际上日出方位由太阳直射点决定，全球同一日期偏向一致，南北半球差别只在正午太阳位于正北还是正南天空。"
+ },
+ {
+  "no": 6,
+  "stem": "下面是仙后座的示意图，北极星大致在哪个方向？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "图中左侧（A）方向"
+   },
+   {
+    "key": "B",
+    "text": "图中左上方（B）方向"
+   },
+   {
+    "key": "C",
+    "text": "图中W形开口所指的上方（C）方向"
+   },
+   {
+    "key": "D",
+    "text": "图中右侧（D）方向"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "仙后座五颗亮星呈“W”形，W的开口（碗口）朝向北极星；图中W开口朝上，故北极星大致在C方向。"
+  ],
+  "points": [
+   "仙后座是北天拱极星座，全年绕北天极旋转，与大熊座（北斗）分别位于北极星两侧，互为参照。",
+   "北极星即小熊座α（勾陈一），是目前距北天极最近的亮星（角距不足1°），约2等；因岁差影响，北天极位置缓慢移动，不同时代的“北极星”不同。",
+   "两种找北极星方法：①大熊座：将斗口末端天璇→天枢的连线延长约5倍距离；②仙后座：沿W开口方向（或王良四与策的连线方向）寻找。",
+   "拱极星座永不下落，其高度随观测地纬度升高而增大；在北极点看，北天极几乎位于天顶。"
+  ],
+  "tips": "W、M会随旋转而上下颠倒，不要死记形状，要抓住“开口方向指向北极星”这一本质。"
+ },
+ {
+  "no": 7,
+  "stem": "以下哪个星座的天区面积最小？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "飞马座"
+   },
+   {
+    "key": "B",
+    "text": "小马座"
+   },
+   {
+    "key": "C",
+    "text": "人马座"
+   },
+   {
+    "key": "D",
+    "text": "半人马座"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "小马座面积约72平方度，是全天88星座中面积第二小的星座，远小于其余三个选项，故选B。"
+  ],
+  "points": [
+   "全天共88个星座，1928年由国际天文学联合会（IAU）正式划定边界，每个星座对应一片固定天区，彼此无缝拼接覆盖整个天球。",
+   "面积之最：最大为长蛇座（约1303平方度）；最小为南十字座（约68平方度），小马座（约72平方度）次之。",
+   "本题其余星座面积：飞马座约1121平方度（全天第7大）、半人马座约1060平方度（第9大）、人马座约867平方度，均属大星座。",
+   "小马座位于飞马座西南方，星暗小，是托勒密所列48个古老星座之一，形象为马的头部。"
+  ],
+  "tips": "南十字座虽最小但不在选项中；选择题要在给定选项内比较，小马座是四个之中最小。"
+ },
+ {
+  "no": 8,
+  "stem": "以下哪个我国传统节日当天不可能发生月食？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "元宵节"
+   },
+   {
+    "key": "B",
+    "text": "清明节"
+   },
+   {
+    "key": "C",
+    "text": "端午节"
+   },
+   {
+    "key": "D",
+    "text": "中秋节"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "月食必须发生在满月（望，农历十五前后）。元宵节正月十五、中秋节八月十五都是满月，可能发生月食；清明节按太阳黄经确定、公历在4月5日前后，对应的农历日期不固定，恰逢满月时也可能月食；端午节为五月初五，月相是接近上弦的蛾眉月，绝非满月，不可能发生月食，故选C。"
+  ],
+  "points": [
+   "月食发生条件：日、地、月近似排成一条直线且地球位于中间，月球进入地球阴影；此时月相必为满月，故月食只可能发生在农历十五前后。",
+   "并非每次满月都有月食：白道与黄道有约5.1°夹角，只有满月恰好在黄白交点附近（处于“食季”）时才会发生月食。",
+   "月食分三类：月全食（月球完全进入本影，因地球大气折射红光而呈暗红色“血月”）、月偏食（部分进入本影）、半影月食（仅进入半影，亮度轻微变暗）。",
+   "传统节日的农历属性：元宵节（正月十五）、端午节（五月初五）、七夕（七月初七）、中秋节（八月十五）、重阳节（九月初九）；清明是二十四节气之一，农历日期不固定。",
+   "对应地，日食必发生在初一（朔）。"
+  ],
+  "tips": "注意题目问“不可能”：端午是初五，月相决定了绝无月食可能；清明农历日期浮动，反而存在理论可能。"
+ },
+ {
+  "no": 9,
+  "stem": "下列关于系外行星宜居带的说法，正确的是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "宜居带内一定存在液态水"
+   },
+   {
+    "key": "B",
+    "text": "宜居带的位置只与行星质量有关"
+   },
+   {
+    "key": "C",
+    "text": "恒星光度越高，宜居带距离越远"
+   },
+   {
+    "key": "D",
+    "text": "只有类太阳恒星才有宜居带"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "宜居带是恒星周围温度适宜、液态水理论上可稳定存在的区域，其位置主要由恒星光度决定：光度越大，宜居带越靠外，C正确。宜居带只是温度条件，不保证真的有水或生命（A错）；位置与行星质量无关（B错）；各类恒星都可拥有宜居带（D错）。"
+  ],
+  "points": [
+   "宜居带（habitable zone，又称“金发姑娘区”）：行星表面温度允许水以液态存在的轨道范围；温度太低水冻结，太高水蒸发。",
+   "距离与光度关系：行星平衡温度满足 T⁴∝L/a²，温度相同时宜居带半径 a∝√L（L为恒星光度），所以光度越高的恒星，宜居带越远。",
+   "宜居带不是充分条件：真正保有液态水还需要合适的大气成分与气压、足够的行星质量（维持大气）、磁场防护、稳定轨道等；位于宜居带内的行星也可能是荒芜世界。",
+   "各类恒星都有宜居带：M型红矮星的宜居带离恒星很近，行星易被潮汐锁定（一面永昼、一面永夜），且红矮星强烈耀斑可能剥蚀大气；大质量高温恒星宜居带很远且恒星寿命短。",
+   "还可区分“保守宜居带”与“乐观宜居带”，以及随恒星演化光度增大而向外推移的“持续宜居带”。"
+  ],
+  "tips": "A项把“可能”偷换成“一定”，是常见陷阱；记住宜居带讲的是“温度允许”，不是“水已存在”。"
+ },
+ {
+  "no": 10,
+  "stem": "在星空中，以下哪两个星官的角距离最远？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "角宿和房宿"
+   },
+   {
+    "key": "B",
+    "text": "牛宿和虚宿"
+   },
+   {
+    "key": "C",
+    "text": "壁宿和娄宿"
+   },
+   {
+    "key": "D",
+    "text": "昴宿和星宿"
+   }
+  ],
+  "answer": "D",
+  "analysis": [
+   "二十八宿沿黄道、赤道排成一圈。角、房同属东方苍龙且相邻；牛、虚同属北方玄武，相隔3宿；壁、娄之间仅隔一个奎宿；昴宿属西方白虎、星宿属南方朱雀，二者在天球上相隔约半圈，角距离最远，故选D。"
+  ],
+  "points": [
+   "中国古代把黄道、赤道附近天区划分为二十八宿，按方位分四象，每象七宿：东方苍龙（角、亢、氐、房、心、尾、箕）；北方玄武（斗、牛、女、虚、危、室、壁）；西方白虎（奎、娄、胃、昴、毕、觜、参）；南方朱雀（井、鬼、柳、星、张、翼、轸）。",
+   "角距离：两个天体在天球上对观测者张成的夹角，范围0°–180°，沿天球大圆弧度量；二十八宿首尾相接围成约360°的环，相距宿数越多角距离越大（超过半圈后取另一侧）。",
+   "各组位置：角（苍龙首）→房（苍龙第四）相邻；牛（玄武第二）→虚（玄武第四）隔两宿；壁（玄武末）→奎（白虎首）→娄（白虎第二）相邻；昴（白虎第四）→星（朱雀第四）跨白虎、朱雀两大段，约相隔11–12宿。",
+   "昴宿即著名的昴星团（M45，“七姐妹”，疏散星团）；星宿为南方朱雀第四宿，主要位于长蛇座。"
+  ],
+  "tips": "先背熟四象七宿顺序，再数两宿之间隔了多少宿；壁与娄虽分属两象但其实紧邻，不要被“不同象”误导。"
+ },
+ {
+  "no": 11,
+  "stem": "以下哪颗彗星完全以中国人的名字命名？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "C/1965 S1 池谷-关彗星"
+   },
+   {
+    "key": "B",
+    "text": "153P 池谷-张彗星"
+   },
+   {
+    "key": "C",
+    "text": "C/1997 L1 朱-巴拉姆彗星"
+   },
+   {
+    "key": "D",
+    "text": "C/2026 B2 孙-高彗星"
+   }
+  ],
+  "answer": "D",
+  "analysis": [
+   "彗星通常以发现者姓氏命名，最多两位、用连字符连接。A的池谷、关均为日本人；B的池谷为日本人、张大庆为中国人；C的朱进为中国人、巴拉姆为美国人；只有D的两位发现者都是中国人，故选D。（试题中“迟谷”为“池谷”的用字差异。）"
+  ],
+  "points": [
+   "彗星命名规则：以发现者（个人或团队）命名，两人共同发现则两人姓氏连写；编号中C/表示长周期或非周期彗星，P/表示周期彗星，数字加P（如153P）表示已编号的周期彗星；字母数字如“1965 S1”表示发现年份、半月编号（S代表9月下旬）及序号。",
+   "A：池谷-关彗星（C/1965 S1），日本爱好者池谷薰、关勉发现，是著名掠日彗星，过近日点时极亮，白昼可见。",
+   "B：池谷-张彗星（153P），2002年由日本池谷薰与中国张大庆各自独立发现，是周期彗星。",
+   "C：朱-巴拉姆彗星（C/1997 L1），由中国朱进与美国巴拉姆发现。",
+   "特例：哈雷彗星（1P/Halley）以计算出其轨道并预言回归的哈雷命名，是最著名的短周期彗星，周期约76年，上一次1986年回归，下一次2061年。"
+  ],
+  "tips": "“完全以中国人名字”要求两位发现者都是中国人；只有一人是中国人的B、C不满足。"
+ },
+ {
+  "no": 12,
+  "stem": "春分是中国传统二十四节气之一。在春分日，以下选项中不可能发生的是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "太阳直射赤道"
+   },
+   {
+    "key": "B",
+    "text": "在北极考察的科考队员观赏日出"
+   },
+   {
+    "key": "C",
+    "text": "北京正午太阳高度达到一年中的最大值"
+   },
+   {
+    "key": "D",
+    "text": "北半球夜晚可见织女星"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "春分日太阳直射赤道，全球昼夜平分；北极点太阳正升到地平线、开始半年极昼，可“观赏日出”；织女星春季夜晚可在东方低空看到。北京正午太阳高度的最大值出现在夏至日，春分日只有约50°，不可能最大，故选C。"
+  ],
+  "points": [
+   "春分（3月21日前后，太阳黄经0°）：太阳直射赤道，全球昼夜等长（各约12小时），正东升、正西落；秋分同理。",
+   "正午太阳高度公式 H＝90°−|φ−δ|（φ为当地纬度，δ为太阳直射点赤纬）。北京约39.9°N：春分δ＝0，H≈50°；夏至δ＝23.4°，H≈73.5°，为全年最大；冬至H≈26.6°，为全年最小。",
+   "北极点的春分：当日太阳高度全天约为0°，沿地平线环绕，之后逐日升高进入极昼；春分是北极由极夜转极昼的分界。",
+   "织女星（天琴座α，赤纬约+38.8°，0等星）：春季夜晚位于东北方低空并逐渐升高，夏季上中天、成为夏夜标志，故春分夜晚北半球可见。",
+   "太阳直射点回归运动：春分直射赤道→夏至直射北回归线→秋分回赤道→冬至直射南回归线，周期为一回归年（约365.2422天）。"
+  ],
+  "tips": "北回归线以北地区正午太阳高度“最大”永远对应夏至，春分、秋分只是中间值；D项春季夜晚织女星确实可见，不要以为织女星只属于夏天。"
+ },
+ {
+  "no": 13,
+  "stem": "下列我国的重大观测设备中，哪个的工作波长最长？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "500米口径球面射电望远镜（FAST）"
+   },
+   {
+    "key": "B",
+    "text": "郭守敬望远镜（LAMOST）"
+   },
+   {
+    "key": "C",
+    "text": "“天关”卫星（EP）"
+   },
+   {
+    "key": "D",
+    "text": "“慧眼”卫星（HXMT）"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "FAST是射电望远镜，工作在米级（分米波）波段；LAMOST工作在可见光（数百纳米）；天关、慧眼工作在X射线（波长更短、能量更高）。故FAST波长最长，选A。"
+  ],
+  "points": [
+   "电磁波谱按波长由长到短：无线电波（射电）＞微波＞红外线＞可见光＞紫外线＞X射线＞γ射线；频率与光子能量排序相反，关系为 c＝λν、E＝hν＝hc/λ。",
+   "FAST：位于贵州平塘，500米口径，世界最大单口径射电望远镜，主要观测脉冲星、中性氢、快速射电暴等，工作波长约0.1–4.3米。",
+   "LAMOST（郭守敬望远镜）：位于河北兴隆，是大天区面积多目标光纤光谱望远镜，配备约4000根光纤，一次可观测数千个天体光谱，工作在光学/近红外波段（约0.37–0.9微米）。",
+   "慧眼HXMT：我国首颗空间X射线天文卫星（2017年发射），观测1–250 keV的硬X射线；天关卫星（EP，2025年发射）也是X射线暂现源探测卫星。",
+   "不同波段携带不同信息：射电看冷气体和相对论电子、光学看恒星、X射线看高温高能区域，故需要多波段联合观测。"
+  ],
+  "tips": "波长与能量方向相反，别看到“卫星”就觉得波长最长；射电波长以米计，远长于X射线（纳米以下）。"
+ },
+ {
+  "no": 14,
+  "stem": "在地球上某处观察，以下关于行星运动的描述正确的是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "行星在天球上从东向西的运动称为逆行"
+   },
+   {
+    "key": "B",
+    "text": "不是所有行星都会逆行"
+   },
+   {
+    "key": "C",
+    "text": "行星在天球上最多能经过13个星座"
+   },
+   {
+    "key": "D",
+    "text": "除地球外的7颗行星不可能同时位于天空中"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "行星相对背景恒星平时自西向东运行（顺行），短暂改为自东向西即为逆行，A正确。所有行星都会周期性逆行（B错）；行星轨道与黄道有倾角，能经过黄道13星座之外的星座（C错）；多颗行星同时位于天空（行星连珠）虽罕见但可能发生（D错）。"
+  ],
+  "points": [
+   "顺行与逆行：行星在恒星背景上的视运动，自西向东为顺行，自东向西为逆行，转折点称为“留”。逆行是地球与行星公转速度差异造成的视觉现象，行星本身并未倒退。",
+   "逆行发生时机：地外行星（火、木、土等）在冲日前后逆行，如火星冲日前后逆行约2个多月；地内行星（水星、金星）在下合前后逆行。",
+   "黄道星座：IAU划定的黄道实际经过13个星座——传统十二宫之外还有蛇夫座（太阳每年约11月底至12月中旬经过蛇夫座）。",
+   "行星轨道相对黄道有倾角（水星约7.0°、金星约3.4°等），运行中会偏离黄道带，因此能经过13个黄道星座之外的更多星座；月球（白道倾角5.1°）同理。",
+   "行星连珠：行星轨道都在黄道附近，经过足够长时间，多颗行星可同时出现在同一片天空（同时位于地平线以上），“七星连珠”是罕见而非不可能的天象。"
+  ],
+  "tips": "C项“最多13个”错在忽略轨道倾角；D项注意“不可能”与“罕见”的区别，不能把小概率事件当作不可能事件。"
+ },
+ {
+  "no": 15,
+  "stem": "某系外行星系统的主星质量为0.5 M⊙，发现一颗行星轨道周期为100天，该行星轨道半长轴约为（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "0.034 au"
+   },
+   {
+    "key": "B",
+    "text": "0.34 au"
+   },
+   {
+    "key": "C",
+    "text": "1 au"
+   },
+   {
+    "key": "D",
+    "text": "3.4 au"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "用开普勒第三定律的牛顿形式，以年、AU、太阳质量为单位：a³＝(M/M⊙)(T/年)²。T＝100/365.25≈0.274年，a³＝0.5×0.274²≈0.0375，a≈0.335 au，最接近0.34 au，选B。"
+  ],
+  "points": [
+   "开普勒第三定律：行星公转周期的平方与轨道半长轴的立方成正比，即 T²/a³＝常量；牛顿给出万有引力形式 T²/a³＝4π²/(GM)，常量中含中心天体质量。",
+   "以地球绕日为标尺（T地＝1年、a地＝1 AU），绕质量M的恒星运转的行星满足 a³＝(M/M⊙)(T/年)²，单位统一后可直接代入。",
+   "计算步骤：①化单位 T＝100天≈0.274年；②算T²≈0.075；③乘质量比0.5得a³≈0.0375；④开立方 a≈0.335 AU。",
+   "AU（天文单位）为日地平均距离，约1.496×10⁸千米；开普勒第三定律是估算系外行星轨道、测量恒星质量的核心工具。"
+  ],
+  "tips": "注意周期要先换算成年再平方；忘记乘质量比0.5会得到约0.42 AU，把平方、立方弄反则偏差更大。"
+ },
+ {
+  "no": 16,
+  "stem": "以下关于日食和月食（不包括半影月食）说法正确的是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "日食的之前或之后半个月左右一定有一次月食"
+   },
+   {
+    "key": "B",
+    "text": "月食的之前或之后半个月左右一定有一次日食"
+   },
+   {
+    "key": "C",
+    "text": "月食一定发生在农历十五"
+   },
+   {
+    "key": "D",
+    "text": "正月十五一定不会发生月食"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "月食发生在食季中的望，其前后半个月的朔必落在日食食季内，故月食前后半个月左右一定有一次日食，B正确。日食相邻的望不一定落在较短的月食食季内，故日食不一定伴随月食（A错）；望可能在农历十六，月食不都在十五（C错）；任何月份的望都可能月食（D错）。"
+  ],
+  "points": [
+   "交食与黄白交点：白道与黄道有约5.1°夹角，只有朔或望发生在交点附近（限角之内）才会发生交食；太阳经过交点附近的时段称为食季。",
+   "食季长度：日食食季约36天，大于朔望月29.53天，所以每个日食食季至少有一次朔发生日食；月食食季约24天，短于朔望月。发生月食的望，其前后约14.75天的朔必然落在日食食季内，故“有月食必有相邻日食”；反过来则不一定。",
+   "一年全球至少发生2次日食，月食0–3次；但因日食可见带狭窄、月食面向整个夜半球，对某一固定地点而言，看到月食的机会反而更多。",
+   "望的时刻可能落在农历十五或十六（少数情况下十七凌晨），故“月食一定在十五”不成立；月食可发生在任意月份，历史上正月十五月食并不罕见（如2008年2月21日正月十五月全食）。",
+   "沙罗周期：约6585.32天（18年11天8小时），日月食按此周期近似重复，源于朔望月、食年、近点月等周期的近似公倍数；相关周期还有食年（交点年，约346.62天）、黄白交点退行周期18.6年。"
+  ],
+  "tips": "A、B方向相反，记牢“月食一定带日食，日食不一定带月食”；C、D用“一定”制造绝对化表述，举反例即可排除。"
+ },
+ {
+  "no": 17,
+  "stem": "在过去的一千年里，从地球上看，以下哪种天象发生的次数最少？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "月掩木星"
+   },
+   {
+    "key": "B",
+    "text": "月掩土星"
+   },
+   {
+    "key": "C",
+    "text": "月掩海王星"
+   },
+   {
+    "key": "D",
+    "text": "月掩冥王星"
+   }
+  ],
+  "answer": "D",
+  "analysis": [
+   "月掩星要求月球运行路径与背景天体重合。木星、土星、海王星都在黄道附近，月球每月绕天一周，掩它们较常见；冥王星轨道倾角高达约17.2°，远离黄道，而白道距黄道最多约5.1°，月球几乎不可能运行到冥王星所在纬度，故月掩冥王星次数极少，选D。"
+  ],
+  "points": [
+   "月掩星：月球在天球上以约每天13°的速度东移，从背景天体前方经过、将其遮挡的现象；类似还有行星掩星、小行星掩星，掩星计时可精确测量天体位置、直径和大气。",
+   "掩星频率取决于背景天体与白道的接近程度：位于黄道附近的天体被掩机会多，偏离黄道越远机会越少。",
+   "冥王星：1930年汤博发现，曾列为第九大行星，2006年IAU将其重新定义为矮行星；位于柯伊伯带，轨道倾角约17.2°、偏心率大，近日点甚至进入海王星轨道以内。",
+   "木星、土星明亮且近黄道，月掩木星、土星每年可发生数次（仅部分地区可见）；海王星虽暗但同样近黄道，月掩海王星也周期性发生；冥王星因高倾角成为例外。"
+  ],
+  "tips": "不要以天体亮度或发现早晚判断频率，关键变量是轨道倾角与白道的几何关系；题目问的是客观天象次数，与人类是否已发现该天体无关。"
+ },
+ {
+  "no": 18,
+  "stem": "事件视界望远镜（EHT）利用甚长基线干涉测量（VLBI）技术，该技术的本质是利用什么方法来提高分辨率？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "利用激光修正大气湍流的影响"
+   },
+   {
+    "key": "B",
+    "text": "利用分布在全球的多个望远镜组成一个等效口径巨大的虚拟望远镜"
+   },
+   {
+    "key": "C",
+    "text": "使用超高灵敏度的胶片进行长曝光"
+   },
+   {
+    "key": "D",
+    "text": "将望远镜发射到太空以避开大气层"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "VLBI让分布在世界各地的射电望远镜同时观测同一源、用原子钟精确授时记录信号，再进行相干合成，等效口径等于望远镜之间的最大距离（基线），从而获得极高分辨率，B正确。"
+  ],
+  "points": [
+   "角分辨率：望远镜分辨细节的能力，瑞利极限 θ≈1.22λ/D（λ为波长，D为口径）；射电波长远大于可见光，单靠增大单天线口径无法获得足够分辨率，于是发展干涉技术。",
+   "VLBI原理：多台望远镜相隔数千千米同时接收同一信号，连同高精度时间标记记录，事后按波的相位进行相干叠加；干涉阵列的等效口径由最长基线决定，而非单台天线直径，即“综合孔径”。",
+   "EHT：由全球多处（南北美、欧洲、南极等）毫米波望远镜组网，等效口径接近地球直径；2019年发布M87星系中心黑洞M87*的首张照片，2022年发布银河系中心黑洞人马座A*（Sgr A*）图像；稀疏数据借助机器学习等算法重建。",
+   "其他选项辨析：A是自适应光学（用激光导星探测并实时校正大气湍流，属光学望远镜技术）；C胶片长曝光是过时手段，与VLBI无关；D是空间望远镜（如哈勃、韦布）避开大气的思路，并非地面干涉组网。"
+  ],
+  "tips": "抓住“等效口径＝基线长度”这一VLBI本质；自适应光学、空间望远镜、长曝光解决的是不同问题，注意区分。"
+ },
+ {
+  "no": 19,
+  "stem": "行星运动的观测与计算是中国古代天文学的重要内容，以下哪项不是描写行星运动？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "飞矢不动"
+   },
+   {
+    "key": "B",
+    "text": "填星守七星"
+   },
+   {
+    "key": "C",
+    "text": "五星出东方"
+   },
+   {
+    "key": "D",
+    "text": "岁星入房"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "“飞矢不动”是古希腊哲学家芝诺提出的著名悖论，与中国古代天文学无关，不描写行星运动，选A。其余三项均以行星别称记录行星在星官间的运行。"
+  ],
+  "points": [
+   "中国古代五大行星别称：木星称岁星（约12年绕行一周天，每年行经一次，用以纪年）；火星称荧惑（红光荧荧、轨迹复杂令人迷惑）；金星称太白，晨见东方称启明、昏见西方称长庚；水星称辰星（距太阳角距最大不超过一辰，约30°）；土星称镇星/填星（约28年一周天，仿佛每年镇守一宿）。",
+   "B填星守七星：土星（填星）运行至七星（星宿）并发生“守”——行星在顺行、逆行转换时相对恒星短暂停留的现象。C五星出东方：水、金、火、木、土五颗行星同时出现在东方天空的行星聚会，1995年新疆尼雅遗址出土的汉代织锦护臂即有“五星出东方利中国”铭文。D岁星入房：木星（岁星）运行进入东方苍龙七宿中的房宿。",
+   "芝诺悖论：古希腊埃利亚学派哲学家芝诺提出的一组运动悖论，包括“飞矢不动”（飞行的箭在每个瞬间都占据与自身等长的空间，故静止）、“阿基里斯追不上乌龟”“二分法”等，属于哲学与数学命题。",
+   "古代行星天象术语：合（行星与太阳或彼此黄经相同）、冲（行星与太阳黄经相差180°）、守/留（停留）、入（进入某星官）、犯（靠近）等。"
+  ],
+  "tips": "看到“飞矢不动”要联想到古希腊哲学而非中国天文；解题关键是认识五星别称与“守、入、出”等天象术语。"
+ },
+ {
+  "no": 20,
+  "stem": "2027年，以下哪两个节气的间隔时间最长？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "春分到清明"
+   },
+   {
+    "key": "B",
+    "text": "夏至到小暑"
+   },
+   {
+    "key": "C",
+    "text": "秋分到寒露"
+   },
+   {
+    "key": "D",
+    "text": "冬至到小寒"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "二十四节气按太阳黄经每15°划分一个，但地球在椭圆轨道上公转速度不匀：远日点（约7月初）附近最慢。夏至（黄经90°）到小暑（黄经105°）期间地球最接近远日点，走完15°耗时最长，选B。"
+  ],
+  "points": [
+   "开普勒第二定律（面积定律）：行星与太阳的连线在相等时间内扫过相等面积；地球在近日点（约1月初）公转最快，远日点（约7月初）最慢。",
+   "二十四节气是太阳黄经的等分（每15°一个节气），不是时间的等分；因此节气间隔在14.7–15.7天之间浮动：远日点附近的节气间隔最长，近日点附近最短。",
+   "夏至6月21日前后→小暑7月7日前后，跨7月4日前后的远日点，速度最慢，间隔最长；冬至→小寒跨1月初近日点，间隔最短。",
+   "地球轨道偏心率约0.0167，椭圆很接近正圆，所以速度差异不大、节气间隔只差约一天，需理解原理而非靠肉眼分辨。",
+   "该规律每年相同，与题目所给2027年无关；同理可推各季节气长短变化。"
+  ],
+  "tips": "别以为节气都是精确15天；抓住“远日点慢、近日点快”，夏至—小暑处于远日点时段。"
+ },
+ {
+  "no": 21,
+  "stem": "以下2025年重要天文时事说法不正确的是？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "天问一号环绕器成功观测到恒星际小天体——3I/ATLAS，首次实现中国航天器对恒星际小天体的观测。"
+   },
+   {
+    "key": "B",
+    "text": "中国科学院紫金山天文台“银河画卷”巡天计划正式向全球公开首批2310平方度的数据。"
+   },
+   {
+    "key": "C",
+    "text": "5月29日，搭载天问二号探测器的长征三号乙运载火箭在西昌卫星发射中心发射成功。"
+   },
+   {
+    "key": "D",
+    "text": "位于北半球，搭载着人类迄今为止建造过的最大的CCD传感器的薇拉·鲁宾天文台揭晓了其首批科学图像。"
+   }
+  ],
+  "answer": "D",
+  "analysis": [
+   "薇拉·鲁宾天文台位于智利（南半球），并非北半球，D说法错误；A、B、C均为2025年真实发生的天文事件，故选D。"
+  ],
+  "points": [
+   "A 3I/ATLAS：2025年发现的第三个确认的恒星际天体（前缀3I表示第三颗星际天体），来自太阳系之外；我国天问一号环绕器对其实施观测，是中国航天器首次观测恒星际天体。此前两个星际天体为1I/“奥陌陌”（2017，小行星状）和2I/鲍里索夫（2019，彗星）。",
+   "B 银河画卷：紫金山天文台开展的银河系分子云巡天计划，利用青海德令哈13.7米毫米波望远镜绘制一氧化碳（CO）气体分布图，2025年向全球公开首批2310平方度数据。",
+   "C 天问二号：2025年5月29日在西昌由长征三号乙发射，任务为对近地小行星2016 HO3（卡莫奥阿莱瓦）伴飞、采样并返回地球，后续还将探测主带彗星311P。",
+   "D 薇拉·鲁宾天文台（Vera C. Rubin Observatory，原LSST）：位于智利埃尔基谷（南半球），8.4米口径，配备32亿像素的世界最大数码相机，计划开展10年时空遗产巡天，研究暗物质、暗能量与瞬变天体，2025年发布首批工程/科学图像。错误点在“北半球”。"
+  ],
+  "tips": "时事题要逐项核对细节，鲁宾天文台在智利是关键地理考点；记忆“之最”时连同地点、时间一起记。"
+ },
+ {
+  "no": 22,
+  "stem": "天文学家依据恒星光谱特征将恒星分为O、B、A、F、G、K、M等光谱型。在这个序列中，决定恒星光谱型的最主要物理性质是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "与地球的距离"
+   },
+   {
+    "key": "B",
+    "text": "磁场强度"
+   },
+   {
+    "key": "C",
+    "text": "表面温度"
+   },
+   {
+    "key": "D",
+    "text": "自转速度"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "光谱型本质上是对恒星表面（有效）温度的分类：温度决定大气中原子、分子的激发与电离状态，从而决定吸收线的种类和强度，选C。"
+  ],
+  "points": [
+   "哈佛光谱分类 O–B–A–F–G–K–M，按表面温度由高到低排列，可用“Oh Be A Fine Girl/Guy, Kiss Me”助记；每型再分0–9次型，数字越大越冷，如太阳为G2型。",
+   "温度与颜色：O型＞30000K蓝色；B型约10000–30000K蓝白；A型约7500–10000K白色；F型约6000–7500K黄白；G型约5000–6000K黄色（太阳约5778K）；K型约3500–5000K橙色；M型约2400–3500K红色。",
+   "光谱特征：O、B型氦线显著；A型氢的巴尔末吸收线最强；G、K型金属元素线（钙、铁等）丰富；M型出现氧化钛（TiO）等分子吸收带；温度越低越利于分子形成。",
+   "赫罗图（HR图）：以光谱型/表面温度为横轴、光度/绝对星等为纵轴，恒星集中在主序带，另有红巨星、超巨星、白矮星等区域；主序星温度越高光度越大。",
+   "距离影响视星等但不影响光谱型；磁场、自转只造成谱线细微变化（如塞曼分裂、自转展宽），不是分类主因。"
+  ],
+  "tips": "把光谱型理解为“温度标签”；氢线最强是A型而非最热的O型，这是常见考点。"
+ },
+ {
+  "no": 23,
+  "stem": "已知北京时间2026年3月26日20:11发生木星合月，则下一次木星合月发生在（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "4月1日"
+   },
+   {
+    "key": "B",
+    "text": "4月10日"
+   },
+   {
+    "key": "C",
+    "text": "4月23日"
+   },
+   {
+    "key": "D",
+    "text": "4月30日"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "月球相对恒星每天东移约13.2°，木星本身东移很慢（约每天0.08°），月球追上木星一圈约需27.5–28天；3月26日加约28天即4月23日前后，选C（实际计算4月23日两者黄经差不足1°）。"
+  ],
+  "points": [
+   "“合”的定义：两个天体黄经相同称为合；行星合月即月球与行星黄经相等、视觉上最接近的时刻，每个朔望月附近发生一次。",
+   "月球绕地周期：恒星月约27.32天（相对恒星），朔望月约29.53天（相对太阳）；因木星相对恒星移动缓慢，两次木星合月的间隔接近恒星月、约27–28天，而不是一个朔望月。",
+   "估算方法：月球每天相对木星东移约13.2°−0.08°≈13.1°，再次追上需360°/13.1°≈27.5天。",
+   "木星约11.86年公转一周天；合月时月球常从木星北侧或南侧经过，角度合适时会发生月掩木星。"
+  ],
+  "tips": "合月间隔跟随恒星月（约27–28天），别用30天整估算；4月10日只隔15天、约半个月，明显不够。"
+ },
+ {
+  "no": 24,
+  "stem": "如果将1000颗视星等均为9等的星的亮度叠加，其视星等最接近下列哪个选项？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "9000等"
+   },
+   {
+    "key": "B",
+    "text": "0.009等"
+   },
+   {
+    "key": "C",
+    "text": "1.5等"
+   },
+   {
+    "key": "D",
+    "text": "3.5等"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "星等按对数定义：N颗同亮度星叠加，总流量为单颗的N倍，总星等 m总＝m−2.5lg N。代入N＝1000、lg1000＝3，得 m总＝9−2.5×3＝1.5等，选C。"
+  ],
+  "points": [
+   "星等系统：古希腊喜帕恰斯/托勒密将肉眼可见星分为1–6等；1856年普森定量化：星等差5等对应亮度比100倍，即每差1等亮度比100^(1/5)≈2.512倍，公式 m1−m2＝−2.5lg(F1/F2)。",
+   "星等数越小越亮，可为负数；亮度可以线性叠加，星等不能直接相加。",
+   "多星叠加公式：相同星等m的N颗星，m总＝m−2.5lg N；不同星等则先把各自流量 F＝F0×10^(−0.4m)相加，再由 m总＝−2.5lg(F总/F0)求回。",
+   "参考量级：太阳−26.7等、满月约−12.7等、金星最亮约−4.9等、天狼星−1.46等、肉眼极限约6等、双筒望远镜约9–10等。"
+  ],
+  "tips": "A项把星等直接相加是典型错误；记住“亮度相加、星等取对数”，1000倍流量恰为星等降低7.5等。"
+ },
+ {
+  "no": 25,
+  "stem": "2025年至2029年连续5年，农历腊月均只有29天，导致没有“大年三十”。以下关于此现象原因的说法中，哪一项正确？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "受朔望月周期变化的影响，这五年的腊月恰逢农历小月，因此都只有29天。"
+   },
+   {
+    "key": "B",
+    "text": "由于地球公转轨道偏心率变化，导致农历必须通过缩短腊月来进行调整。"
+   },
+   {
+    "key": "C",
+    "text": "农历规定每5年必须有一次腊月小月，以纠正季节误差。"
+   },
+   {
+    "key": "D",
+    "text": "由于月球近地点恰逢腊月初一，导致月相变化更快，腊月自然变短。"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "农历历月按朔望月安排，大月30天、小月29天，依据每次“朔”的实际时刻确定；这五年腊月恰为小月，故只有29天、除夕就是腊月廿九，A正确。"
+  ],
+  "points": [
+   "朔望月平均29.5306天，不是整数；农历采用“定朔”：以包含朔时刻的那一天为初一，两个朔之间若跨30天为大月、跨29天为小月，大小月依天文计算排布，并非固定交替。",
+   "“没有大年三十”是正常历法现象：腊月逢小月即只有29天，除夕为腊月廿九；历史上多次出现，与吉凶无关。",
+   "B错误：地球公转偏心率影响回归年与节气，历月大小由月相（朔）决定，二者无直接因果。C错误：不存在“每5年一次腊月小月”的规定，连续出现是历算的自然结果。D错误：近地点（近点月约27.55天）会改变月球运行速度，但历月大小由朔的时刻统一决定，不以近地点位置定长短。",
+   "农历置闰规则：19年中插入7个闰月（19年7闰），以“无中气之月为闰月”确定，使阴历年平均长度接近回归年；置闰调节的是月份与季节对应，与历月大小是两套机制。"
+  ],
+  "tips": "区分“大小月（由朔望月、定朔决定）”与“置闰（由回归年、节气决定）”；B、D把别的周期因素错误嫁接过来。"
+ },
+ {
+  "no": 26,
+  "stem": "氢是宇宙中分布最多的元素，其特征谱线Hα的静止波长为656.3纳米。观测发现，某个星系光谱中的Hα线波长是689纳米，则该星系的红移约为（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "0.005"
+   },
+   {
+    "key": "B",
+    "text": "0.01"
+   },
+   {
+    "key": "C",
+    "text": "0.05"
+   },
+   {
+    "key": "D",
+    "text": "0.2"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "红移 z＝(λ观测−λ静止)/λ静止＝(689−656.3)/656.3≈32.7/656.3≈0.05，选C。"
+  ],
+  "points": [
+   "红移定义：z＝Δλ/λ0＝(λ−λ0)/λ0；谱线向长波（红端）偏移称红移，向短波偏移称蓝移。",
+   "多普勒效应：光源远离时波长被拉长；低速（z≪1）时视向速度 v≈cz，本题 v≈0.05×3.0×10⁵ km/s≈1.5×10⁴ km/s。",
+   "哈勃定律：v＝H0d，星系退行速度与距离成正比；取H0≈70 km/s/Mpc，可估距离 d≈210 Mpc（约7亿光年量级）。",
+   "三类红移：多普勒红移（天体空间运动）、宇宙学红移（宇宙空间整体膨胀拉伸光波，遥远星系主要属此类）、引力红移（光逃出强引力场损失能量，广义相对论效应）。",
+   "Hα线：氢原子电子从n＝3能级跃迁到n＝2能级发出的巴尔末系第一条谱线，波长656.3nm，呈红色；巴尔末系还有Hβ（486.1nm，蓝绿）等；莱曼系在紫外、帕邢系在红外。"
+  ],
+  "tips": "红移是“变化量除以原波长”，别直接用689/656.3；z很小时用v≈cz即可，高速时需相对论公式。"
+ },
+ {
+  "no": 27,
+  "stem": "柳永《雨霖铃》“今宵酒醒何处？杨柳岸，晓风残月。”柳永酒醒看到月亮时，面朝的是（ ）方；若恰好看到一颗明亮恒星伴月，则它可能是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "西 南河三"
+   },
+   {
+    "key": "B",
+    "text": "东 轩辕十四"
+   },
+   {
+    "key": "C",
+    "text": "西 角宿一"
+   },
+   {
+    "key": "D",
+    "text": "东 心宿二"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "“晓风残月”点明时间为拂晓、月相为残月；残月黎明时位于东方低空、亮面朝东，故看月亮面朝东方。词中季节为“冷落清秋节”（秋季），秋季拂晓残月靠近太阳西侧的黄道天区，对应狮子座的轩辕十四正从东方升起，明亮可伴月，选B。"
+  ],
+  "points": [
+   "残月位置：农历月末（约廿五以后）月亮午夜后才升起，黎明时位于东方，随后与太阳相继升起；月亮在太阳以西、亮面朝东（朝向太阳），故“晓风残月”看月必朝东。",
+   "四季星空与赤经：秋季（以公历10月为例）黎明太阳位于室女座附近（赤经约12–13h），残月在太阳以西、赤经约9–11h处，对应狮子座；轩辕十四（狮子座α，赤经约10h08，1.35等，蓝白色，黄道“四大王星”之一）秋季凌晨东升，可能伴月。",
+   "其余三星：南河三（小犬座α，赤经约7h39，冬季星）距残月角距大；角宿一（室女座α，赤经约13h25）与太阳几乎同方向，被晨光淹没；心宿二（天蝎座α，赤经约16h29，红超巨星，夏季南天标志）秋夜已西沉，拂晓不可见。",
+   "月相、升落与方位对应：上弦月正午升、上半月黄昏见南方；满月日落升；下弦月午夜升、黎明见南方；残月黎明见东方。",
+   "古诗词中的天文：“月上柳梢头，人约黄昏后”写满月（元宵节）；“玉钩”写蛾眉月；“三星在天”写参宿，可结合月相判断时间与方位。"
+  ],
+  "tips": "先由“晓、残月”定东方，再由秋季凌晨的黄道位置选轩辕十四；不要只凭星名熟悉度作答。"
+ },
+ {
+  "no": 28,
+  "stem": "《诗经·小雅·大东》有“东有启明，西有长庚”。当在北京观测到“长庚星”呈现类似月牙状的相位时，接下来这颗行星将发生怎样的变化？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "视直径变小，逐渐接近上合，后转“启明星”"
+   },
+   {
+    "key": "B",
+    "text": "视直径变大，逐渐接近下合，后转“启明星”"
+   },
+   {
+    "key": "C",
+    "text": "视直径变小，逐渐接近下合，后转“启明星”"
+   },
+   {
+    "key": "D",
+    "text": "视直径变大，逐渐接近上合，后转“启明星”"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "金星呈细月牙状说明它正运行到太阳与地球之间、接近下合，此时距地球最近、视直径最大；经过下合后，金星由黄昏西方的“长庚”变为清晨东方的“启明”，故选B。"
+  ],
+  "points": [
+   "金星是地内行星，相位由太阳、金星、地球的相对位置决定，与月相原理相同；伽利略最早发现金星有完整相位循环，成为支持日心说的关键证据。",
+   "地内行星运行顺序：上合（金星在太阳另一侧，距地球最远，视直径最小、呈圆形满相）→东大距（金星在太阳以东，黄昏现于西方即“长庚”，与太阳最大角距约46°，约半相）→下合（金星介于日、地之间，距地球最近、视直径最大，呈细月牙状，可发生凌日）→西大距（清晨现于东方即“启明”）→再回到上合。",
+   "视直径与距离成反比：从上合到下合金星逐渐靠近地球，视直径变大、可见亮面变窄；下合之后远离地球，视直径再变小。",
+   "金星凌日：下合时若金星恰好经过黄白交点，会从太阳圆面穿过呈小黑点；成对出现，上次为2004、2012年，下次要等到2117年。",
+   "金星其它特征：夜空中除月亮外最亮的自然天体（最亮约−4.9等）；逆向自转（太阳西升东落）；浓密二氧化碳大气、强烈温室效应，表面约460℃。"
+  ],
+  "tips": "“月牙＋长庚”锁定下合临近；记住下合最近（视直径最大）、上合最远（视直径最小），下合后长庚转启明。"
+ },
+ {
+  "no": 29,
+  "stem": "K2-18b质量约为地球8.6倍，公转周期约33天，轨道半长轴为0.142 au，且位于宜居带内。请问K2-18是什么类型的恒星？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "O型"
+   },
+   {
+    "key": "B",
+    "text": "A型"
+   },
+   {
+    "key": "C",
+    "text": "F型"
+   },
+   {
+    "key": "D",
+    "text": "M型"
+   }
+  ],
+  "answer": "D",
+  "analysis": [
+   "由开普勒第三定律反推主星质量：M/M⊙＝a³/(T/年)²。T＝33/365.25≈0.090年，a³＝0.142³≈0.00286，T²≈0.0082，M≈0.35 M⊙；质量约0.35倍太阳的恒星是M型红矮星，选D。也可由宜居带半径仅0.142 AU判断其光度很低、属红矮星。"
+  ],
+  "points": [
+   "开普勒第三定律变形：以AU、年、M⊙为单位 M/M⊙＝a³/T²，可由行星轨道反算恒星质量。",
+   "光谱型与质量对应（约值）：O型＞16 M⊙；B型约2–16；A型约1.4–2；F型约1.0–1.4；G型约0.8–1.0（太阳1.0）；K型约0.5–0.8；M型约0.08–0.5 M⊙；0.35 M⊙落在M型区间。",
+   "恒星质量下限约0.08 M⊙：低于此质量无法维持稳定氢聚变，成为褐矮星；M型红矮星是银河系中数量最多的恒星。",
+   "K2-18b背景：2015年由开普勒望远镜K2任务发现，距地球约124光年，半径约2.6倍地球，属“超级地球/迷你海王星”；2019年报道大气含水汽迹象，2023年提出可能是富氢大气、拥有液态水海洋的“Hycean（海寒）行星”，2025年报道二甲基硫醚（DMS，地球上主要由海洋浮游生物产生）等特征气体，属生命迹象线索而非确凿证据。",
+   "宜居带半径与光度：a宜居∝√L，如此小的宜居带半径对应 L≈a²≈0.02 L⊙量级，正是低温红矮星特征。"
+  ],
+  "tips": "算得约0.35 M⊙即选M型；注意“微生物特征气体”是待验证线索，不能当作已发现生命。"
+ },
+ {
+  "no": 30,
+  "stem": "猎户座三星位于天赤道附近，其连线与天赤道夹角约为36°。在以下哪个城市观测，当猎户座快要落下时，三星连线最接近水平？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "漠河（东经122°北纬53°）"
+   },
+   {
+    "key": "B",
+    "text": "三亚（东经109°北纬18°）"
+   },
+   {
+    "key": "C",
+    "text": "抚远（东经134°北纬48°）"
+   },
+   {
+    "key": "D",
+    "text": "喀什（东经79°北纬38°）"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "天体落下时，周日圈（平行于天赤道）与地平线的夹角为90°−φ；三星连线与天赤道夹角36°，当90°−φ≈36°时连线与地平线夹角接近0°、即水平，对应φ≈54°；漠河北纬53°最接近，选A。"
+  ],
+  "points": [
+   "周日视运动：天体沿平行于天赤道的小圆东升西落，轨迹（周日圈）相对地平线的倾角由观测纬度决定；在西落地点，周日圈与地平线夹角等于90°−φ（赤道上为90°，天体垂直落下；北极点为0°，天体平行地平线运动）。",
+   "固定星线的姿态：三星连线与天赤道（即周日圈方向）恒成36°；落下时它与地平线的夹角约为|(90°−φ)−36°|，该值为0时连线水平。",
+   "代入各城市：漠河φ≈53°，|37°−36°|≈1°，近乎水平；抚远48°→约6°；喀什38°→约16°；三亚18°→约36°，倾斜最明显。",
+   "地理经度只决定三星落下的时刻，不影响其相对地平线的姿态，所以比较时只看纬度。",
+   "天赤道与地球赤道共面：纬度如何改变天球坐标系与地平坐标系的相对旋转，是本题的几何本质，可借助天球仪或坐标旋转理解。"
+  ],
+  "tips": "不要想当然选低纬度三亚；关键公式是落点处“周日圈倾角＝90°−纬度”，令其与36°相等即可。"
+ },
+ {
+  "no": 31,
+  "stem": "M87星系的恒星形成率（ ）M31星系的恒星形成率。",
+  "options": [
+   {
+    "key": "A",
+    "text": "大于"
+   },
+   {
+    "key": "B",
+    "text": "等于"
+   },
+   {
+    "key": "C",
+    "text": "小于"
+   },
+   {
+    "key": "D",
+    "text": "尚无法确定"
+   }
+  ],
+  "answer": "C",
+  "analysis": [
+   "M87是超巨椭圆星系，缺少冷气体和尘埃，恒星形成基本停滞；M31（仙女座星系）是旋涡星系，旋臂中仍有较活跃的恒星形成，故M87的恒星形成率小于M31，选C。"
+  ],
+  "points": [
+   "哈勃星系分类：椭圆星系（E0–E7，按椭率分）、旋涡星系（S/Sa–Sc）、棒旋星系（SB）、不规则星系（Irr）；M87为E0型超巨椭圆星系，M31为Sb型旋涡星系。",
+   "椭圆星系：多由老年恒星（星族Ⅱ）构成，颜色偏红，冷气体、尘埃少，几乎没有新恒星诞生，被形容为“红而死”（red and dead）；中心常含超大质量黑洞。",
+   "旋涡星系：有含大量气体尘埃的旋臂，旋臂是密度波触发恒星形成的区域，富含年轻高温的蓝色恒星（星族Ⅰ），恒星形成持续进行。",
+   "恒星形成率（SFR）：单位时间内新形成恒星的质量，单位 M⊙/年，可由紫外、红外、Hα等辐射测量；M31约数个 M⊙/年量级，M87远低于此。",
+   "M87其它身份：距地球约5500万光年，位于室女座星系团中心，其中心黑洞M87*是EHT 2019年首张黑洞照片主角，并喷出长达数千光年的相对论性喷流；M31是距银河系最近的大型旋涡星系（约250万光年），正与银河系互相靠近。"
+  ],
+  "tips": "记住“椭圆红而死、旋涡有新生”；不要因M87块头大、黑洞著名就误以为其恒星形成更活跃。"
+ },
+ {
+  "no": 32,
+  "stem": "在太阳系周围300pc的区域内，以下哪类恒星目前观测到的数量最多？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "红矮星"
+   },
+   {
+    "key": "B",
+    "text": "红巨星"
+   },
+   {
+    "key": "C",
+    "text": "白矮星"
+   },
+   {
+    "key": "D",
+    "text": "蓝超巨星"
+   }
+  ],
+  "answer": "A",
+  "analysis": [
+   "红矮星（M型主序星）约占银河系恒星总数的七成以上，在太阳附近同样数量最多，选A。"
+  ],
+  "points": [
+   "初始质量函数（IMF）：描述恒星形成时质量分布的规律，质量越小形成的数量越多；因此小质量红矮星在数量上占绝对优势，大质量恒星稀少。",
+   "红矮星特征：质量约0.08–0.5 M⊙，表面温度低、颜色偏红、光度小，绝大多数肉眼不可见（如距太阳最近的比邻星约11等、巴纳德星约9.5等）；寿命极长，可达数千亿甚至上万亿年，远超宇宙当前年龄，早期形成的红矮星仍在主序上。",
+   "其他选项：红巨星是中小质量恒星晚年的短暂演化阶段，所占比例小；白矮星是恒星死亡残骸，太阳附近约占恒星总数的6–10%，数量不及红矮星；蓝超巨星质量大、寿命短（仅数百万至数千万年），最为罕见。",
+   "“肉眼所见”与“实际数量”的反差：夜空中亮星多为大质量、高光度恒星，但统计上暗弱的红矮星才是主角；需借助大口径望远镜才能把300pc内暗星清点完整。",
+   "pc（秒差距）：约3.26光年，300pc约978光年；该范围内恒星样本足够大，统计比例接近银河系整体。"
+  ],
+  "tips": "数量题选“小质量、长寿命”的红矮星；别被红巨星、蓝超巨星的亮度误导，亮不等于多。"
+ },
+ {
+  "no": 33,
+  "stem": "“东方超环”（EAST）本质是在实验室模拟恒星内部的产能机制。目前太阳内部主导的核反应是（ ）。",
+  "options": [
+   {
+    "key": "A",
+    "text": "铀核的链式裂变反应"
+   },
+   {
+    "key": "B",
+    "text": "质子-质子链将氢聚变为氦"
+   },
+   {
+    "key": "C",
+    "text": "快中子捕获过程合成重元素"
+   },
+   {
+    "key": "D",
+    "text": "表面耀斑爆发将磁能转化为光和热"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "太阳核心约1500万K，主要通过质子-质子链把4个氢核聚变成1个氦核，靠质量亏损释放能量，选B。"
+  ],
+  "points": [
+   "核聚变与质量亏损：轻核在高温下克服库仑斥力（借助量子隧穿）结合成较重核，反应前后质量差按 E＝mc²转化为能量；太阳每秒约把600万吨质量转化为能量。",
+   "质子-质子链（pp链）：4个质子（氢核）→1个氦核＋正电子＋中微子＋能量（约26.7 MeV），分ppⅠ、ppⅡ、ppⅢ分支；质量约小于1.3 M⊙的恒星以pp链为主，太阳约98%的能量来自pp链。",
+   "碳氮氧循环（CNO循环）：以碳、氮、氧为催化剂的另一条氢聚变路径，对温度更敏感，在更大质量、更热的恒星中占主导；太阳中仅占约2%。",
+   "其他选项：A核裂变（如铀-235链式反应）是核电站与原子弹原理，方向是重核分裂，与恒星聚变相反；C快中子捕获（r过程）发生在超新星爆发、中子星并合等极端环境，合成比铁更重的元素；D耀斑是太阳表面磁场活动，释放储存的磁能，并非太阳能量的根本来源。",
+   "EAST（全超导托卡马克）：位于合肥，以强磁场约束高温等离子体实现可控核聚变，2025年实现亿度等离子体千秒级运行；人类聚变发电常用氘-氚反应，目标正是模仿恒星“造能”。",
+   "太阳中微子：pp链产生的中微子几乎不与物质作用、直达地球，历史上观测流量曾低于理论值（太阳中微子问题），后由中微子振荡（中微子有质量、会改变类型）解决。"
+  ],
+  "tips": "区分“聚变（恒星、氢弹、EAST）”与“裂变（核电站、原子弹）”；太阳主导pp链，大质量恒星才是CNO主导。"
+ },
+ {
+  "no": 34,
+  "stem": "类太阳恒星核心坍缩成白矮星，核心原自转周期P0=25天、半径R0≈0.02R⊙，白矮星半径Rwd≈0.008R⊙。假设角动量守恒、质量不变，白矮星自转周期Pwd约为多少？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "约3分钟"
+   },
+   {
+    "key": "B",
+    "text": "约4天"
+   },
+   {
+    "key": "C",
+    "text": "约1秒"
+   },
+   {
+    "key": "D",
+    "text": "约6小时"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "均匀球体转动惯量 I＝(2/5)MR²，角动量守恒 I0ω0＝Iwdωwd，且ω＝2π/P，故 Pwd＝P0(Rwd/R0)²＝25×(0.008/0.02)²＝25×0.16＝4天，选B。"
+  ],
+  "points": [
+   "角动量守恒：不受外力矩时 L＝Iω保持不变；均匀实心球 I＝(2/5)MR²，因此周期与半径平方成正比 P∝R²（质量不变时）。",
+   "坍缩加速：半径收缩则自转加快，原理与花样滑冰运动员收拢手臂加速旋转相同；注意是半径比的平方而非一次方，按线性比会误得10天。",
+   "不同量级类比：恒星核心坍缩成半径约数千千米的白矮星，周期约数天；若进一步坍缩成半径约10千米的中子星，周期可短至秒级甚至毫秒级（毫秒脉冲星）。",
+   "白矮星：靠电子简并压支撑的致密残骸，质量上限为钱德拉塞卡极限（约1.44 M⊙），超过则继续坍缩；密度约每立方厘米一吨量级。",
+   "题设“均匀球体、质量不变、角动量守恒”是理想化模型；实际坍缩伴随物质抛射、磁场耦合等，估算值与真实值可有差异。"
+  ],
+  "tips": "先写 Pwd＝P0(Rwd/R0)²再代数；0.4的平方是0.16，25×0.16恰好4天，别漏掉平方。"
+ },
+ {
+  "no": 35,
+  "stem": "微波背景辐射对应宇宙年龄约40万年、红移1100；再电离结束在红移5.5左右、对应宇宙年龄约10亿年。下列哪个最接近红移1对应的宇宙年龄？（ ）",
+  "options": [
+   {
+    "key": "A",
+    "text": "130亿年"
+   },
+   {
+    "key": "B",
+    "text": "60亿年"
+   },
+   {
+    "key": "C",
+    "text": "14亿年"
+   },
+   {
+    "key": "D",
+    "text": "5亿年"
+   }
+  ],
+  "answer": "B",
+  "analysis": [
+   "红移z＝1时宇宙尺度因子 a＝1/(1+z)＝1/2，即宇宙大小为现在的一半；按ΛCDM标准宇宙学模型计算，z＝1对应大爆炸后约60亿年，选B。"
+  ],
+  "points": [
+   "宇宙演化时间线：大爆炸（138亿年前）→原初核合成（约3–20分钟，形成氢、氦）→复合期（约38–40万年，z≈1100，电子与原子核结合成中性原子，光子自由传播形成今天的宇宙微波背景辐射CMB）→黑暗时代→第一代恒星/星系形成、再电离（约z≈11开始、z≈5.5结束，对应约10亿年）→星系演化、太阳系形成（约46亿年前，z≈0.5）→今天。",
+   "尺度因子与红移：a＝1/(1+z)；z越大越早、宇宙越小。z＝1100时a≈1/1101，z＝5.5时a≈0.15，z＝1时a＝0.5。",
+   "红移与年龄非线性：宇宙膨胀速率随时间变化（物质、辐射、暗能量主导阶段不同，后期暗能量使膨胀加速），不能在已知点间简单线性插值；需用含哈勃常数、物质密度、暗能量密度的ΛCDM模型求解，z＝1对应约59–60亿年。",
+   "选项定位：130亿年对应很高红移（z≈8–10，接近再电离早期）；14亿、5亿年对应z≈5以上；只有60亿年与z＝1匹配。",
+   "关键概念：哈勃定律与膨胀、CMB（今温度约2.73K）、暗能量（约占宇宙总质能68%，驱动加速膨胀）、宇宙年龄测定（由普朗克卫星等CMB观测拟合得到138亿年）。"
+  ],
+  "tips": "不要用40万年→10亿年做直线外推；记住z＝1、宇宙一半大小、约60亿岁这一常用锚点。"
+ }
+];
+/* ===== 常量与全局状态 ===== */
+const RECORD_KEY = 'astro_quiz_records';
+const ADMIN_KEY = 'astro_quiz_admins';
+const SCHOOLS_KEY = 'astro_quiz_schools';
+const STUDENTS_KEY = 'astro_quiz_students';
+const LOG_KEY = 'astro_quiz_logs';
+const DEFAULT_ADMINS = [
+  { user: 'admin', pass: 'hi@tw2026', role: 'admin' }
+];
+let currentAdmin = null;
+const ALL_DATA = QUIZ_DATA;
+
+function getAdmins(){
+  try {
+    const list = JSON.parse(localStorage.getItem(ADMIN_KEY));
+    if(Array.isArray(list) && list.length){
+      let changed = false;
+      const mapped = list.map(x => {
+        let pass = x.pass;
+        if(x.user === 'admin' && pass === 'hi@tianwen2026'){ pass = 'hi@tw2026'; changed = true; }
+        return { user: x.user, pass, role: x.role || (x.user === 'admin' ? 'admin' : 'teacher'), scope: x.scope || '', schoolScope: x.schoolScope || '' };
+      });
+      if(changed) localStorage.setItem(ADMIN_KEY, JSON.stringify(mapped));
+      return mapped;
+    }
+  } catch(e){}
+  localStorage.setItem(ADMIN_KEY, JSON.stringify(DEFAULT_ADMINS));
+  return DEFAULT_ADMINS.slice();
+}
+function saveAdmins(list){
+  localStorage.setItem(ADMIN_KEY, JSON.stringify(list));
+  triggerAutoSave();
+}
+
+/* ===== 存储工具 ===== */
+function getRecords(){
+  try { return JSON.parse(localStorage.getItem(RECORD_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveRecords(records){
+  localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+}
+function getSchools(){
+  try { return JSON.parse(localStorage.getItem(SCHOOLS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveSchools(list){
+  localStorage.setItem(SCHOOLS_KEY, JSON.stringify(list));
+  triggerAutoSave();
+}
+function getStudents(){
+  try { return JSON.parse(localStorage.getItem(STUDENTS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveStudents(list){
+  localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
+  triggerAutoSave();
+}
+function getLogs(){
+  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveLogs(list){
+  localStorage.setItem(LOG_KEY, JSON.stringify(list));
+  triggerAutoSave();
+}
+function log(action, detail){
+  const logs = getLogs();
+  logs.unshift({ time: new Date().toLocaleString('zh-CN'), operator: (currentAdmin && currentAdmin.user) || '', action: action, detail: detail || '' });
+  if(logs.length > 500) logs.length = 500;
+  saveLogs(logs);
+}
+
+/* ===== 数据自动保存到文件 ===== */
+let autoSaveDir = null;
+
+function saveDataPayload(){
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    schools: getSchools(),
+    students: getStudents(),
+    admins: getAdmins(),
+    logs: getLogs()
+  };
+}
+
+function updateSaveStatus(){
+  const el = document.getElementById('saveStatus');
+  if(!el) return;
+  const t = localStorage.getItem('astro_quiz_last_save') || '';
+  el.textContent = autoSaveDir
+    ? ('自动保存已启用，保存目录：' + autoSaveDir.name + (t ? '，最后保存：' + t : ''))
+    : '未选择文件夹：数据仅保存在浏览器本地，更换浏览器或清除缓存会丢失。';
+}
+
+async function writeDataFiles(){
+  if(!autoSaveDir) return false;
+  const json = JSON.stringify(saveDataPayload(), null, 2);
+  try {
+    const fh = await autoSaveDir.getFileHandle('天文竞赛管理数据.json', { create: true });
+    const w = await fh.createWritable();
+    await w.write(json);
+    await w.close();
+    localStorage.setItem('astro_quiz_last_save', new Date().toLocaleString('zh-CN'));
+    updateSaveStatus();
+    return true;
+  } catch(err){
+    toast('自动保存失败：' + (err && err.message ? err.message : String(err)));
+    return false;
+  }
+}
+
+function triggerAutoSave(){
+  if(!autoSaveDir) return;
+  clearTimeout(triggerAutoSave._t);
+  triggerAutoSave._t = setTimeout(writeDataFiles, 400);
+}
+
+async function pickSaveDir(){
+  if(!window.showDirectoryPicker){
+    toast('当前浏览器不支持自动保存到文件夹，请用新版 Chrome/Edge 并通过 http(s) 打开，或使用「下载JSON备份」');
+    return;
+  }
+  try {
+    autoSaveDir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await writeDataFiles();
+    toast('已选择文件夹并完成首次保存');
+  } catch(err){
+    if(err && err.name === 'AbortError') return;
+    toast('选择文件夹失败，已取消自动保存');
+  }
+}
+
+function downloadBackup(){
+  const json = JSON.stringify(saveDataPayload(), null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '天文竞赛管理数据.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  log('下载备份', '导出全部管理数据为 JSON 文件');
+  toast('已下载备份文件');
+}
+
+/* ===== 云端汇总（飞书多维表格） ===== */
+var DEFAULT_CLOUD = { url: 'https://usually-talented-aluminum-prozac.trycloudflare.com', apiKey: 'astro2026' };
+function getCloudConfig(){
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}'); } catch(e){ saved = {}; }
+  return { url: saved.url || DEFAULT_CLOUD.url, apiKey: saved.apiKey || DEFAULT_CLOUD.apiKey };
+}
+function saveCloudConfig(cfg){
+  localStorage.setItem('astro_quiz_cloud', JSON.stringify(cfg));
+  updateCloudStatus();
+}
+function updateCloudStatus(){
+  const el = document.getElementById('cloudStatus');
+  if(!el) return;
+  const cfg = getCloudConfig();
+  el.textContent = cfg.url ? ('云端：已配置 ' + cfg.url) : '云端：未配置（学生作答仍只存本机）';
+}
+
+/* ===== 考试管理：场次创建、试题导入、开放与关闭 ===== */
+const LOCAL_EXAMS_KEY = 'astro_quiz_exams';
+let EXAMS = [];
+let EXAM_IMPORT = null;
+let PORTAL_ON = true;
+
+function loadLocalExams(){
+  try { return JSON.parse(localStorage.getItem(LOCAL_EXAMS_KEY) || '[]'); } catch(e){ return []; }
+}
+function saveLocalExams(){ localStorage.setItem(LOCAL_EXAMS_KEY, JSON.stringify(EXAMS)); }
+
+async function cloudCall(path, opts){
+  opts = opts || {};
+  const cfg = getCloudConfig();
+  if(!cfg.url) throw new Error('未配置云端地址');
+  const headers = { 'X-API-Key': cfg.apiKey || '' };
+  let body;
+  if(opts.body){ headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.body); }
+  const res = await fetch(cfg.url.replace(/\/+$/, '') + path, { method: opts.method || 'GET', headers: headers, body: body });
+  const j = await res.json();
+  if(!j.ok){
+    const err = new Error(j.error || ('HTTP ' + res.status));
+    err.errors = j.errors || [];
+    throw err;
+  }
+  return j;
+}
+
+function examStatusText(s){
+  if(s === 'open') return '进行中';
+  if(s === 'closed') return '已结束';
+  return '未开始';
+}
+function groupStats(exam, group){
+  const qs = (exam.questions || {})[group] || [];
+  return { count: qs.length, total: qs.reduce((s, q) => s + (Number(q.score) || 0), 0) };
+}
+
+async function refreshExamBoard(){
+  const el = document.getElementById('examList');
+  if(!el) return;
+  const local = loadLocalExams();
+  try {
+    const j = await cloudCall('/exams');
+    PORTAL_ON = j.portal !== false;
+    const summaries = j.exams || [];
+    const merged = summaries.map(s => {
+      const l = local.find(x => x.id === s.id) || {};
+      return Object.assign({}, l, s, { questions: l.questions || {} });
+    });
+    /* 保留尚未上传的本地考试草稿 */
+    local.forEach(l => {
+      if(!summaries.some(s => s.id === l.id)) merged.push(l);
+    });
+    EXAMS = merged;
+    saveLocalExams();
+  } catch(e){
+    EXAMS = local;
+    if(!EXAMS.length){
+      el.innerHTML = '<div class="empty">云端不可达：' + esc(e.message || e) + '<br>可先在本机创建考试并导入试题，稍后上传。</div>';
+      renderPortal();
+      return;
+    }
+    toast('云端不可达，显示本机考试草稿');
+  }
+  renderPortal();
+  renderExamBoard();
+}
+
+function renderPortal(){
+  const btn = document.getElementById('portalToggleBtn');
+  const hint = document.getElementById('portalHint');
+  if(!btn) return;
+  btn.textContent = PORTAL_ON ? '已开启' : '已关闭';
+  btn.style.background = PORTAL_ON ? 'rgba(74,222,128,.16)' : 'rgba(248,113,113,.16)';
+  btn.style.borderColor = PORTAL_ON ? 'rgba(74,222,128,.5)' : 'rgba(248,113,113,.5)';
+  btn.style.color = PORTAL_ON ? 'var(--green)' : 'var(--red)';
+  if(hint) hint.textContent = PORTAL_ON ? '点击可关闭，学生将无法进入任何场次' : '点击可开启学生端总入口';
+}
+
+async function togglePortal(){
+  try {
+    const j = await cloudCall('/portal', { method: 'POST', body: { enabled: !PORTAL_ON } });
+    PORTAL_ON = !!j.enabled;
+    renderPortal();
+    toast('学生端总入口已' + (PORTAL_ON ? '开启' : '关闭'));
+    log('学生端总开关', PORTAL_ON ? '开启' : '关闭');
+  } catch(e){
+    toast('操作失败：' + (e.message || e));
+  }
+}
+
+function renderExamBoard(){
+  const el = document.getElementById('examList');
+  if(!el) return;
+  if(!EXAMS.length){
+    el.innerHTML = '<div class="empty">还没有考试。点击右上角「创建考试」，选择参加组别后导入试题。</div>';
+    return;
+  }
+  let html = '';
+  EXAMS.forEach(e => {
+    const isOpen = e.status === 'open';
+    let groupsHtml = '';
+    (e.groups || []).forEach(g => {
+      const st = groupStats(e, g);
+      groupsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid rgba(91,200,255,.14);border-radius:10px;margin-bottom:8px">'
+        + '<div style="font-size:13.5px"><span class="pill-tag">' + esc(g) + '</span>'
+        + '<span style="color:var(--muted);margin-left:8px">' + st.count + ' 题 · ' + st.total + ' 分</span></div>'
+        + '<button class="btn btn-ghost btn-sm" type="button" data-act="import" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">'
+        + (st.count ? '重新导入' : '导入试题') + '</button></div>';
+    });
+    html += '<div style="border:1px solid rgba(91,200,255,.22);border-radius:14px;padding:16px;margin-bottom:14px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<div><b style="font-size:17px">' + esc(e.name) + '</b>'
+      + '<span style="margin-left:10px;font-size:12.5px;font-weight:700;color:' + (isOpen ? 'var(--green)' : (e.status === 'closed' ? 'var(--muted)' : 'var(--gold)')) + '">' + examStatusText(e.status) + '</span></div>'
+      + '<div style="font-size:12px;color:var(--muted)">更新 ' + esc(e.updatedAt || '') + '</div></div>'
+      + '<div style="margin-top:12px">' + groupsHtml + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+      + '<button class="btn btn-ghost btn-sm" type="button" data-act="upload" data-id="' + esc(e.id) + '">上传 / 更新到云端</button>'
+      + (!isOpen ? '<button class="btn btn-gold btn-sm" type="button" data-act="start" data-id="' + esc(e.id) + '">开始此次考试</button>' : '')
+      + (isOpen ? '<button class="btn btn-sm" type="button" data-act="end" data-id="' + esc(e.id) + '" style="border-color:rgba(248,113,113,.5);color:var(--red)">结束考试</button>' : '')
+      + '<button class="btn btn-ghost btn-sm" type="button" data-act="delete" data-id="' + esc(e.id) + '" style="color:var(--muted)">删除</button>'
+      + '</div></div>';
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('[data-act]').forEach(btn => {
+    btn.addEventListener('click', function(){
+      const act = btn.dataset.act;
+      const exam = EXAMS.find(x => x.id === btn.dataset.id);
+      if(!exam) return;
+      if(act === 'import') openImportModal(exam, btn.dataset.group);
+      else if(act === 'upload') uploadExam(exam, true);
+      else if(act === 'start') startExam(exam);
+      else if(act === 'end') endExam(exam);
+      else if(act === 'delete') deleteExam(exam);
+    });
+  });
+}
+
+function openCreateExam(){
+  openModal('<div class="modal-head"><h3>创建考试</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<div class="field" style="margin-bottom:14px"><label for="newExamName">考试名称</label>'
+    + '<input id="newExamName" type="text" placeholder="例如：2026 年预赛第一场"></div>'
+    + '<div class="field" style="margin-bottom:8px"><label>参加组别（必须选择至少一个）</label>'
+    + '<div class="radio-row" style="flex-wrap:wrap">'
+    + ['小学组','初中组','高中组'].map(g => '<label class="radio-pill"><input type="checkbox" name="newExamGroup" value="' + g + '"><span>' + g + '</span></label>').join('')
+    + '</div></div>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需为每个组别导入试题；导入并点击「开始此次考试」后，学生端才会出现该场次入口。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:18px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="createExamCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="createExamOk" type="button">创建考试</button></div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  document.getElementById('createExamCancel').addEventListener('click', closeModal);
+  document.getElementById('createExamOk').addEventListener('click', function(){
+    const name = document.getElementById('newExamName').value.trim();
+    const groups = Array.from(document.querySelectorAll('input[name="newExamGroup"]:checked')).map(x => x.value);
+    if(!name){ toast('请填写考试名称'); return; }
+    if(!groups.length){ toast('请至少选择一个参加组别'); return; }
+    const exam = { id: 'exam_' + Date.now(), name: name, groups: groups, status: 'draft', questions: {}, updatedAt: new Date().toLocaleString() };
+    EXAMS.push(exam);
+    saveLocalExams();
+    closeModal();
+    renderExamBoard();
+    toast('考试已创建，请导入各组试题');
+    log('创建考试', name + ' · ' + groups.join('/'));
+  });
+}
+
+function csvCell(v){
+  const s = String(v == null ? '' : v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadTextFile(name, content, mime){
+  const blob = new Blob(['\ufeff' + content], { type: mime || 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function downloadExamTemplate(){
+  const header = ['题号','题干','选项A','选项B','选项C','选项D','正确答案','分值','解析','知识点','易错提醒'];
+  const sample = ['1','示例：太阳系中体积最大的行星是？','水星','金星','木星','土星','C','4','木星是太阳系体积和质量最大的行星。','太阳系八大行星','注意区分体积最大与密度最大。'];
+  if(window.XLSX){
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([header, sample]);
+    ws['!cols'] = [{wch:8},{wch:52},{wch:18},{wch:18},{wch:18},{wch:18},{wch:10},{wch:8},{wch:60},{wch:24},{wch:28}];
+    XLSX.utils.book_append_sheet(wb, ws, '试题');
+    XLSX.writeFile(wb, '试题导入模板.xlsx');
+  } else {
+    downloadTextFile('试题导入模板.csv', [header, sample].map(r => r.map(csvCell).join(',')).join('\r\n'));
+  }
+}
+
+function splitCsvLine(line){
+  const out = []; let cur = ''; let quoted = false;
+  for(let i=0;i<line.length;i++){
+    const c = line[i];
+    if(quoted){
+      if(c === '"' && line[i+1] === '"'){ cur += '"'; i++; }
+      else if(c === '"'){ quoted = false; }
+      else cur += c;
+    } else if(c === '"'){ quoted = true; }
+    else if(c === ','){ out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+function parseCsvText(text){
+  return text.replace(/^\ufeff/, '').split(/\r?\n/).filter(l => l.trim() !== '').map(splitCsvLine);
+}
+
+function normalizeQuestionRows(rows){
+  if(!rows.length) return [];
+  const first = String(rows[0][0] || '').trim();
+  if(/题号|序号|no/i.test(first)) rows = rows.slice(1);
+  return rows.filter(r => r && String(r[0] == null ? '' : r[0]).trim() !== '').map((r, i) => ({
+    no: parseInt(r[0], 10) || (i + 1),
+    stem: String(r[1] == null ? '' : r[1]).trim(),
+    options: ['A','B','C','D'].map((k, idx) => ({ key: k, text: String(r[2+idx] == null ? '' : r[2+idx]).trim() })),
+    answer: String(r[6] == null ? '' : r[6]).trim().toUpperCase(),
+    score: Number(r[7]) || 0,
+    analysis: String(r[8] == null ? '' : r[8]).trim() ? [String(r[8]).trim()] : [],
+    points: String(r[9] == null ? '' : r[9]).trim() ? [String(r[9]).trim()] : [],
+    tips: String(r[10] == null ? '' : r[10]).trim()
+  }));
+}
+
+function normalizeQuestionObjects(arr){
+  return arr.map((o, i) => {
+    let options = o.options || o.选项 || [];
+    if(!Array.isArray(options)){
+      options = ['A','B','C','D'].map(k => ({ key: k, text: String(options[k] || o['选项' + k] || '').trim() }));
+    } else if(options.length && typeof options[0] === 'string'){
+      options = options.map((t, idx) => ({ key: ['A','B','C','D'][idx], text: String(t).trim() }));
+    }
+    const analysis = o.analysis || o.解析 || [];
+    const points = o.points || o.知识点 || [];
+    return {
+      no: parseInt(o.no != null ? o.no : (o.题号 != null ? o.题号 : (i + 1)), 10),
+      stem: String(o.stem != null ? o.stem : (o.题干 || '')).trim(),
+      options: options.map((x, idx) => ({ key: String(x.key || ['A','B','C','D'][idx]), text: String(x.text || x.value || '').trim() })),
+      answer: String(o.answer != null ? o.answer : (o.正确答案 || '')).trim().toUpperCase(),
+      score: Number(o.score != null ? o.score : (o.分值 || 0)),
+      analysis: (Array.isArray(analysis) ? analysis : String(analysis).split(/\n+/)).filter(Boolean).map(s => String(s).trim()),
+      points: (Array.isArray(points) ? points : String(points).split(/\n+/)).filter(Boolean).map(s => String(s).trim()),
+      tips: String(o.tips != null ? o.tips : (o.易错提醒 || '')).trim()
+    };
+  });
+}
+
+async function readExamFile(file){
+  const fname = file.name.toLowerCase();
+  if(fname.endsWith('.json')){
+    const data = JSON.parse(await file.text());
+    const arr = Array.isArray(data) ? data : (Array.isArray(data.questions) ? data.questions : []);
+    return normalizeQuestionObjects(arr);
+  }
+  if(fname.endsWith('.csv')){
+    return normalizeQuestionRows(parseCsvText(await file.text()));
+  }
+  if(fname.endsWith('.xlsx') || fname.endsWith('.xls')){
+    if(!window.XLSX) throw new Error('Excel 解析组件未加载，请改用 CSV / JSON，或联网后重试');
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return normalizeQuestionRows(XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }));
+  }
+  throw new Error('只支持 .xlsx / .xls / .csv / .json 文件');
+}
+
+function validateQuestionList(list){
+  const errors = [];
+  if(!list.length) errors.push({ idx: -1, msg: '文件中没有可识别的题目' });
+  const nos = {};
+  list.forEach((q, i) => {
+    const tag = '第 ' + (i + 1) + ' 行（题号 ' + q.no + '）';
+    if(!q.no || q.no < 1) errors.push({ idx: i, msg: tag + '：题号无效' });
+    if(q.no in nos) errors.push({ idx: i, msg: tag + '：题号重复' });
+    nos[q.no] = true;
+    if(!q.stem) errors.push({ idx: i, msg: tag + '：题干为空' });
+    ['A','B','C','D'].forEach(k => {
+      const o = (q.options || []).find(x => x.key === k);
+      if(!o || !o.text) errors.push({ idx: i, msg: tag + '：选项' + k + '为空' });
+    });
+    if(['A','B','C','D'].indexOf(q.answer) < 0) errors.push({ idx: i, msg: tag + '：正确答案须为 A/B/C/D' });
+    if(!(q.score > 0)) errors.push({ idx: i, msg: tag + '：分值须大于 0' });
+    if(!(q.analysis || []).length) errors.push({ idx: i, msg: tag + '：解析不能为空' });
+  });
+  return errors;
+}
+
+function openImportModal(exam, group){
+  EXAM_IMPORT = null;
+  const existing = (exam.questions || {})[group] || [];
+  openModal('<div class="modal-head"><h3>导入试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>'
+    + '<button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:12px">支持 <b>.xlsx / .xls / .csv / .json</b>。表格首行可为表头，列顺序固定：'
+    + '题号、题干、选项A、选项B、选项C、选项D、正确答案、分值、解析、知识点（可选）、易错提醒（可选）。</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<button class="btn btn-ghost btn-sm" id="downloadTplBtn" type="button">下载导入模板</button>'
+    + '<span style="font-size:12.5px;color:var(--muted);align-self:center">当前已有 ' + existing.length + ' 题，导入将整组替换</span></div>'
+    + '<div class="field" style="margin-bottom:10px"><label for="examFileInput">选择试题文件</label>'
+    + '<input id="examFileInput" type="file" accept=".xlsx,.xls,.csv,.json"></div>'
+    + '<div id="importPreview"></div>'
+    + '<div style="display:flex;gap:10px;margin-top:16px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="importCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="importConfirm" type="button" disabled>确认导入</button></div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  document.getElementById('importCancel').addEventListener('click', closeModal);
+  document.getElementById('downloadTplBtn').addEventListener('click', downloadExamTemplate);
+  const input = document.getElementById('examFileInput');
+  const confirmBtn = document.getElementById('importConfirm');
+  input.addEventListener('change', async function(){
+    const file = input.files && input.files[0];
+    if(!file) return;
+    const box = document.getElementById('importPreview');
+    box.innerHTML = '<div class="empty" style="padding:20px 0">正在解析…</div>';
+    confirmBtn.disabled = true;
+    try {
+      const list = await readExamFile(file);
+      const errors = validateQuestionList(list);
+      const total = list.reduce((s, q) => s + (Number(q.score) || 0), 0);
+      const min = list.length ? Math.min.apply(null, list.map(q => q.no)) : 0;
+      const max = list.length ? Math.max.apply(null, list.map(q => q.no)) : 0;
+      EXAM_IMPORT = errors.length ? null : { examId: exam.id, group: group, list: list };
+      let head = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 8px;font-size:13px">'
+        + '<span>题数 <b style="color:var(--gold)">' + list.length + '</b></span>'
+        + '<span>总分 <b style="color:var(--gold)">' + total + '</b></span>'
+        + '<span>题号范围 <b>' + min + ' - ' + max + '</b></span>'
+        + '<span style="color:' + (errors.length ? 'var(--red)' : 'var(--green)') + '">' + (errors.length ? errors.length + ' 处待修正' : '校验通过') + '</span></div>';
+      if(errors.length){
+        head += '<div style="max-height:120px;overflow:auto;border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:var(--red);line-height:1.7">'
+          + errors.slice(0, 12).map(e => esc(e.msg)).join('<br>') + (errors.length > 12 ? '<br>…另有 ' + (errors.length - 12) + ' 处' : '') + '</div>';
+      }
+      let table = '<div style="max-height:260px;overflow:auto;border:1px solid rgba(91,200,255,.2);border-radius:10px">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">'
+        + '<colgroup><col style="width:48px"><col style="width:34%"><col style="width:210px"><col style="width:56px"><col style="width:56px"></colgroup>'
+        + '<thead><tr style="position:sticky;top:0;background:#0b1a2a"><th style="padding:7px">题号</th><th style="padding:7px;text-align:left">题干</th><th style="padding:7px;text-align:left">选项</th><th style="padding:7px">答案</th><th style="padding:7px">分值</th></tr></thead><tbody>';
+      list.forEach(q => {
+        const optTxt = (q.options || []).map(o => o.key + '.' + o.text).join('　');
+        table += '<tr style="border-top:1px solid rgba(255,255,255,.07)">'
+          + '<td style="padding:7px;text-align:center">' + q.no + '</td>'
+          + '<td style="padding:7px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(q.stem) + '</td>'
+          + '<td style="padding:7px;color:var(--muted);font-size:11.5px;line-height:1.5">' + esc(optTxt) + '</td>'
+          + '<td style="padding:7px;text-align:center;color:var(--green)">' + esc(q.answer) + '</td>'
+          + '<td style="padding:7px;text-align:center">' + (q.score || 0) + '</td></tr>';
+      });
+      table += '</tbody></table></div>';
+      box.innerHTML = head + table;
+      confirmBtn.disabled = !!errors.length;
+      if(!errors.length){
+        confirmBtn.textContent = '确认导入 ' + list.length + ' 题 / ' + total + ' 分';
+      } else {
+        confirmBtn.textContent = '请先修正文件';
+      }
+    } catch(err){
+      box.innerHTML = '<div class="empty" style="padding:20px 0;color:var(--red)">' + esc(err.message || err) + '</div>';
+      confirmBtn.textContent = '请先修正文件';
+    }
+  });
+  confirmBtn.addEventListener('click', function(){
+    if(!EXAM_IMPORT) return;
+    const exam2 = EXAMS.find(x => x.id === EXAM_IMPORT.examId);
+    if(!exam2) return;
+    if(!exam2.questions) exam2.questions = {};
+    exam2.questions[EXAM_IMPORT.group] = EXAM_IMPORT.list;
+    exam2.updatedAt = new Date().toLocaleString();
+    saveLocalExams();
+    closeModal();
+    renderExamBoard();
+    toast('已导入 ' + EXAM_IMPORT.list.length + ' 题，记得上传到云端');
+    log('导入试题', exam2.name + ' · ' + EXAM_IMPORT.group + ' · ' + EXAM_IMPORT.list.length + ' 题');
+  });
+}
+
+function examPayload(exam){
+  return {
+    id: exam.id, name: exam.name, groups: exam.groups,
+    status: exam.status, questions: exam.questions || {}, updatedAt: exam.updatedAt || new Date().toLocaleString()
+  };
+}
+
+async function uploadExam(exam, silent){
+  try {
+    const j = await cloudCall('/exams', { method: 'POST', body: { exam: examPayload(exam) } });
+    const perGroup = (j.exam && j.exam.perGroup) || {};
+    const mismatch = [];
+    (exam.groups || []).forEach(g => {
+      const l = groupStats(exam, g);
+      const r = perGroup[g] || { count: 0, totalScore: 0 };
+      if(r.count !== l.count || r.totalScore !== l.total){
+        mismatch.push(g + '（本地 ' + l.count + ' 题/' + l.total + ' 分，云端 ' + r.count + ' 题/' + r.totalScore + ' 分）');
+      }
+    });
+    if(mismatch.length){
+      toast('上传后核对不一致：' + mismatch.join('；') + '。请重新导入后再上传');
+      return false;
+    }
+    if(!silent) toast('已上传并核对：' + (exam.groups || []).length + ' 个组别，题数与总分一致');
+    log('上传考试', exam.name);
+    return true;
+  } catch(e){
+    const detail = (e.errors && e.errors.length) ? '：' + e.errors.slice(0, 2).join('；') : '';
+    toast('上传失败：' + (e.message || e) + detail);
+    return false;
+  }
+}
+
+async function startExam(exam){
+  const missing = (exam.groups || []).filter(g => !((exam.questions || {})[g] || []).length);
+  if(missing.length){ toast('请先为 ' + missing.join('、') + ' 导入试题'); return; }
+  const ok = await uploadExam(exam, true);
+  if(!ok) return;
+  try {
+    await cloudCall('/exam-status', { method: 'POST', body: { id: exam.id, status: 'open' } });
+    exam.status = 'open'; exam.updatedAt = new Date().toLocaleString();
+    saveLocalExams(); renderExamBoard();
+    toast('考试已开始，学生端现在可以看到入口');
+    log('开始考试', exam.name);
+  } catch(e){ toast('开始失败：' + (e.message || e)); }
+}
+
+async function endExam(exam){
+  try {
+    await cloudCall('/exam-status', { method: 'POST', body: { id: exam.id, status: 'closed' } });
+    exam.status = 'closed'; exam.updatedAt = new Date().toLocaleString();
+    saveLocalExams(); renderExamBoard();
+    toast('本场考试已结束');
+    log('结束考试', exam.name);
+  } catch(e){ toast('结束失败：' + (e.message || e)); }
+}
+
+function deleteExam(exam){
+  openModal('<div class="modal-head"><h3>删除考试</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<p style="font-size:14px;line-height:1.8;color:var(--muted)">确定删除「<b style="color:var(--text)">' + esc(exam.name) + '</b>」？'
+    + '该场次试题会一并删除，学生将无法再进入。已提交的成绩记录仍保留。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:18px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="delCancel" type="button">取消</button>'
+    + '<button class="btn" style="flex:1;border-color:rgba(248,113,113,.5);color:var(--red)" id="delOk" type="button">确认删除</button></div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  document.getElementById('delCancel').addEventListener('click', closeModal);
+  document.getElementById('delOk').addEventListener('click', async function(){
+    try { await cloudCall('/exam-delete', { method: 'POST', body: { id: exam.id } }); } catch(e){ /* 云端未存在时忽略 */ }
+    EXAMS = EXAMS.filter(x => x.id !== exam.id);
+    saveLocalExams(); closeModal(); renderExamBoard();
+    toast('考试已删除');
+    log('删除考试', exam.name);
+  });
+}
+
+function bindExamMgmtButtons(){
+  const c = document.getElementById('createExamBtn');
+  const r = document.getElementById('refreshExamsBtn');
+  const p = document.getElementById('portalToggleBtn');
+  if(c) c.addEventListener('click', openCreateExam);
+  if(r) r.addEventListener('click', refreshExamBoard);
+  if(p) p.addEventListener('click', togglePortal);
+}
+bindExamMgmtButtons();
+
+function openCloudSetup(){
+  const cfg = getCloudConfig();
+  openModal('<div class="modal-head"><h3>云端汇总设置</h3></div>'
+    + '<p style="color:var(--muted);font-size:13.5px;margin-bottom:12px">填入云端服务地址与密钥后，学生提交与教师汇总将自动走飞书多维表格。</p>'
+    + '<div class="field" style="margin-bottom:12px"><label for="cloudUrl">云端地址</label>'
+    + '<input id="cloudUrl" type="text" value="' + esc(cfg.url || '') + '" placeholder="例如 http://服务器:3000"></div>'
+    + '<div class="field" style="margin-bottom:12px"><label for="cloudKey">API Key</label>'
+    + '<input id="cloudKey" type="text" value="' + esc(cfg.apiKey || '') + '" placeholder="与云端服务 API_KEY 一致"></div>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="cloudCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="cloudOk" type="button">保存</button></div>');
+  document.getElementById('cloudCancel').addEventListener('click', closeModal);
+  document.getElementById('cloudOk').addEventListener('click', function(){
+    const url = document.getElementById('cloudUrl').value.trim();
+    const apiKey = document.getElementById('cloudKey').value.trim();
+    saveCloudConfig({ url: url, apiKey: apiKey });
+    closeModal();
+    log('云端设置', url || '清空');
+    toast('云端设置已保存');
+  });
+}
+async function pullCloudRecords(){
+  const cfg = getCloudConfig();
+  if(!cfg.url) return [];
+  const r = await fetch(cfg.url.replace(/\/+$/, '') + '/records', {
+    headers: { 'X-API-Key': cfg.apiKey || '' }
+  });
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || '云端读取失败');
+  return j.records || [];
+}
+function mergeCloudIntoLocal(cloudRecords){
+  if(!cloudRecords.length) return 0;
+  const local = getRecords();
+  const keyOf = r => [r.submitTime, r.name, r.examNo, r.school, r.group].join('||');
+  const have = new Set(local.map(keyOf));
+  let added = 0;
+  cloudRecords.forEach(c => {
+    const rec = {
+      id: (Date.parse(c.submitTime) || Date.now()) + added,
+      examId: c.examId || '',
+      examName: c.examName || '',
+      name: c.name, school: c.school, examNo: c.examNo, group: c.group,
+      answers: c.answers || {},
+      qTimes: c.qTimes || {},
+      details: c.details || [],
+      score: c.score, correct: c.correct, wrong: c.wrong, unknown: c.unknown,
+      wrongNos: c.wrongNos || [],
+      duration: c.duration,
+      submitTime: c.submitTime
+    };
+    const k = keyOf(rec);
+    if(!have.has(k)){ local.push(rec); have.add(k); added++; }
+  });
+  if(added) saveRecords(local);
+  return added;
+}
+async function syncCloudThenRender(){
+  const cfg = getCloudConfig();
+  if(cfg.url){
+    try {
+      const cloud = await pullCloudRecords();
+      const added = mergeCloudIntoLocal(cloud);
+      if(added) toast('已从云端同步 ' + added + ' 条记录');
+    } catch(e){
+      toast('云端同步失败：' + (e.message || e));
+    }
+  }
+  renderAdmin();
+}
+
+/* 跨标签页实时同步：学生端登录自动登记时，管理端实时刷新并自动保存 */
+window.addEventListener('storage', function(e){
+  if(e.key === LOG_KEY){ renderLogs(); triggerAutoSave(); }
+  else if(e.key === SCHOOLS_KEY || e.key === STUDENTS_KEY){ renderSchoolMgmt(); triggerAutoSave(); }
+  else if(e.key === ADMIN_KEY){ renderAdminList(); triggerAutoSave(); }
+});
+
+document.getElementById('refreshLogsBtn').addEventListener('click', renderLogs);
+document.getElementById('saveNowBtn').addEventListener('click', function(){
+  if(!autoSaveDir){ pickSaveDir(); return; }
+  writeDataFiles().then(ok => { if(ok) toast('已保存到文件夹'); });
+});
+document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
+document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
+document.getElementById('cloudSetupBtn').addEventListener('click', openCloudSetup);
+document.getElementById('cloudSyncBtn').addEventListener('click', syncCloudThenRender);
+updateSaveStatus();
+updateCloudStatus();
+
+/* ===== 通用 UI ===== */
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  const fa = document.getElementById('floatActions');
+  if(fa){ fa.classList.toggle('show', id === 'view-result'); }
+  window.scrollTo({ top: 0 });
+}
+let toastTimer = null;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function esc(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function fmtTime(sec){
+  const h = String(Math.floor(sec/3600)).padStart(2,'0');
+  const m = String(Math.floor(sec%3600/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return h + ':' + m + ':' + s;
+}
+function fmtShort(sec){
+  sec = Math.floor(sec);
+  const m = String(Math.floor(sec/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  if(sec >= 3600){ return Math.floor(sec/3600) + ':' + m + ':' + s; }
+  return m + ':' + s;
+}
+function openModal(html){
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalMask').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
+
+/* ===== 宇宙星空背景 ===== */
+(function starrySky(){
+  const cv = document.getElementById('starCanvas');
+  const ctx = cv.getContext('2d');
+  let stars = [], meteors = [], w = 0, h = 0;
+  function resize(){
+    w = cv.width = window.innerWidth;
+    h = cv.height = window.innerHeight;
+    const n = Math.min(260, Math.floor(w*h/6500));
+    stars = [];
+    for(let i=0;i<n;i++){
+      stars.push({
+        x: Math.random()*w, y: Math.random()*h,
+        r: Math.random()*1.4 + 0.3,
+        tw: Math.random()*Math.PI*2,
+        sp: Math.random()*0.025 + 0.006
+      });
+    }
+  }
+  function spawnMeteor(){
+    if(Math.random() < 0.004 && meteors.length < 2){
+      meteors.push({x: Math.random()*w*0.8 + w*0.2, y: Math.random()*h*0.3,
+        len: Math.random()*90+70, sp: Math.random()*6+7, life:1});
+    }
+  }
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    for(const st of stars){
+      st.tw += st.sp;
+      const a = 0.35 + Math.abs(Math.sin(st.tw))*0.65;
+      ctx.beginPath();
+      ctx.arc(st.x, st.y, st.r, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(220,232,255,' + a.toFixed(2) + ')';
+      ctx.fill();
+    }
+    spawnMeteor();
+    for(let i=meteors.length-1;i>=0;i--){
+      const me = meteors[i];
+      me.x -= me.sp; me.y += me.sp*0.55; me.life -= 0.012;
+      const grad = ctx.createLinearGradient(me.x, me.y, me.x+me.len, me.y-me.len*0.55);
+      grad.addColorStop(0,'rgba(255,255,255,' + Math.max(me.life,0) + ')');
+      grad.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(me.x, me.y);
+      ctx.lineTo(me.x+me.len, me.y-me.len*0.55); ctx.stroke();
+      if(me.life<=0 || me.x< -100) meteors.splice(i,1);
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', resize);
+  resize(); draw();
+})();
+
+/* ===== 管理员登录 ===== */
+document.getElementById('adminForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const u = document.getElementById('admUser').value.trim();
+  const p = document.getElementById('admPass').value;
+  const matched = getAdmins().find(x => x.user === u && x.pass === p);
+  if(matched){
+    currentAdmin = matched;
+    showView('view-admin');
+    switchAdminPage('scores');
+    document.getElementById('admPass').value = '';
+    log('登录后台', '账号 ' + matched.user);
+    renderAdmin();
+    syncCloudThenRender();
+    refreshExamBoard();
+  } else {
+    toast('管理员账号或密码错误');
+  }
+});
+
+/* 显示 / 隐藏密码 */
+document.getElementById('toggleAdmPass').addEventListener('click', function(){
+  const inp = document.getElementById('admPass');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  this.textContent = show ? '隐藏' : '显示';
+});
+
+/* ===== 答题页渲染 ===== */
+/* 统一获取含 E（不知道）的选项列表 */
+function getOptions(q){
+  return q.options.concat([{key:'E', text:'不知道'}]);
+}
+/* 判定单题结果：correct / unknown（选E，0分）/ wrong */
+function judgeAnswer(stu, q){
+  if(stu === q.answer) return 'correct';
+  if(stu === 'E') return 'unknown';
+  return 'wrong';
+}
+
+/* ===== 管理员后台 ===== */
+function roleLabel(a){
+  if(a.role === 'admin') return '超级管理员';
+  if(a.role === 'subadmin') return '子管理员';
+  return '普通教师 · ' + (a.scope || '小学组') + ' · ' + (a.schoolScope || '未关联学校');
+}
+
+function renderSchoolMgmt(){
+  const el = document.getElementById('schoolMgmtBody');
+  if(!el) return;
+  const schools = getSchools();
+  const students = getStudents();
+  if(!schools.length){
+    el.innerHTML = '<div class="empty">尚未添加学校，点击右上角「添加学校」开始。</div>';
+    return;
+  }
+  let html = '';
+  schools.forEach(s => {
+    let stuHtml = '';
+    let stuCount = 0;
+    students.forEach((st, idx) => {
+      if(st.school !== s) return;
+      stuCount++;
+      stuHtml += '<span style="font-size:13px;padding:4px 8px;border-radius:8px;background:' + (st.auto ? 'rgba(255,210,120,.1)' : 'rgba(91,200,255,.1)') + ';border:1px solid var(--line);margin:3px">'
+        + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + st.group + (st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
+        + ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a></span>';
+    });
+    html += '<div style="border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<b>' + esc(s) + '</b>'
+      + '<span style="color:var(--muted);font-size:13px">' + stuCount + ' 名学生</span>'
+      + '<div style="display:flex;gap:8px">'
+      + '<button class="btn btn-ghost btn-sm" type="button" data-addstu="' + esc(s) + '">添加学生</button>'
+      + '<button class="btn btn-danger btn-sm" type="button" data-delschool="' + esc(s) + '">删除学校</button>'
+      + '</div></div>'
+      + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
+      + '</div>';
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('[data-addstu]').forEach(b => b.addEventListener('click', () => openAddStudent(b.dataset.addstu)));
+  el.querySelectorAll('[data-delschool]').forEach(b => b.addEventListener('click', () => deleteSchool(b.dataset.delschool)));
+  el.querySelectorAll('[data-delstu]').forEach(a => a.addEventListener('click', () => deleteStudent(parseInt(a.dataset.delstu, 10))));
+}
+
+function openAddStudent(school){
+  openModal('<div class="modal-head"><h3>添加学生 · ' + esc(school) + '</h3></div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="stuName">姓名</label>'
+    + '<input id="stuName" type="text" placeholder="请输入学生姓名" maxlength="20">'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="stuExamNo">考号</label>'
+    + '<input id="stuExamNo" type="text" placeholder="请输入考号" maxlength="20">'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label>组别</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="stuGroup" value="小学组" checked><span>小学组</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="stuGroup" value="初中组"><span>初中组</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="stuGroup" value="高中组"><span>高中组</span></label>'
+    + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="stuCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="stuOk" type="button">确认添加</button></div>');
+  document.getElementById('stuCancel').addEventListener('click', closeModal);
+  document.getElementById('stuOk').addEventListener('click', function(){
+    const name = document.getElementById('stuName').value.trim();
+    const examNo = document.getElementById('stuExamNo').value.trim();
+    const group = document.querySelector('input[name="stuGroup"]:checked').value;
+    if(!name || !examNo){ toast('请填写姓名与考号'); return; }
+    const students = getStudents();
+    if(students.some(st => st.school === school && st.examNo === examNo && st.group === group)){
+      toast('该校该组别下该考号已存在'); return;
+    }
+    students.push({ name: name, examNo: examNo, school: school, group: group });
+    saveStudents(students);
+    closeModal();
+    renderSchoolMgmt();
+    log('添加学生', school + ' ' + name + '（' + examNo + '，' + group + '）');
+    toast('学生已添加');
+  });
+}
+
+function deleteSchool(school){
+  openModal('<div class="modal-head"><h3>删除学校？</h3></div>'
+    + '<p style="color:var(--muted);font-size:14.5px">将删除学校「' + esc(school) + '」及其名下全部学生登记，删除后不可恢复。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="dsCancel" type="button">取消</button>'
+    + '<button class="btn btn-danger" style="flex:1" id="dsOk" type="button">确认删除</button></div>');
+  document.getElementById('dsCancel').addEventListener('click', closeModal);
+  document.getElementById('dsOk').addEventListener('click', function(){
+    saveSchools(getSchools().filter(s => s !== school));
+    saveStudents(getStudents().filter(st => st.school !== school));
+    closeModal();
+    renderSchoolMgmt();
+    log('删除学校', school);
+    toast('学校已删除');
+  });
+}
+
+function deleteStudent(idx){
+  const students = getStudents();
+  const st = students[idx];
+  if(!st){ return; }
+  openModal('<div class="modal-head"><h3>删除学生？</h3></div>'
+    + '<p style="color:var(--muted);font-size:14.5px">将删除「' + esc(st.school) + '」的学生 ' + esc(st.name) + '（考号 ' + esc(st.examNo) + '）。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="dstCancel" type="button">取消</button>'
+    + '<button class="btn btn-danger" style="flex:1" id="dstOk" type="button">确认删除</button></div>');
+  document.getElementById('dstCancel').addEventListener('click', closeModal);
+  document.getElementById('dstOk').addEventListener('click', function(){
+    const list = getStudents();
+    list.splice(idx, 1);
+    saveStudents(list);
+    closeModal();
+    renderSchoolMgmt();
+    log('删除学生', st.school + ' ' + st.name + '（' + st.examNo + '）');
+    toast('学生已删除');
+  });
+}
+
+function renderLogs(){
+  const el = document.getElementById('logBody');
+  if(!el) return;
+  const logs = getLogs();
+  if(!logs.length){ el.innerHTML = '<div class="empty">暂无操作日志</div>'; return; }
+  el.innerHTML = logs.map(l =>
+    '<div style="padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px">'
+    + '<span style="color:var(--muted)">' + esc(l.time) + '</span>'
+    + ' <b style="color:var(--accent)">' + esc(l.operator) + '</b>'
+    + ' <span>' + esc(l.action) + '</span>'
+    + (l.detail ? ' <span style="color:var(--muted)">' + esc(l.detail) + '</span>' : '')
+    + '</div>'
+  ).join('');
+}
+
+document.getElementById('addSchoolBtn').addEventListener('click', function(){
+  openModal('<div class="modal-head"><h3>添加学校</h3></div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="newSchoolName">学校名称</label>'
+    + '<input id="newSchoolName" type="text" placeholder="请输入学校全称" maxlength="40">'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="schoolCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="schoolOk" type="button">确认添加</button></div>');
+  document.getElementById('schoolCancel').addEventListener('click', closeModal);
+  document.getElementById('schoolOk').addEventListener('click', function(){
+    const n = document.getElementById('newSchoolName').value.trim();
+    if(!n){ toast('请输入学校名称'); return; }
+    const schools = getSchools();
+    if(schools.indexOf(n) >= 0){ toast('该校已存在'); return; }
+    schools.push(n);
+    saveSchools(schools);
+    closeModal();
+    renderSchoolMgmt();
+    log('添加学校', n);
+    toast('学校已添加');
+  });
+});
+
+function renderAdminList(){
+  const admins = getAdmins();
+  const el = document.getElementById('adminList');
+  if(!el) return;
+  el.innerHTML = admins.map(a =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap">'
+    + '<span>账号：<b style="color:var(--accent)">' + esc(a.user) + '</b></span>'
+    + '<span>密码：<b style="color:var(--gold)">' + esc(a.pass) + '</b></span>'
+    + '<span>角色：<b style="color:' + (a.role === 'admin' ? 'var(--gold)' : 'var(--accent)') + '">' + roleLabel(a) + '</b></span>'
+    + '<button type="button" class="btn btn-ghost btn-sm" data-editpass="' + esc(a.user) + '">修改密码</button>'
+    + '<button type="button" class="btn btn-ghost btn-sm" data-setrole="' + esc(a.user) + '">设置权限</button>'
+    + (a.role === 'admin' ? '' : '<button type="button" class="btn btn-danger btn-sm" data-deladmin="' + esc(a.user) + '">删除</button>')
+    + '</div>'
+  ).join('');
+  el.querySelectorAll('[data-editpass]').forEach(btn => {
+    btn.addEventListener('click', () => openEditPass(btn.dataset.editpass));
+  });
+  el.querySelectorAll('[data-setrole]').forEach(btn => {
+    btn.addEventListener('click', () => openSetRole(btn.dataset.setrole));
+  });
+  el.querySelectorAll('[data-deladmin]').forEach(btn => {
+    btn.addEventListener('click', () => deleteAdmin(btn.dataset.deladmin));
+  });
+}
+
+function deleteAdmin(user){
+  const admins = getAdmins();
+  const a = admins.find(x => x.user === user);
+  if(!a){ toast('未找到该账号'); return; }
+  if(a.role === 'admin'){ toast('超级管理员账号不可删除'); return; }
+  openModal('<div class="modal-head"><h3>删除账号？</h3></div>'
+    + '<p style="color:var(--muted);font-size:14.5px">将删除教师账号「' + esc(user) + '」（' + roleLabel(a) + '），删除后不可恢复。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="daCancel" type="button">取消</button>'
+    + '<button class="btn btn-danger" style="flex:1" id="daOk" type="button">确认删除</button></div>');
+  document.getElementById('daCancel').addEventListener('click', closeModal);
+  document.getElementById('daOk').addEventListener('click', function(){
+    saveAdmins(getAdmins().filter(x => x.user !== user));
+    closeModal();
+    renderAdminList();
+    log('删除账号', '账号 ' + user + ' → ' + roleLabel(a));
+    toast('账号已删除');
+  });
+}
+
+function openEditPass(user){
+  openModal('<div class="modal-head"><h3>修改密码 · ' + esc(user) + '</h3></div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="editAdminPass">新密码</label>'
+    + '<input id="editAdminPass" type="text" placeholder="请输入新密码" maxlength="40">'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="editPassCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="editPassOk" type="button">确认修改</button></div>');
+  document.getElementById('editPassCancel').addEventListener('click', closeModal);
+  document.getElementById('editPassOk').addEventListener('click', function(){
+    const np = document.getElementById('editAdminPass').value;
+    if(!np){ toast('请输入新密码'); return; }
+    const admins = getAdmins();
+    const a = admins.find(x => x.user === user);
+    if(!a){ toast('未找到该账号'); return; }
+    a.pass = np;
+    saveAdmins(admins);
+    closeModal();
+    renderAdminList();
+    log('修改密码', '账号 ' + user);
+    toast('密码已修改');
+  });
+}
+
+function openSetRole(user){
+  const initial = getAdmins().find(x => x.user === user);
+  if(!initial) return;
+  const curScope = initial.scope || '小学组';
+  const curSchoolScope = initial.schoolScope || '全部';
+  const schoolOpts = '<option value="全部" ' + (curSchoolScope === '全部' ? 'selected' : '') + '>全部学校</option>'
+    + getSchools().map(s => '<option value="' + esc(s) + '" ' + (curSchoolScope === s ? 'selected' : '') + '>' + esc(s) + '</option>').join('');
+  openModal('<div class="modal-head"><h3>设置权限 · ' + esc(user) + '</h3></div>'
+    + '<p style="color:var(--muted);font-size:13.5px;margin-bottom:14px">超级管理员可管理学校/学生/账号并清空；子管理员仅查看与导出；普通教师仅查看本校指定组别并导出。</p>'
+    + '<div class="field">'
+    + '<label>权限等级</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="roleChoice" value="admin" ' + (initial.role === 'admin' ? 'checked' : '') + '><span>超级管理员</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="roleChoice" value="subadmin" ' + (initial.role === 'subadmin' ? 'checked' : '') + '><span>子管理员</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="roleChoice" value="teacher" ' + (initial.role === 'teacher' ? 'checked' : '') + '><span>普通教师</span></label>'
+    + '</div>'
+    + '</div>'
+    + '<div class="field" id="roleTeacherField" style="' + (initial.role === 'teacher' ? '' : 'display:none') + '">'
+    + '<label>可查看组别</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="roleScope" value="小学组" ' + (curScope === '小学组' ? 'checked' : '') + '><span>小学组</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="roleScope" value="初中组" ' + (curScope === '初中组' ? 'checked' : '') + '><span>初中组</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="roleScope" value="高中组" ' + (curScope === '高中组' ? 'checked' : '') + '><span>高中组</span></label>'
+    + '</div>'
+    + '</div>'
+    + '<div class="field" id="roleSchoolField" style="' + (initial.role === 'teacher' ? '' : 'display:none') + '">'
+    + '<label>关联学校（必选，可选全部）</label>'
+    + '<select id="roleSchoolScope" style="width:100%;padding:13px 15px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:16px;outline:none">'
+    + schoolOpts
+    + '</select>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="roleCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="roleOk" type="button">确认保存</button></div>');
+  document.getElementById('roleCancel').addEventListener('click', closeModal);
+  document.querySelectorAll('input[name="roleChoice"]').forEach(r => {
+    r.addEventListener('change', function(){
+      const isTeacher = this.value === 'teacher';
+      document.getElementById('roleTeacherField').style.display = isTeacher ? '' : 'none';
+      document.getElementById('roleSchoolField').style.display = isTeacher ? '' : 'none';
+    });
+  });
+  document.getElementById('roleOk').addEventListener('click', function(){
+    const role = document.querySelector('input[name="roleChoice"]:checked').value;
+    const scope = role === 'teacher' ? document.querySelector('input[name="roleScope"]:checked').value : '';
+    const schoolScope = role === 'teacher' ? document.getElementById('roleSchoolScope').value : '';
+    const admins = getAdmins();
+    const a = admins.find(x => x.user === user);
+    if(!a){ toast('未找到该账号'); return; }
+    if(role === 'teacher' && a.role === 'admin'){
+      const superCount = admins.filter(x => x.role === 'admin').length;
+      if(superCount <= 1){ toast('至少保留一个超级管理员'); return; }
+    }
+    a.role = role;
+    a.scope = scope;
+    a.schoolScope = schoolScope;
+    saveAdmins(admins);
+    closeModal();
+    renderAdminList();
+    applyAdminRole();
+    if(currentAdmin && currentAdmin.user === user){
+      currentAdmin = getAdmins().find(x => x.user === user) || currentAdmin;
+      renderAdmin();
+    }
+    log('设置权限', '账号 ' + user + ' → ' + roleLabel(a));
+    toast('权限已更新');
+  });
+}
+
+let adminPage = 'scores';
+function switchAdminPage(page){
+  const manageTab = document.getElementById('tabManage');
+  const manageAllowed = manageTab && manageTab.style.display !== 'none';
+  const target = (page === 'manage' && manageAllowed) ? 'manage' : 'scores';
+  adminPage = target;
+  document.querySelectorAll('.admin-page').forEach(function(el){
+    el.classList.toggle('active', el.id === (target === 'manage' ? 'adminPageManage' : 'adminPageScores'));
+  });
+  document.querySelectorAll('.admin-tab').forEach(function(btn){
+    const on = btn.dataset.page === target;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    btn.tabIndex = on ? 0 : -1;
+  });
+  if(target === 'manage') renderLogs();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function applyAdminRole(){
+  const role = currentAdmin ? currentAdmin.role : '';
+  const isAdmin = role === 'admin';
+  const isAdminOrSub = role === 'admin' || role === 'subadmin';
+  const tabsBar = document.getElementById('adminTabs');
+  const manageTab = document.getElementById('tabManage');
+  if(tabsBar){ tabsBar.style.display = isAdminOrSub ? '' : 'none'; }
+  if(manageTab){
+    manageTab.style.display = isAdminOrSub ? '' : 'none';
+    manageTab.textContent = isAdmin ? '权限与账号' : '操作日志';
+  }
+  if(!isAdminOrSub && adminPage === 'manage'){ switchAdminPage('scores'); }
+  const mgmt = document.getElementById('adminMgmtCard');
+  if(mgmt){ mgmt.style.display = isAdmin ? '' : 'none'; }
+  const examCard = document.getElementById('examMgmtCard');
+  if(examCard){ examCard.style.display = isAdmin ? '' : 'none'; }
+  const schoolCard = document.getElementById('schoolMgmtCard');
+  if(schoolCard){ schoolCard.style.display = isAdmin ? '' : 'none'; }
+  const logCard = document.getElementById('logCard');
+  if(logCard){ logCard.style.display = isAdminOrSub ? '' : 'none'; }
+  const saveCard = document.getElementById('saveCard');
+  if(saveCard){ saveCard.style.display = isAdmin ? '' : 'none'; }
+  const clearBtn = document.getElementById('clearAllBtn');
+  if(clearBtn){ clearBtn.style.display = isAdmin ? '' : 'none'; }
+}
+
+function visibleRecords(){
+  const records = getRecords();
+  if(currentAdmin && currentAdmin.role === 'teacher'){
+    if(!currentAdmin.schoolScope){ return []; }
+    return records.filter(r =>
+      r.group === currentAdmin.scope
+      && (currentAdmin.schoolScope === '全部' || r.school === currentAdmin.schoolScope)
+    );
+  }
+  return records;
+}
+
+function setupGroupFilter(){
+  const sel = document.getElementById('filterGroup');
+  const groups = ['小学组','初中组','高中组'];
+  if(currentAdmin && currentAdmin.role === 'teacher' && currentAdmin.scope){
+    sel.innerHTML = '<option value="' + currentAdmin.scope + '">' + currentAdmin.scope + '</option>';
+    sel.value = currentAdmin.scope;
+    sel.disabled = true;
+  } else {
+    sel.innerHTML = '<option value="">全部组别</option>'
+      + groups.map(g => '<option value="' + g + '">' + g + '</option>').join('');
+    sel.disabled = false;
+  }
+}
+
+document.getElementById('addAdminBtn').addEventListener('click', function(){
+  const schoolOpts = '<option value="全部" selected>全部学校</option>'
+    + getSchools().map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
+  openModal('<div class="modal-head"><h3>添加教师账号</h3></div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="newAdminUser">教师账号</label>'
+    + '<input id="newAdminUser" type="text" placeholder="请输入新教师账号" maxlength="20">'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label for="newAdminPass">登录密码</label>'
+    + '<input id="newAdminPass" type="text" placeholder="请输入密码" maxlength="40">'
+    + '</div>'
+    + '<div class="field" style="margin-bottom:12px">'
+    + '<label>权限等级</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="newRole" value="admin"><span>超级管理员</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="newRole" value="subadmin"><span>子管理员</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="newRole" value="teacher" checked><span>普通教师</span></label>'
+    + '</div>'
+    + '</div>'
+    + '<div class="field" id="newTeacherField" style="margin-bottom:12px">'
+    + '<label>可查看组别</label>'
+    + '<div class="radio-row">'
+    + '<label class="radio-pill"><input type="radio" name="newScope" value="小学组" checked><span>小学组</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="newScope" value="初中组"><span>初中组</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="newScope" value="高中组"><span>高中组</span></label>'
+    + '</div>'
+    + '</div>'
+    + '<div class="field" id="newSchoolField" style="margin-bottom:12px">'
+    + '<label>关联学校（必选，可选全部）</label>'
+    + '<select id="newSchoolScope" style="width:100%;padding:13px 15px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:16px;outline:none">'
+    + schoolOpts
+    + '</select>'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="addAdminCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="addAdminOk" type="button">确认添加</button></div>');
+  document.getElementById('addAdminCancel').addEventListener('click', closeModal);
+  document.querySelectorAll('input[name="newRole"]').forEach(r => {
+    r.addEventListener('change', function(){
+      const isTeacher = this.value === 'teacher';
+      document.getElementById('newTeacherField').style.display = isTeacher ? '' : 'none';
+      document.getElementById('newSchoolField').style.display = isTeacher ? '' : 'none';
+    });
+  });
+  document.getElementById('addAdminOk').addEventListener('click', function(){
+    const u = document.getElementById('newAdminUser').value.trim();
+    const p = document.getElementById('newAdminPass').value;
+    if(!u || !p){ toast('请完整填写账号与密码'); return; }
+    const role = document.querySelector('input[name="newRole"]:checked').value;
+    const scope = role === 'teacher' ? document.querySelector('input[name="newScope"]:checked').value : '';
+    const schoolScope = role === 'teacher' ? document.getElementById('newSchoolScope').value : '';
+    const admins = getAdmins();
+    if(admins.some(a => a.user === u)){ toast('该账号已存在'); return; }
+    admins.push({ user: u, pass: p, role: role, scope: scope, schoolScope: schoolScope });
+    saveAdmins(admins);
+    closeModal();
+    renderAdminList();
+    log('添加账号', '账号 ' + u + ' → ' + roleLabel({ role: role, scope: scope, schoolScope: schoolScope }));
+    toast('教师账号已添加');
+  });
+});
+
+function renderAdmin(){
+  applyAdminRole();
+  renderAdminList();
+  renderSchoolMgmt();
+  renderLogs();
+  setupGroupFilter();
+  const records = visibleRecords();
+  const count = records.length;
+
+  if(count === 0){
+    document.getElementById('kpiCount').textContent = '0';
+    document.getElementById('kpiAvg').textContent = '0';
+    document.getElementById('kpiMax').textContent = '0';
+    document.getElementById('kpiRate').textContent = '0%';
+    document.getElementById('scoreBars').innerHTML = '';
+    document.getElementById('filterSchool').innerHTML = '<option value="">全部学校</option>';
+    document.getElementById('adminTbody').innerHTML = '<tr><td colspan="10"><div class="empty">暂无学生提交记录</div></td></tr>';
+    return;
+  }
+
+  const scores = records.map(r => r.score);
+  const avg = scores.reduce((a,b)=>a+b,0)/count;
+  const max = Math.max.apply(null, scores);
+  const avgRate = records.reduce((s,r) => s + r.correct/(r.correct+r.wrong), 0)/count*100;
+
+  document.getElementById('kpiCount').textContent = count;
+  document.getElementById('kpiAvg').textContent = avg.toFixed(1);
+  document.getElementById('kpiMax').textContent = max;
+  document.getElementById('kpiRate').textContent = Math.round(avgRate) + '%';
+
+  /* 分数段分布 */
+  const bands = [
+    {label:'低于0', min:-200, max:0},
+    {label:'0-39', min:0, max:40},
+    {label:'40-59', min:40, max:60},
+    {label:'60-79', min:60, max:80},
+    {label:'80-99', min:80, max:100},
+    {label:'100-120', min:100, max:121}
+  ];
+  const counts = bands.map(b => records.filter(r => r.score >= b.min && r.score < b.max).length);
+  const peak = Math.max.apply(null, counts.concat([1]));
+  let barHtml = '';
+  bands.forEach((b, i) => {
+    const height = counts[i]/peak*100;
+    barHtml += '<div class="bar-col"><span>' + counts[i] + ' 人</span><i style="height:' + height + '%"></i><span>' + b.label + '</span></div>';
+  });
+  document.getElementById('scoreBars').innerHTML = barHtml;
+
+  /* 学校筛选下拉（保留当前选择） */
+  const schoolSel = document.getElementById('filterSchool');
+  const curSchool = schoolSel.value;
+  const schools = Array.from(new Set(records.map(r => r.school))).sort();
+  if(currentAdmin && currentAdmin.role === 'teacher' && currentAdmin.schoolScope && currentAdmin.schoolScope !== '全部'){
+    schoolSel.innerHTML = '<option value="' + esc(currentAdmin.schoolScope) + '">' + esc(currentAdmin.schoolScope) + '</option>';
+    schoolSel.value = currentAdmin.schoolScope;
+    schoolSel.disabled = true;
+  } else {
+    schoolSel.innerHTML = '<option value="">全部学校</option>'
+      + schools.map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
+    schoolSel.value = schools.indexOf(curSchool) >= 0 ? curSchool : '';
+    schoolSel.disabled = false;
+  }
+
+  renderAdminTable();
+}
+
+/* 按当前筛选条件渲染学生表格 */
+function renderAdminTable(){
+  const fSchool = document.getElementById('filterSchool').value;
+  const fGroup = document.getElementById('filterGroup').value;
+  let list = visibleRecords().slice();
+  if(fSchool){ list = list.filter(r => r.school === fSchool); }
+  if(fGroup){ list = list.filter(r => r.group === fGroup); }
+
+  if(!list.length){
+    document.getElementById('adminTbody').innerHTML = '<tr><td colspan="10"><div class="empty">当前筛选条件下暂无记录</div></td></tr>';
+    return;
+  }
+  let tbody = '';
+  list.sort((a,b)=>b.score-a.score).forEach(r => {
+    tbody += '<tr>'
+      + '<td class="name-cell">' + esc(r.name) + '<br><span style="color:var(--muted);font-weight:400;font-size:12.5px">' + esc(r.school) + (r.examName ? ' · ' + esc(r.examName) : '') + '</span></td>'
+      + '<td style="font-weight:600">' + esc(r.examNo || '') + '</td>'
+      + '<td><span class="pill-tag">' + r.group + '</span></td>'
+      + '<td style="font-weight:800;color:var(--gold)">' + r.score + '</td>'
+      + '<td style="color:var(--green)">' + r.correct + '</td>'
+      + '<td style="color:var(--red)">' + r.wrong + '</td>'
+      + '<td style="color:var(--gold)">' + (r.unknown||0) + '</td>'
+      + '<td>' + r.wrongNos.length + '</td>'
+      + '<td style="font-size:12.5px;color:var(--muted)">' + r.submitTime + '</td>'
+      + '<td><button class="btn btn-ghost btn-sm" type="button" data-detail="' + r.id + '">查看详情</button></td>'
+      + '</tr>';
+  });
+  document.getElementById('adminTbody').innerHTML = tbody;
+  document.querySelectorAll('[data-detail]').forEach(btn => {
+    btn.addEventListener('click', () => showStudentDetail(parseInt(btn.dataset.detail, 10)));
+  });
+}
+
+function showStudentDetail(id){
+  const r = visibleRecords().find(x => x.id === id);
+  if(!r) return;
+  /* 新考试记录带 details：就地生成题目快照与作答/用时，兼容旧 35 题记录 */
+  if(Array.isArray(r.details) && r.details.length){
+    r._qs = r.details.map(d => ({
+      no: d.no, stem: d.stem, options: d.options || [], answer: d.answer,
+      analysis: d.analysis || [], points: d.points || [], tips: d.tips || ''
+    }));
+    if(!r.answers) r.answers = {};
+    r.details.forEach(d => { r.answers[d.no] = d.stu; });
+    if(!r.qTimes || !Object.keys(r.qTimes).length){
+      r.qTimes = {};
+      r.details.forEach(d => { if(d.time != null) r.qTimes[d.no] = d.time; });
+    }
+  }
+  const src = r._qs || ALL_DATA;
+  const nos = (r.details && r.details.length)
+    ? r.details.map(d => d.no)
+    : Object.keys(r.answers).map(Number).sort((a,b)=>a-b);
+  let html = '<div class="modal-head"><h3>' + esc(r.name) + ' · 答题详情</h3>'
+    + '<button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<p style="color:var(--muted);font-size:14px;margin-bottom:14px">'
+    + '考号 ' + esc(r.examNo || '') + ' ｜ ' + esc(r.school) + ' ｜ ' + r.group + ' ｜ 得分 <b style="color:var(--gold)">' + r.score
+    + '</b> ｜ 正确 ' + r.correct + ' ｜ 错误 ' + r.wrong
+    + ' ｜ 选 E ' + (r.unknown||0) + ' ｜ 用时 ' + fmtTime(r.duration) + '</p>';
+
+  html += '<h4 style="color:var(--accent);margin-bottom:8px">逐题作答情况（点击题号展开题目与解析）</h4>';
+  nos.forEach(no => {
+    const q = src.find(x => x.no === no);
+    const stu = r.answers[no];
+    const v = judgeAnswer(stu, q);
+    const used = r.qTimes ? r.qTimes[no] : null;
+
+    let headCls, headTxt;
+    if(v === 'correct'){ headCls = 'var(--green)'; headTxt = '正确'; }
+    else if(v === 'unknown'){ headCls = 'var(--gold)'; headTxt = '选E（0分）'; }
+    else { headCls = 'var(--red)'; headTxt = '错误'; }
+
+    html += '<div class="detail-box" style="margin-bottom:10px;padding:0;overflow:hidden">'
+      + '<button class="q-expand-head" type="button" data-expand="' + no + '">'
+      + '<b>第 ' + no + ' 题</b>'
+      + '<span>学生答案：<span style="color:' + headCls + '">' + stu + '</span></span>'
+      + '<span>正确答案：<span style="color:var(--green)">' + q.answer + '</span></span>'
+      + '<span style="color:' + headCls + '">' + headTxt + '</span>'
+      + '<span style="color:var(--gold)">用时 ' + ((used!==null&&used!==undefined)?fmtShort(used):'—') + '</span>'
+      + '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+      + '</button>'
+      + '<div class="q-expand-body" id="expand-' + no + '" style="display:none">'
+      + '<div class="mini-stem">' + esc(q.stem) + '</div>';
+
+    getOptions(q).forEach(o => {
+      let cls = 'mini-opt';
+      if(o.key === q.answer) cls += ' is-correct';
+      else if(o.key === stu) cls += (v === 'unknown' ? 'is-unknown' : 'is-wrong');
+      html += '<div class="' + cls + '"><span class="mk">' + o.key + '</span><span>' + esc(o.text) + '</span></div>';
+    });
+
+    let meta = '学生答案：' + stu + ' ｜ 正确答案：' + q.answer;
+    if(used !== null && used !== undefined){ meta += ' ｜ 本题用时：' + fmtShort(used); }
+    html += '<div class="mini-meta">' + meta + '</div>';
+    html += '<h5>解析</h5>';
+    q.analysis.forEach(a => { html += '<div class="mini-li">' + esc(a) + '</div>'; });
+    html += '<h5>知识点梳理</h5>';
+    q.points.forEach(p => { html += '<div class="mini-li">' + esc(p) + '</div>'; });
+    html += '</div></div>';
+  });
+
+  if(r.wrongNos.length){
+    html += '<h4 style="color:var(--red);margin:16px 0 8px">错题题号汇总</h4>';
+    html += '<p style="font-size:14.5px">' + r.wrongNos.join('、') + '</p>';
+  } else {
+    html += '<p style="color:var(--green);margin-top:14px">该学生全部答对，无错题。</p>';
+  }
+  openModal(html);
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  document.querySelectorAll('.q-expand-head').forEach(h => {
+    h.addEventListener('click', () => {
+      const body = document.getElementById('expand-' + h.dataset.expand);
+      const isOpen = body.style.display === 'block';
+      body.style.display = isOpen ? 'none' : 'block';
+      h.classList.toggle('open', !isOpen);
+    });
+  });
+}
+
+/* ===== 无依赖 XLSX 生成（ZIP store + CRC32 + 内联字符串） ===== */
+function xmlEsc(s){
+  return String(s).replace(/[&<>"]/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+const CRC_TABLE = (function(){
+  const t = new Uint32Array(256);
+  for(let n=0;n<256;n++){
+    let c = n;
+    for(let k=0;k<8;k++){ c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1); }
+    t[n] = c>>>0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++){ c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c>>>8); }
+  return (c ^ 0xFFFFFFFF)>>>0;
+}
+function colLetter(n){
+  let s=''; n++;
+  while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); }
+  return s;
+}
+function sheetXml(rows){
+  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+  rows.forEach((row, ri) => {
+    x += '<row r="' + (ri+1) + '">';
+    row.forEach((val, ci) => {
+      const ref = colLetter(ci) + (ri+1);
+      if(typeof val === 'number' && isFinite(val)){
+        x += '<c r="' + ref + '"><v>' + val + '</v></c>';
+      } else {
+        x += '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(val) + '</t></is></c>';
+      }
+    });
+    x += '</row>';
+  });
+  return x + '</sheetData></worksheet>';
+}
+function buildZip(files){
+  const enc = new TextEncoder();
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for(const f of files){
+    const nameBytes = enc.encode(f.name);
+    const data = f.data;
+    const crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0x0800, true);
+    lh.setUint16(8, 0, true);
+    lh.setUint16(10, 0, true);
+    lh.setUint16(12, 0x0021, true);
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true);
+    lh.setUint32(22, data.length, true);
+    lh.setUint16(26, nameBytes.length, true);
+    lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), nameBytes, data);
+
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true);
+    cd.setUint16(4, 20, true);
+    cd.setUint16(6, 20, true);
+    cd.setUint16(8, 0x0800, true);
+    cd.setUint16(10, 0, true);
+    cd.setUint16(12, 0x0021, true);
+    cd.setUint32(16, crc, true);
+    cd.setUint32(20, data.length, true);
+    cd.setUint32(24, data.length, true);
+    cd.setUint16(28, nameBytes.length, true);
+    cd.setUint32(42, offset, true);
+    central.push(new Uint8Array(cd.buffer), nameBytes);
+
+    offset += 30 + nameBytes.length + data.length;
+  }
+  let centralSize = 0;
+  central.forEach(c => centralSize += c.length);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, centralSize, true);
+  end.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]),
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+/* 导出 Excel：Sheet1 成绩汇总，Sheet2 答题明细 */
+document.getElementById('exportXlsx').addEventListener('click', function(){
+  const records = visibleRecords();
+  if(!records.length){ toast('暂无成绩可导出'); return; }
+  const enc = new TextEncoder();
+
+  /* Sheet1：成绩汇总 */
+  const s1Header = ['姓名','考号','学校','组别','得分','正确数','错误数','选E数','错题号','用时(秒)','提交时间'];
+  const s1Rows = records.map(r => [
+    r.name, r.examNo||'', r.school, r.group, r.score, r.correct, r.wrong, r.unknown||0,
+    r.wrongNos.join('/'), r.duration, r.submitTime
+  ]);
+
+  /* Sheet2：每个学生一行，按该生组别题序每题两列（选择 D、得分 T），共 30 题 */
+  const s2Header = ['姓名','考号','学校','组别'];
+  for(let i=1; i<=30; i++){
+    s2Header.push('D' + String(i).padStart(3,'0'), 'T' + String(i).padStart(3,'0'));
+  }
+  const s2Rows = records.map(r => {
+    const row = [r.name, r.examNo||'', r.school, r.group];
+    const cells = new Array(60).fill('');
+    if(Array.isArray(r.details) && r.details.length){
+      r.details.slice(0, 30).forEach((d, i) => {
+        cells[i*2] = d.stu || '';
+        const pts = d.verdict === 'correct' ? d.score : (d.verdict === 'unknown' ? 0 : -d.score);
+        cells[i*2+1] = pts;
+      });
+    } else {
+      const nos = ALL_DATA.filter(q => r.group === '高中组' ? q.no >= 6 : q.no <= 30).map(q => q.no);
+      nos.forEach((no, i) => {
+        const stu = r.answers[no];
+        if(stu === undefined || stu === null) return;
+        const q = ALL_DATA.find(x => x.no === no);
+        const v = judgeAnswer(stu, q);
+        cells[i*2] = stu;
+        cells[i*2+1] = v === 'correct' ? 4 : (v === 'unknown' ? 0 : -4);
+      });
+    }
+    return row.concat(cells);
+  });
+
+  const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    + '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  const workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+    + '<sheet name="成绩汇总" sheetId="1" r:id="rId1"/>'
+    + '<sheet name="答题明细" sheetId="2" r:id="rId2"/></sheets></workbook>';
+  const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+    + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>'
+    + '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'
+    + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+    + '<borders count="1"><border/></borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>';
+
+  const zipFiles = [
+    {name:'[Content_Types].xml', data: enc.encode(contentTypes)},
+    {name:'_rels/.rels', data: enc.encode(rootRels)},
+    {name:'xl/workbook.xml', data: enc.encode(workbook)},
+    {name:'xl/_rels/workbook.xml.rels', data: enc.encode(wbRels)},
+    {name:'xl/styles.xml', data: enc.encode(styles)},
+    {name:'xl/worksheets/sheet1.xml', data: enc.encode(sheetXml([s1Header].concat(s1Rows)))},
+    {name:'xl/worksheets/sheet2.xml', data: enc.encode(sheetXml([s2Header].concat(s2Rows)))}
+  ];
+  const blob = buildZip(zipFiles);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '天文竞赛成绩与答题明细.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  log('导出成绩', '导出 Excel 双工作表');
+  toast('Excel（含两个工作表）已导出');
+});
+
+/* 清空所有学生答题数据 */
+document.getElementById('clearAllBtn').addEventListener('click', function(){
+  if(!getRecords().length){ toast('当前没有任何数据'); return; }
+  openModal('<div class="modal-head"><h3>确认清空所有学生数据？</h3></div>'
+    + '<p style="color:var(--muted);font-size:14.5px">将删除全部学生的成绩、答案与错题记录，清空后无法恢复，请谨慎操作。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="clearCancel" type="button">取消</button>'
+    + '<button class="btn btn-danger" style="flex:1" id="clearOk" type="button">确认清空</button></div>');
+  document.getElementById('clearCancel').addEventListener('click', closeModal);
+  document.getElementById('clearOk').addEventListener('click', function(){
+    localStorage.removeItem(RECORD_KEY);
+    closeModal();
+    log('清空数据', '清除所有学生答题记录');
+    renderAdmin();
+    toast('所有学生答题数据已清除');
+  });
+});
+
+document.querySelectorAll('.admin-tab').forEach(function(btn){
+  btn.addEventListener('click', function(){ switchAdminPage(btn.dataset.page); });
+});
+document.getElementById('adminTabs').addEventListener('keydown', function(e){
+  if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const tabs = Array.from(document.querySelectorAll('.admin-tab')).filter(function(t){ return t.style.display !== 'none'; });
+  if(tabs.length < 2) return;
+  const i = tabs.indexOf(document.activeElement);
+  const next = e.key === 'ArrowRight' ? tabs[(i + 1 + tabs.length) % tabs.length] : tabs[(i - 1 + tabs.length) % tabs.length];
+  next.focus();
+  switchAdminPage(next.dataset.page);
+});
+
+document.getElementById('adminLogout').addEventListener('click', () => { switchAdminPage('scores'); showView('view-login'); });
+document.getElementById('filterSchool').addEventListener('change', renderAdminTable);
+document.getElementById('filterGroup').addEventListener('change', renderAdminTable);
+document.getElementById('modalMask').addEventListener('click', function(e){
+  if(e.target === this) closeModal();
+});
+</script>
+</body>
+</html>

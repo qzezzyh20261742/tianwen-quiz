@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全国中学生天文知识竞赛 · 在线答题系统</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='13' fill='%235bc8ff'/%3E%3Cellipse cx='32' cy='32' rx='26' ry='8' fill='none' stroke='%23ffd479' stroke-width='4' transform='rotate(-20 32 32)'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#070b1c;
+  --card:rgba(17,24,51,.82);
+  --card-solid:#111833;
+  --line:rgba(132,168,255,.18);
+  --line-strong:rgba(132,168,255,.4);
+  --text:#e9efff;
+  --muted:#9db0d8;
+  --accent:#5bc8ff;
+  --accent-deep:#1d8fd6;
+  --gold:#ffd479;
+  --green:#4ade80;
+  --red:#ff7178;
+  --violet:#a78bfa;
+  --radius:14px;
+  --shadow:0 18px 50px rgba(2,6,20,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Noto Sans CJK SC",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+/* ===== 宇宙背景 ===== */
+#starCanvas{position:fixed;inset:0;z-index:0;display:block}
+.nebula{position:fixed;z-index:0;border-radius:50%;filter:blur(90px);opacity:.5;pointer-events:none}
+.nebula.n1{width:560px;height:560px;top:-160px;left:-120px;background:radial-gradient(circle,#2440b8 0%,transparent 70%)}
+.nebula.n2{width:620px;height:620px;bottom:-220px;right:-160px;background:radial-gradient(circle,#5b2aa0 0%,transparent 70%)}
+.nebula.n3{width:420px;height:420px;top:38%;left:55%;background:radial-gradient(circle,#0e6e8f 0%,transparent 70%);opacity:.35}
+
+.app-wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:28px 22px 60px}
+.view{display:none;animation:fade .45s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view{animation:none}}
+
+/* ===== 通用组件 ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:6px}
+.brand svg{flex:none}
+h1{font-size:26px;font-weight:800;letter-spacing:.5px;text-align:center}
+.subtitle{text-align:center;color:var(--muted);font-size:14px;margin-bottom:26px}
+h2.sec-title{font-size:19px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;background:var(--accent)}
+
+.tabs{display:flex;gap:10px;background:rgba(8,12,30,.7);padding:6px;border-radius:12px;margin-bottom:24px;border:1px solid var(--line)}
+.tab{flex:1;text-align:center;padding:10px;border-radius:9px;cursor:pointer;font-size:15px;color:var(--muted);transition:.2s;user-select:none}
+.tab.on{background:linear-gradient(135deg,var(--accent-deep),#2b6fd0);color:#fff;font-weight:700}
+
+.field{margin-bottom:18px}
+.field label{display:block;font-size:14px;color:var(--muted);margin-bottom:7px;font-weight:600}
+.field input{width:100%;padding:13px 15px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:16px;outline:none;transition:.2s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
+.field input::placeholder{color:#6b7ca3}
+.radio-row{display:flex;gap:12px}
+.radio-pill{flex:1;position:relative}
+.radio-pill input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.radio-pill span{display:block;text-align:center;padding:13px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);font-size:15px;cursor:pointer;transition:.2s}
+.radio-pill input:checked+span{border-color:var(--accent);background:rgba(91,200,255,.16);color:#fff;font-weight:700}
+.radio-pill input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;border-radius:11px;padding:13px 26px;font-size:16px;font-weight:700;font-family:inherit;transition:.2s}
+.btn-primary{background:linear-gradient(135deg,#2b8fe0,#3f6fe0);color:#fff;width:100%;box-shadow:0 10px 26px rgba(45,118,224,.4)}
+.btn-primary:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:transparent;border:1px solid var(--line-strong);color:var(--text)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-gold{background:linear-gradient(135deg,#e8b24b,#d98f2c);color:#1c1304;box-shadow:0 10px 26px rgba(217,143,44,.35)}
+.btn-sm{padding:8px 14px;font-size:13px;border-radius:9px}
+.btn-danger{background:transparent;border:1px solid rgba(255,113,120,.6);color:var(--red)}
+.btn-danger:hover{background:rgba(255,113,120,.13);border-color:var(--red)}
+
+/* ===== 顶栏 ===== */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:18px}
+.who{display:flex;flex-direction:column}
+.who b{font-size:16px}
+.who span{font-size:13px;color:var(--muted)}
+.timer{font-variant-numeric:tabular-nums;color:var(--gold);font-weight:700;font-size:15px}
+
+.progress-meta{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px}
+.progress{height:9px;border-radius:6px;background:rgba(120,150,220,.15);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),#6f8bff);transition:width .35s}
+
+/* ===== 题目 ===== */
+.q-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.q-no{background:linear-gradient(135deg,var(--accent-deep),#3f6fd0);color:#fff;font-weight:800;border-radius:9px;padding:5px 13px;font-size:14px}
+.q-tag{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,212,121,.4);border-radius:20px;padding:2px 11px}
+.q-stem{font-size:17.5px;font-weight:700;margin-bottom:20px;line-height:1.75}
+.options{display:flex;flex-direction:column;gap:12px}
+.option{display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(9,14,34,.75);cursor:pointer;transition:.18s;min-height:48px}
+.option:hover{border-color:var(--accent);background:rgba(91,200,255,.09)}
+.option .key{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--muted)}
+.option .otext{font-size:16px;padding-top:2px}
+.option.selected{border-color:var(--accent);background:rgba(91,200,255,.15)}
+.option.selected .key{background:var(--accent);color:#061226;border-color:var(--accent)}
+.option.correct{border-color:var(--green);background:rgba(74,222,128,.13)}
+.option.correct .key{background:var(--green);color:#06210f;border-color:var(--green)}
+.option.wrong{border-color:var(--red);background:rgba(255,113,120,.13)}
+.option.wrong .key{background:var(--red);color:#2a0708;border-color:var(--red)}
+.option.locked{cursor:default}
+.option.locked:hover{background:rgba(9,14,34,.75);border-color:var(--line-strong)}
+.option.correct.locked:hover{background:rgba(74,222,128,.13);border-color:var(--green)}
+.option.wrong.locked:hover{background:rgba(255,113,120,.13);border-color:var(--red)}
+.option.unknown{border-color:var(--gold);background:rgba(255,212,121,.13)}
+.option.unknown .key{background:var(--gold);color:#2a1c04;border-color:var(--gold)}
+.option.unknown.locked:hover{background:rgba(255,212,121,.13);border-color:var(--gold)}
+.option-e{border-style:dashed}
+.option-e .key{color:var(--gold);border-color:rgba(255,212,121,.55)}
+
+.q-actions{display:flex;gap:12px;margin-top:22px;justify-content:space-between}
+.q-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.nav-dot{width:40px;height:40px;border-radius:9px;border:1px solid var(--line-strong);background:rgba(9,14,34,.7);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.nav-dot.done{color:var(--accent);border-color:var(--accent)}
+.nav-dot.current{background:var(--accent);color:#061226}
+
+/* ===== 结果总览 ===== */
+.score-hero{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-around;text-align:center;padding:10px 0}
+.score-big{font-size:52px;font-weight:800;color:var(--gold);line-height:1.1}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;min-width:260px}
+.stat{background:rgba(9,14,34,.7);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat b{display:block;font-size:24px}
+.stat span{font-size:13px;color:var(--muted)}
+.stat.g b{color:var(--green)}.stat.r b{color:var(--red)}.stat.b b{color:var(--accent)}.stat.p b{color:var(--gold)}.stat.u b{color:var(--gold)}
+
+.review-block{margin-top:20px}
+.verdict{font-size:13.5px;font-weight:700;margin-bottom:10px;display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px}
+.verdict.ok{color:var(--green);background:rgba(74,222,128,.12)}
+.verdict.no{color:var(--red);background:rgba(255,113,120,.12)}
+.verdict.unknown{color:var(--gold);background:rgba(255,212,121,.12)}
+.ans-line{font-size:14.5px;margin-bottom:8px;color:var(--muted)}
+.ans-line b{color:var(--text)}
+.detail-box{background:rgba(8,13,32,.7);border:1px solid var(--line);border-radius:11px;padding:15px 17px;margin-top:10px;font-size:14.5px}
+.detail-box h4{font-size:14px;color:var(--accent);margin:10px 0 5px}
+.detail-box h4:first-child{margin-top:0}
+.detail-box li{list-style:none;margin-bottom:7px;padding-left:16px;position:relative}
+.detail-box li::before{content:"";position:absolute;left:0;top:11px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+/* ===== 管理员 ===== */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:rgba(9,14,34,.75);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+.kpi b{display:block;font-size:25px;color:var(--accent)}
+.kpi span{font-size:13px;color:var(--muted)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:830px}
+thead th{background:#1a2550;color:var(--text);padding:12px 10px;text-align:center;font-weight:700;white-space:nowrap}
+tbody td{padding:11px 10px;border-top:1px solid var(--line);text-align:center;vertical-align:middle}
+tbody tr:hover{background:rgba(91,200,255,.06)}
+tbody td.name-cell{text-align:left;font-weight:600}
+.pill-tag{font-size:12px;border-radius:20px;padding:2px 10px;border:1px solid var(--line-strong);color:var(--muted)}
+.bar-chart{display:flex;align-items:flex-end;gap:10px;height:150px;padding:14px 8px 0;margin-bottom:20px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bar-col i{width:70%;background:linear-gradient(180deg,var(--accent),#3f6fd0);border-radius:6px 6px 0 0;min-width:18px}
+.bar-col span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* ===== 模态框 ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(3,6,18,.72);z-index:50;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-mask.show{display:flex}
+.modal{width:100%;max-width:860px;max-height:88vh;overflow-y:auto;background:var(--card-solid);border:1px solid var(--line-strong);border-radius:16px;padding:24px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-close{background:none;border:1px solid var(--line-strong);color:var(--text);width:36px;height:36px;border-radius:9px;cursor:pointer;font-size:17px}
+
+.toast{position:fixed;left:50%;bottom:38px;transform:translateX(-50%) translateY(20px);background:#1d294f;border:1px solid var(--line-strong);color:var(--text);padding:12px 22px;border-radius:11px;font-size:14.5px;opacity:0;transition:.3s;z-index:80;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+.empty{text-align:center;color:var(--muted);padding:46px 0;font-size:15px}
+.footer-note{text-align:center;color:#6678a0;font-size:12.5px;margin-top:34px}
+
+/* ===== 结果页悬浮功能键 ===== */
+.float-actions{position:fixed;right:22px;bottom:92px;z-index:40;display:none;flex-direction:column;gap:10px}
+.float-actions.show{display:flex}
+.float-btn{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:66px;background:rgba(18,26,58,.93);border:1px solid var(--line-strong);color:var(--text);border-radius:12px;padding:11px 12px;cursor:pointer;font-size:12px;font-family:inherit;box-shadow:var(--shadow);transition:.2s}
+.float-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+.float-btn svg{width:22px;height:22px}
+.float-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== 管理员筛选 ===== */
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filter-row select{padding:9px 13px;border-radius:9px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:14px;font-family:inherit;min-width:150px;cursor:pointer;outline:none}
+.filter-row select:focus{border-color:var(--accent)}
+.filter-row select option{background:#0d1533}
+
+/* ===== 详情可展开题目 ===== */
+.q-expand-head{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;border:none;color:var(--text);padding:13px 15px;cursor:pointer;font-family:inherit;font-size:14.5px;text-align:left}
+.q-expand-head:hover{background:rgba(91,200,255,.07)}
+.q-expand-head .chev{margin-left:auto;transition:.25s;flex:none}
+.q-expand-head.open .chev{transform:rotate(180deg)}
+.q-expand-body{padding:0 15px 15px;border-top:1px solid var(--line)}
+.q-expand-body .mini-stem{font-weight:700;margin:13px 0 10px;font-size:14.5px;line-height:1.7}
+.q-expand-body .mini-opt{display:flex;gap:9px;align-items:flex-start;padding:8px 11px;border-radius:9px;margin-bottom:7px;font-size:13.5px;border:1px solid var(--line);line-height:1.6}
+.q-expand-body .mini-opt .mk{flex:none;font-weight:800}
+.q-expand-body .mini-opt.is-correct{border-color:var(--green);background:rgba(74,222,128,.1)}
+.q-expand-body .mini-opt.is-wrong{border-color:var(--red);background:rgba(255,113,120,.1)}
+.q-expand-body .mini-opt.is-unknown{border-color:var(--gold);background:rgba(255,212,121,.1)}
+.q-expand-body h5{color:var(--accent);font-size:13.5px;margin:13px 0 5px}
+.q-expand-body .mini-li{font-size:13.5px;margin-bottom:6px;padding-left:15px;position:relative}
+.q-expand-body .mini-li::before{content:"";position:absolute;left:0;top:10px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.q-expand-body .mini-meta{font-size:13.5px;color:var(--muted);margin-top:10px}
+
+/* ===== 响应式 ===== */
+@media (max-width:760px){
+  .app-wrap{padding:18px 13px 46px}
+  .card{padding:18px 15px}
+  h1{font-size:21px}
+  .q-stem{font-size:16.5px}
+  .option .otext{font-size:15.5px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .stat-grid{grid-template-columns:repeat(2,1fr);min-width:0;width:100%}
+  .q-actions{flex-direction:column}
+  .q-actions .btn{width:100%}
+  .nav-dot{width:36px;height:36px}
+  .topbar{gap:8px}
+  .float-actions{right:12px;bottom:70px;gap:8px}
+  .float-btn{min-width:56px;padding:9px 10px}
+}
+/* 移除发布平台注入的右下角水印 */
+[data-custom-element]{display:none !important;visibility:hidden !important;pointer-events:none !important}
+</style>
+</head>
+<body>
+<script>
+/* 移除发布平台注入的右下角水印（运行时删除 + 监听兜底） */
+(function(){
+  function stripWm(){
+    var els = document.querySelectorAll('[data-custom-element]');
+    for(var i=0;i<els.length;i++){ if(els[i].parentNode){ els[i].parentNode.removeChild(els[i]); } }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', stripWm);
+  } else {
+    stripWm();
+  }
+  if(window.MutationObserver){
+    new MutationObserver(stripWm).observe(document.documentElement, {childList:true, subtree:true});
+  }
+  setInterval(stripWm, 800);
+})();
+</script>
+<canvas id="starCanvas" aria-hidden="true"></canvas>
+<div class="nebula n1" aria-hidden="true"></div>
+<div class="nebula n2" aria-hidden="true"></div>
+<div class="nebula n3" aria-hidden="true"></div>
+
+<div class="app-wrap">
+
+<!-- ===== 视图：考试场次 ===== -->
+<section id="view-exams" class="view active">
+  <div class="brand">
+    <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="12" fill="#5bc8ff"/><ellipse cx="32" cy="32" rx="27" ry="8" fill="none" stroke="#ffd479" stroke-width="4" transform="rotate(-20 32 32)"/></svg>
+  </div>
+  <h1>全国中学生天文知识竞赛</h1>
+  <p class="subtitle">请选择本次要参加的考试场次</p>
+
+  <div class="card">
+    <div id="examHallList"><div class="empty">正在加载考试场次…</div></div>
+  </div>
+  <p class="footer-note" id="examHallNote">只显示管理员已创建并点击“开始考试”的场次；未开始的场次暂不可进入。</p>
+</section>
+
+<!-- ===== 视图：登录 ===== -->
+<section id="view-login" class="view">
+  <div class="brand">
+    <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="12" fill="#5bc8ff"/><ellipse cx="32" cy="32" rx="27" ry="8" fill="none" stroke="#ffd479" stroke-width="4" transform="rotate(-20 32 32)"/></svg>
+  </div>
+  <h1>全国中学生天文知识竞赛</h1>
+  <p class="subtitle" id="loginSubtitle">请填写个人信息后进入答题</p>
+  <div class="card" style="margin-bottom:16px;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12.5px;color:var(--muted);letter-spacing:.08em">当前考试场次</div>
+        <div id="examBanner" style="font-size:17px;font-weight:700;color:var(--gold);margin-top:4px">—</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="changeExamBtn" type="button">更换场次</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <form id="studentForm" autocomplete="off">
+      <div class="field">
+        <label for="stuName">姓名</label>
+        <input id="stuName" type="text" placeholder="请输入真实姓名" maxlength="20" required>
+      </div>
+      <div class="field">
+        <label for="stuExamNo">考号</label>
+        <input id="stuExamNo" type="text" placeholder="请输入考号" maxlength="20" required>
+      </div>
+      <div class="field">
+        <label for="stuSchool">学校</label>
+        <input id="stuSchool" type="text" placeholder="请输入所在学校全称" maxlength="40" required>
+      </div>
+      <div class="field">
+        <label>组别（决定作答题目范围）</label>
+        <div class="radio-row" id="groupOptions">
+          <label class="radio-pill"><input type="radio" name="stuGroup" value="小学组" checked><span>小学组</span></label>
+          <label class="radio-pill"><input type="radio" name="stuGroup" value="初中组"><span>初中组</span></label>
+          <label class="radio-pill"><input type="radio" name="stuGroup" value="高中组"><span>高中组</span></label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">进入答题</button>
+    </form>
+  </div>
+  <p class="footer-note">计分规则：答对 +4 分，答错 −4 分，不选 0 分；全部题目作答完成并提交后，方可查看答案与解析。</p>
+</section>
+<!-- ===== 视图：答题 ===== -->
+<section id="view-quiz" class="view">
+  <div class="topbar">
+    <div class="who">
+      <b id="quizName"></b>
+      <span id="quizMeta"></span>
+    </div>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <div class="timer" id="quizTimer">00:00:00</div>
+      <div class="timer" id="qTimer" style="color:var(--accent);font-size:14px">本题 00:00</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="logoutQuiz" type="button">退出登录</button>
+  </div>
+
+  <div class="progress-meta">
+    <span id="progressText">已作答 0 / 30</span>
+    <span id="progressHint"></span>
+  </div>
+  <div class="progress"><i id="progressBar" style="width:0%"></i></div>
+
+  <div class="card" style="margin-top:18px" id="quizCard"></div>
+
+  <div class="q-nav" id="quizNav"></div>
+
+  <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+    <button class="btn btn-gold" id="submitBtn" type="button" style="flex:1;min-width:200px">提交试卷</button>
+  </div>
+</section>
+
+<!-- ===== 视图：结果 ===== -->
+<section id="view-result" class="view">
+  <div class="card">
+    <h2 class="sec-title">成绩总览</h2>
+    <div class="score-hero">
+      <div>
+        <div class="score-big" id="resultScore">0</div>
+        <div style="color:var(--muted);font-size:14px">最终得分（满分 120 分）</div>
+        <div style="color:var(--muted);font-size:13.5px;margin-top:6px">总用时：<b id="resultTime" style="color:var(--gold)">0</b></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat g"><b id="resultCorrect">0</b><span>答对题数</span></div>
+        <div class="stat r"><b id="resultWrong">0</b><span>答错题数</span></div>
+        <div class="stat u"><b id="resultUnknown">0</b><span>选 E（不知道）</span></div>
+        <div class="stat b"><b id="resultRate">0%</b><span>正确率</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card review-block">
+    <h2 class="sec-title">逐题答案与解析</h2>
+    <div id="reviewList"></div>
+  </div>
+
+  <div style="margin-top:22px">
+    <button class="btn btn-ghost" id="backLoginBtn" type="button" style="width:100%">返回登录页</button>
+  </div>
+
+  <div class="float-actions" id="floatActions">
+    <button type="button" class="float-btn" id="floatTop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+      <span>回到顶部</span>
+    </button>
+    <button type="button" class="float-btn" id="floatExit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      <span>直接退出</span>
+    </button>
+  </div>
+</section>
+
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="modal-mask" id="modalMask"><div class="modal" id="modalBox"></div></div>
+
+
+<script>
+const QUIZ_DATA = [];
+const ALL_DATA = QUIZ_DATA;
+
+let state = {
+  student: null,
+  exam: null,
+  paper: null,
+  totalScore: 0,
+  questions: [],
+  answers: {},
+  qTimes: {},
+  enterAt: 0,
+  curIdx: 0,
+  seconds: 0,
+  timerId: null,
+  record: null
+};
+
+/* ===== 存储工具 ===== */
+function getRecords(){
+  try { return JSON.parse(localStorage.getItem(RECORD_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveRecords(records){
+  localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+}
+var DEFAULT_CLOUD = { url: 'https://usually-talented-aluminum-prozac.trycloudflare.com', apiKey: 'astro2026' };
+function getCloudConfig(){
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}'); } catch(e){ saved = {}; }
+  return { url: saved.url || DEFAULT_CLOUD.url, apiKey: saved.apiKey || DEFAULT_CLOUD.apiKey };
+}
+async function cloudApi(path, opts){
+  opts = opts || {};
+  var cfg = getCloudConfig();
+  if(!cfg.url) throw new Error('未配置云端地址');
+  var headers = { 'X-API-Key': cfg.apiKey || '' };
+  var body;
+  if(opts.body){ headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.body); }
+  var res = await fetch(cfg.url.replace(/\/+$/, '') + path, { method: opts.method || 'GET', headers: headers, body: body });
+  var j = await res.json();
+  if(!j.ok) throw new Error(j.error || ('HTTP ' + res.status));
+  return j;
+}
+
+/* ===== 考试场次选择 ===== */
+var EXAM_LIST = [];
+async function loadExamHall(){
+  var listEl = document.getElementById('examHallList');
+  var noteEl = document.getElementById('examHallNote');
+  if(!listEl) return;
+  listEl.innerHTML = '<div class="empty">正在加载考试场次…</div>';
+  try {
+    var j = await cloudApi('/exams');
+    EXAM_LIST = j.exams || [];
+    renderExamHall(j.portal !== false);
+  } catch(e){
+    listEl.innerHTML = '<div class="empty">无法连接考试服务器：' + esc(e.message || e) + '<br>请检查网络后刷新页面，或联系老师。</div>';
+    if(noteEl) noteEl.textContent = '考试服务不可用。';
+  }
+}
+function examStatusMeta(s){
+  if(s === 'open') return { text: '进行中', cls: 'var(--green)' };
+  if(s === 'closed') return { text: '已结束', cls: 'var(--muted)' };
+  return { text: '未开始', cls: 'var(--gold)' };
+}
+function renderExamHall(portalEnabled){
+  var listEl = document.getElementById('examHallList');
+  var noteEl = document.getElementById('examHallNote');
+  if(!portalEnabled){
+    listEl.innerHTML = '<div class="empty" style="color:var(--gold)">学生答题入口暂未开放，请等待老师开启。</div>';
+    if(noteEl) noteEl.textContent = '学生端总入口当前处于关闭状态。';
+    return;
+  }
+  if(!EXAM_LIST.length){
+    listEl.innerHTML = '<div class="empty">暂无可参加的考试场次，请等待老师创建并开始考试。</div>';
+    if(noteEl) noteEl.textContent = '老师创建考试并点击“开始考试”后，这里会出现入口。';
+    return;
+  }
+  var html = '';
+  EXAM_LIST.forEach(function(e){
+    var meta = examStatusMeta(e.status);
+    var groups = (e.groups || []).map(function(g){ return '<span class="pill-tag">' + esc(g) + '</span>'; }).join(' ');
+    var per = (e.perGroup || {});
+    var detail = (e.groups || []).map(function(g){
+      var p = per[g] || { count: 0, totalScore: 0 };
+      return esc(g) + ' ' + p.count + ' 题 / ' + p.totalScore + ' 分';
+    }).join(' ｜ ');
+    var btn = '';
+    if(e.status === 'open'){
+      btn = '<button class="btn btn-gold" type="button" data-exam="' + esc(e.id) + '" style="width:100%;margin-top:12px">进入考试</button>';
+    } else if(e.status === 'closed'){
+      btn = '<button class="btn btn-ghost" type="button" disabled style="width:100%;margin-top:12px">本场考试已结束</button>';
+    } else {
+      btn = '<button class="btn btn-ghost" type="button" disabled style="width:100%;margin-top:12px">等待老师开始考试</button>';
+    }
+    html += '<div class="card" style="box-shadow:none;border:1px solid rgba(91,200,255,.22);margin-bottom:14px;padding:18px">'
+      + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">'
+      + '<b style="font-size:18px">' + esc(e.name) + '</b>'
+      + '<span style="font-size:13px;font-weight:700;color:' + meta.cls + '">' + meta.text + '</span></div>'
+      + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' + groups + '</div>'
+      + '<div style="margin-top:10px;color:var(--muted);font-size:13px">' + detail + '</div>'
+      + btn + '</div>';
+  });
+  listEl.innerHTML = html;
+  listEl.querySelectorAll('[data-exam]').forEach(function(b){
+    b.addEventListener('click', function(){ chooseExam(b.dataset.exam); });
+  });
+  if(noteEl) noteEl.textContent = '选择场次后填写个人信息；考试开始后入口才可进入。';
+}
+function chooseExam(id){
+  var exam = EXAM_LIST.find(function(e){ return e.id === id; });
+  if(!exam) return;
+  state.exam = exam;
+  var banner = document.getElementById('examBanner');
+  if(banner) banner.textContent = exam.name;
+  var sub = document.getElementById('loginSubtitle');
+  if(sub) sub.textContent = '当前场次：' + exam.name + '，请填写个人信息';
+  var box = document.getElementById('groupOptions');
+  if(box){
+    var allowed = exam.groups && exam.groups.length ? exam.groups : ['小学组','初中组','高中组'];
+    var firstAllowed = true;
+    box.querySelectorAll('.radio-pill').forEach(function(pill){
+      var inp = pill.querySelector('input');
+      var on = allowed.indexOf(inp.value) >= 0;
+      pill.style.display = on ? '' : 'none';
+      inp.checked = on && firstAllowed;
+      if(on) firstAllowed = false;
+    });
+  }
+  showView('view-login');
+}
+function getStudents(){
+  try { return JSON.parse(localStorage.getItem(STUDENTS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveStudents(list){
+  localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
+}
+function getSchools(){
+  try { return JSON.parse(localStorage.getItem(SCHOOLS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveSchools(list){
+  localStorage.setItem(SCHOOLS_KEY, JSON.stringify(list));
+}
+
+function getDrafts(){
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveDrafts(drafts){
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+}
+function draftKeyOf(s){
+  var prefix = state.exam ? (state.exam.id + '||') : '';
+  return prefix + s.name + '||' + s.school + '||' + s.examNo + '||' + s.group;
+}
+function saveDraft(){
+  if(!state.student || !state.questions.length) return;
+  const q = state.questions[state.curIdx];
+  if(q){
+    state.qTimes[q.no] = (state.qTimes[q.no]||0) + (Date.now()-state.enterAt)/1000;
+    state.enterAt = Date.now();
+  }
+  const drafts = getDrafts();
+  drafts[draftKeyOf(state.student)] = {
+    examId: state.exam ? state.exam.id : '',
+    examName: state.exam ? state.exam.name : '',
+    name: state.student.name,
+    school: state.student.school,
+    examNo: state.student.examNo,
+    group: state.student.group,
+    answers: Object.assign({}, state.answers),
+    qTimes: Object.assign({}, state.qTimes),
+    curIdx: state.curIdx,
+    seconds: state.seconds,
+    savedAt: Date.now()
+  };
+  saveDrafts(drafts);
+}
+function clearDraft(){
+  if(!state.student) return;
+  const drafts = getDrafts();
+  delete drafts[draftKeyOf(state.student)];
+  saveDrafts(drafts);
+}
+
+/* ===== 通用 UI ===== */
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  const fa = document.getElementById('floatActions');
+  if(fa){ fa.classList.toggle('show', id === 'view-result'); }
+  window.scrollTo({ top: 0 });
+}
+let toastTimer = null;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function esc(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function fmtTime(sec){
+  const h = String(Math.floor(sec/3600)).padStart(2,'0');
+  const m = String(Math.floor(sec%3600/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return h + ':' + m + ':' + s;
+}
+function fmtShort(sec){
+  sec = Math.floor(sec);
+  const m = String(Math.floor(sec/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  if(sec >= 3600){ return Math.floor(sec/3600) + ':' + m + ':' + s; }
+  return m + ':' + s;
+}
+function openModal(html){
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalMask').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
+
+/* ===== 宇宙星空背景 ===== */
+(function starrySky(){
+  const cv = document.getElementById('starCanvas');
+  const ctx = cv.getContext('2d');
+  let stars = [], meteors = [], w = 0, h = 0;
+  function resize(){
+    w = cv.width = window.innerWidth;
+    h = cv.height = window.innerHeight;
+    const n = Math.min(260, Math.floor(w*h/6500));
+    stars = [];
+    for(let i=0;i<n;i++){
+      stars.push({
+        x: Math.random()*w, y: Math.random()*h,
+        r: Math.random()*1.4 + 0.3,
+        tw: Math.random()*Math.PI*2,
+        sp: Math.random()*0.025 + 0.006
+      });
+    }
+  }
+  function spawnMeteor(){
+    if(Math.random() < 0.004 && meteors.length < 2){
+      meteors.push({x: Math.random()*w*0.8 + w*0.2, y: Math.random()*h*0.3,
+        len: Math.random()*90+70, sp: Math.random()*6+7, life:1});
+    }
+  }
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    for(const st of stars){
+      st.tw += st.sp;
+      const a = 0.35 + Math.abs(Math.sin(st.tw))*0.65;
+      ctx.beginPath();
+      ctx.arc(st.x, st.y, st.r, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(220,232,255,' + a.toFixed(2) + ')';
+      ctx.fill();
+    }
+    spawnMeteor();
+    for(let i=meteors.length-1;i>=0;i--){
+      const me = meteors[i];
+      me.x -= me.sp; me.y += me.sp*0.55; me.life -= 0.012;
+      const grad = ctx.createLinearGradient(me.x, me.y, me.x+me.len, me.y-me.len*0.55);
+      grad.addColorStop(0,'rgba(255,255,255,' + Math.max(me.life,0) + ')');
+      grad.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(me.x, me.y);
+      ctx.lineTo(me.x+me.len, me.y-me.len*0.55); ctx.stroke();
+      if(me.life<=0 || me.x< -100) meteors.splice(i,1);
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', resize);
+  resize(); draw();
+})();
+
+/* ===== 学生登录 ===== */
+document.getElementById('studentForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  if(!state.exam){ toast('请先选择考试场次'); showView('view-exams'); return; }
+  const name = document.getElementById('stuName').value.trim();
+  const school = document.getElementById('stuSchool').value.trim();
+  const examNo = document.getElementById('stuExamNo').value.trim();
+  const group = document.querySelector('input[name="stuGroup"]:checked').value;
+  if(!name || !school || !examNo){ toast('请完整填写姓名、学校与考号'); return; }
+  if((state.exam.groups || []).indexOf(group) < 0){ toast('该组别不参加此次考试'); return; }
+
+  /* 按学校锁定：仅管理员给该校手动添加过学生的学校才锁定；未锁定学校的学生登录后自动登记 */
+  const students = getStudents();
+  const schoolLocked = students.some(st => st.school === school && !st.auto);
+  if(schoolLocked){
+    const registered = students.some(st =>
+      st.name === name && st.examNo === examNo && st.school === school && st.group === group);
+    if(!registered){
+      toast('该学校已开启名单锁定，你未登记，请联系老师录入后再登录');
+      return;
+    }
+  } else {
+    const schools = getSchools();
+    if(!schools.includes(school)){
+      schools.push(school);
+      saveSchools(schools);
+    }
+    const already = students.some(st =>
+      st.name === name && st.examNo === examNo && st.school === school && st.group === group);
+    if(!already){
+      students.push({ name: name, examNo: examNo, school: school, group: group, auto: true });
+      saveStudents(students);
+    }
+  }
+
+  const exam = state.exam;
+
+  /* 同一场次同一身份已提交过：直接调出历史成绩 */
+  const matched = getRecords().filter(r =>
+      r.examId === exam.id && r.name === name && r.school === school && r.examNo === examNo && r.group === group)
+    .sort((a,b) => b.id - a.id);
+  let oldRecord = matched.length ? matched[0] : null;
+  /* 本机没有记录时，向云端查询同一场次同一身份是否已提交（支持换设备后直接调出成绩） */
+  if(!oldRecord){
+    try {
+      const qs = new URLSearchParams({ examId: exam.id, name: name, examNo: examNo, school: school, group: group });
+      const j = await cloudApi('/record?' + qs.toString());
+      if(j.record){
+        oldRecord = j.record;
+        const rs = getRecords();
+        rs.push(oldRecord);
+        saveRecords(rs);
+      }
+    } catch(e){ /* 云端查询失败不阻塞正常答题 */ }
+  }
+  if(oldRecord){
+    const old = oldRecord;
+    state.student = { name: name, school: school, examNo: examNo, group: group };
+    state.questions = (old.details || []).map(d => ({ no: d.no, stem: d.stem, options: d.options, score: d.score }));
+    state.answers = Object.assign({}, old.answers);
+    state.qTimes = Object.assign({}, old.qTimes || {});
+    state.record = old;
+    renderResult(old);
+    showView('view-result');
+    toast('检测到你已提交过，已调出历史成绩');
+    return;
+  }
+
+  /* 从云端取本次考试该组别试题 */
+  let paper;
+  try {
+    const j = await cloudApi('/exam?id=' + encodeURIComponent(exam.id) + '&group=' + encodeURIComponent(group));
+    paper = j.exam;
+  } catch(err){
+    toast('无法进入考试：' + (err.message || err));
+    return;
+  }
+  const questions = paper.questions || [];
+  if(!questions.length){ toast('本场考试该组别暂无试题，请联系老师'); return; }
+  state.paper = paper;
+  state.totalScore = paper.totalScore;
+
+  /* 续答草稿（按考试场次 + 身份） */
+  const draftKey = exam.id + '||' + name + '||' + school + '||' + examNo + '||' + group;
+  const drafts = getDrafts();
+  const draft = drafts[draftKey];
+  if(draft){
+    state.student = { name: name, school: school, examNo: examNo, group: group };
+    state.questions = questions;
+    state.answers = Object.assign({}, draft.answers || {});
+    state.qTimes = Object.assign({}, draft.qTimes || {});
+    state.curIdx = (draft.curIdx != null) ? draft.curIdx : 0;
+    if(state.curIdx < 0 || state.curIdx >= questions.length) state.curIdx = 0;
+    state.seconds = draft.seconds || 0;
+    state.enterAt = Date.now();
+    state.record = null;
+    setQuizHeader(name, school, group, exam.name, questions.length, paper.totalScore);
+    startTimer();
+    renderQuiz();
+    showView('view-quiz');
+    toast('检测到未完成的作答，已为你接续');
+    return;
+  }
+
+  state.student = { name: name, school: school, examNo: examNo, group: group };
+  state.questions = questions;
+  state.answers = {};
+  state.qTimes = {};
+  state.enterAt = Date.now();
+  state.curIdx = 0;
+  state.seconds = 0;
+  state.record = null;
+  setQuizHeader(name, school, group, exam.name, questions.length, paper.totalScore);
+  startTimer();
+  renderQuiz();
+  showView('view-quiz');
+});
+
+function setQuizHeader(name, school, group, examName, count, totalScore){
+  document.getElementById('quizName').textContent = name;
+  document.getElementById('quizMeta').textContent = examName + ' · ' + school + ' · ' + group + '（共 ' + count + ' 题，满分 ' + totalScore + ' 分）';
+}
+
+/* ===== 计时器 ===== */
+function startTimer(){
+  stopTimer();
+  const curQ0 = state.questions[state.curIdx];
+  document.getElementById('quizTimer').textContent = fmtTime(state.seconds);
+  if(curQ0){
+    document.getElementById('qTimer').textContent = '本题 ' + fmtShort(state.qTimes[curQ0.no]||0);
+  } else {
+    document.getElementById('qTimer').textContent = '本题 00:00';
+  }
+  state.timerId = setInterval(() => {
+    state.seconds++;
+    document.getElementById('quizTimer').textContent = fmtTime(state.seconds);
+    const curQ = state.questions[state.curIdx];
+    if(curQ){
+      const curUsed = (state.qTimes[curQ.no]||0) + (Date.now()-state.enterAt)/1000;
+      document.getElementById('qTimer').textContent = '本题 ' + fmtShort(curUsed);
+    }
+    saveDraft();
+  }, 1000);
+}
+function stopTimer(){ if(state.timerId){ clearInterval(state.timerId); state.timerId = null; } }
+/* ===== 答题页渲染 ===== */
+/* 统一获取含 E（不知道）的选项列表 */
+function getOptions(q){
+  return q.options.concat([{key:'E', text:'不知道'}]);
+}
+/* 判定单题结果：correct / unknown（选E，0分）/ wrong */
+function judgeAnswer(stu, q){
+  if(stu === q.answer) return 'correct';
+  if(stu === 'E') return 'unknown';
+  return 'wrong';
+}
+
+function renderQuiz(){
+  const q = state.questions[state.curIdx];
+  const selected = state.answers[q.no];
+  const card = document.getElementById('quizCard');
+
+  let html = '<div class="q-head">'
+    + '<span class="q-no">第 ' + q.no + ' 题</span>'
+    + '<span class="q-tag">第 ' + (state.curIdx+1) + ' / ' + state.questions.length + ' 题</span>'
+    + '</div>'
+    + '<div class="q-stem">' + esc(q.stem) + '</div>'
+    + '<div class="options">';
+  getOptions(q).forEach(o => {
+    const cls = 'option' + (selected === o.key ? ' selected' : '') + (o.key === 'E' ? ' option-e' : '');
+    html += '<div class="' + cls + '" role="button" tabindex="0" data-key="' + o.key + '">'
+      + '<span class="key">' + o.key + '</span>'
+      + '<span class="otext">' + esc(o.text) + '</span></div>';
+  });
+  html += '</div>';
+  html += '<div class="q-actions">'
+    + '<button class="btn btn-ghost" id="prevBtn" type="button" ' + (state.curIdx===0?'disabled':'') + '>上一题</button>'
+    + '<button class="btn btn-primary" id="nextBtn" style="width:auto;min-width:130px" type="button">'
+    + (state.curIdx === state.questions.length-1 ? '去提交' : '下一题') + '</button>'
+    + '</div>';
+  card.innerHTML = html;
+
+  card.querySelectorAll('.option').forEach(el => {
+    el.addEventListener('click', () => selectOption(q.no, el.dataset.key));
+    el.addEventListener('keydown', ev => {
+      if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); selectOption(q.no, el.dataset.key); }
+    });
+  });
+  document.getElementById('prevBtn').addEventListener('click', () => goQuestion(state.curIdx-1));
+  const nextBtn = document.getElementById('nextBtn');
+  if(state.curIdx < state.questions.length-1){
+    nextBtn.addEventListener('click', () => goQuestion(state.curIdx+1));
+  } else {
+    nextBtn.addEventListener('click', () => document.getElementById('submitBtn').click());
+  }
+
+  renderProgress();
+  renderNav();
+}
+
+function selectOption(no, key){
+  state.answers[no] = key;
+  saveDraft();
+  renderQuiz();
+}
+
+function settleQTime(){
+  const q = state.questions[state.curIdx];
+  if(!q) return;
+  state.qTimes[q.no] = (state.qTimes[q.no]||0) + (Date.now()-state.enterAt)/1000;
+  state.enterAt = Date.now();
+}
+
+function goQuestion(idx){
+  if(idx < 0 || idx >= state.questions.length) return;
+  settleQTime();
+  state.curIdx = idx;
+  state.enterAt = Date.now();
+  saveDraft();
+  renderQuiz();
+}
+
+function renderProgress(){
+  const total = state.questions.length;
+  const done = Object.keys(state.answers).length;
+  document.getElementById('progressText').textContent = '已作答 ' + done + ' / ' + total;
+  document.getElementById('progressHint').textContent = done === total ? '全部完成，可提交' : '尚有 ' + (total-done) + ' 题未作答';
+  document.getElementById('progressBar').style.width = (done/total*100) + '%';
+}
+
+function renderNav(){
+  const nav = document.getElementById('quizNav');
+  let html = '';
+  state.questions.forEach((q, i) => {
+    let cls = 'nav-dot';
+    if(state.answers[q.no]) cls += ' done';
+    if(i === state.curIdx) cls += ' current';
+    html += '<button class="' + cls + '" type="button" data-idx="' + i + '">' + q.no + '</button>';
+  });
+  nav.innerHTML = html;
+  nav.querySelectorAll('.nav-dot').forEach(el => {
+    el.addEventListener('click', () => goQuestion(parseInt(el.dataset.idx, 10)));
+  });
+}
+
+/* ===== 提交与判分 ===== */
+document.getElementById('submitBtn').addEventListener('click', function(){
+  const total = state.questions.length;
+  const done = Object.keys(state.answers).length;
+  if(done < total){
+    toast('还有 ' + (total-done) + ' 题未作答，全部完成后才能提交');
+    return;
+  }
+  const html = '<div class="modal-head"><h3>确认提交试卷？</h3></div>'
+    + '<p style="color:var(--muted);font-size:14.5px">提交后将立即判分，并显示全部答案与解析，提交后不可再修改答案。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="cancelSubmit" type="button">再检查一下</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="confirmSubmit" type="button">确认提交</button></div>';
+  openModal(html);
+  document.getElementById('cancelSubmit').addEventListener('click', closeModal);
+  document.getElementById('confirmSubmit').addEventListener('click', doSubmit);
+});
+
+async function doSubmit(){
+  closeModal();
+  settleQTime();
+  stopTimer();
+  const qTimesInt = {};
+  Object.keys(state.qTimes).forEach(k => { qTimesInt[k] = Math.round(state.qTimes[k]); });
+  const payload = {
+    examId: state.exam ? state.exam.id : '',
+    name: state.student.name,
+    examNo: state.student.examNo,
+    school: state.student.school,
+    group: state.student.group,
+    answers: Object.assign({}, state.answers),
+    qTimes: qTimesInt,
+    duration: state.seconds
+  };
+  let record;
+  try {
+    const j = await cloudApi('/submit', { method: 'POST', body: payload });
+    record = j.record;
+  } catch(err){
+    toast('提交失败：' + (err.message || err) + '，请检查网络后重试');
+    startTimer();
+    return;
+  }
+  record.details = record.details || [];
+  const records = getRecords();
+  records.push(record);
+  saveRecords(records);
+  clearDraft();
+  state.record = record;
+  renderResult(record);
+  showView('view-result');
+  toast('已提交，成绩已上传');
+}
+
+/* 退出答题（进度已自动保存，可再次登录续答） */
+document.getElementById('logoutQuiz').addEventListener('click', function(){
+  openModal('<div class="modal-head"><h3>确认退出？</h3></div>'
+    + '<p style="color:var(--muted);font-size:14.5px">当前作答进度已自动保存，退出后可重新登录继续作答。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:20px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="mCancel" type="button">继续答题</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="mOk" type="button">退出登录</button></div>');
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  document.getElementById('mOk').addEventListener('click', function(){
+    saveDraft(); closeModal(); stopTimer(); showView('view-exams');
+  });
+});
+/* ===== 结果页渲染 ===== */
+function renderResult(record){
+  const details = (Array.isArray(record.details) && record.details.length) ? record.details : null;
+  const qs = details ? details.map(d => ({
+    no: d.no, stem: d.stem, options: d.options, answer: d.answer,
+    analysis: d.analysis || [], points: d.points || [], tips: d.tips || '',
+    verdict: d.verdict, stu: d.stu, time: d.time
+  })) : state.questions;
+  const total = qs.length || 1;
+  document.getElementById('resultScore').textContent = record.score;
+  document.getElementById('resultCorrect').textContent = record.correct;
+  document.getElementById('resultWrong').textContent = record.wrong;
+  document.getElementById('resultUnknown').textContent = record.unknown || 0;
+  document.getElementById('resultRate').textContent = Math.round(record.correct/total*100) + '%';
+  document.getElementById('resultTime').textContent = fmtTime(record.duration);
+
+  const list = document.getElementById('reviewList');
+  let html = '';
+  qs.forEach((q) => {
+    const stuAns = details ? q.stu : record.answers[q.no];
+    const v = details ? q.verdict : judgeAnswer(stuAns, q);
+    let verdictCls, verdictTxt;
+    if(v === 'correct'){ verdictCls = 'ok'; verdictTxt = '回答正确'; }
+    else if(v === 'unknown'){ verdictCls = 'unknown'; verdictTxt = '选了“不知道”（计 0 分）'; }
+    else { verdictCls = 'no'; verdictTxt = '回答错误'; }
+    html += '<div class="card" style="box-shadow:none;margin-bottom:16px;padding:20px 18px">'
+      + '<div class="q-head"><span class="q-no">第 ' + q.no + ' 题</span>'
+      + (q.time != null ? '<span class="q-tag">本题用时 ' + fmtShort(q.time) + '</span>' : '')
+      + '<span class="verdict ' + verdictCls + '">' + verdictTxt + '</span></div>'
+      + '<div class="q-stem" style="font-size:16px;margin-bottom:14px">' + esc(q.stem) + '</div>'
+      + '<div class="options">';
+    getOptions(q).forEach(o => {
+      let cls = 'option locked';
+      if(o.key === q.answer) cls += ' correct';
+      else if(o.key === stuAns) cls += (v === 'unknown' ? ' unknown' : ' wrong');
+      if(o.key === 'E') cls += ' option-e';
+      html += '<div class="' + cls + '"><span class="key">' + o.key + '</span>'
+        + '<span class="otext">' + esc(o.text) + '</span></div>';
+    });
+    html += '</div>';
+    html += '<div class="detail-box">'
+      + '<h4>你的答案：' + esc(stuAns || '未答') + ' ｜ 正确答案：' + q.answer
+      + ' ｜ 本题分值：' + (q.score || 0) + ' 分'
+      + (v === 'unknown' ? ' ｜ 选 E 计 0 分' : '') + '</h4>';
+    (q.analysis || []).forEach(a => { html += '<h4>解析</h4><div class="mini-li">' + esc(a) + '</div>'; });
+    if((q.points || []).length){
+      html += '<h4>知识点梳理</h4>';
+      q.points.forEach((p, k) => {
+        html += '<div class="mini-li"><b style="color:var(--gold)">（' + (k+1) + '）</b>' + esc(p) + '</div>';
+      });
+    }
+    if(q.tips){ html += '<h4>易错提醒</h4><div class="mini-li">' + esc(q.tips) + '</div>'; }
+    html += '</div></div>';
+  });
+  list.innerHTML = html;
+}
+
+document.getElementById('backLoginBtn').addEventListener('click', () => showView('view-exams'));
+
+/* ===== 悬浮功能键 ===== */
+document.getElementById('floatTop').addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+document.getElementById('floatExit').addEventListener('click', () => showView('view-exams'));
+document.getElementById('modalMask').addEventListener('click', function(e){
+  if(e.target === this) closeModal();
+});
+
+/* ===== 考试大厅加载 ===== */
+document.getElementById('changeExamBtn').addEventListener('click', function(){
+  showView('view-exams');
+  loadExamHall();
+});
+loadExamHall();
+setInterval(function(){
+  if(document.getElementById('view-exams').classList.contains('active')) loadExamHall();
+}, 60000);
+
+/* ===== 意外退出自动保存 ===== */
+window.addEventListener('pagehide', saveDraft);
+window.addEventListener('beforeunload', saveDraft);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden'){ saveDraft(); }
+});
+</script>
+</body>
+</html>
