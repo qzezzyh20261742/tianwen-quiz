@@ -1905,7 +1905,7 @@ function triggerCloudPush(){
 /* 刷新或关闭页面前，把最后一次改动补送云端，避免丢失 */
 window.addEventListener('pagehide', function(){ pushSettingsToCloud(true); });
 window.addEventListener('beforeunload', function(){ pushSettingsToCloud(true); });
-async function pullSettingsFromCloud(silent){
+async function pullSettingsFromCloud(silent, force){
   const cfg = getCloudConfig();
   if(!cfg.url) return false;
   try {
@@ -1915,7 +1915,7 @@ async function pullSettingsFromCloud(silent){
     const hasData = (s.schools || []).length || (s.students || []).length || (s.admins || []).length;
     if(!hasData) return false;
     const localStamp = localStorage.getItem('astro_quiz_settings_sync') || '';
-    if(!hasPendingSettings() && s.updatedAt && s.updatedAt === localStamp) return false;
+    if(!force && !hasPendingSettings() && s.updatedAt && s.updatedAt === localStamp) return false;
     try {
       localStorage.setItem('astro_quiz_settings_backup', JSON.stringify({
         at: localStamp, payload: settingsPayload()
@@ -2709,7 +2709,7 @@ document.getElementById('saveNowBtn').addEventListener('click', function(){
 });
 document.getElementById('pickSaveDirBtn').addEventListener('click', pickSaveDir);
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
-document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false); });
+document.getElementById('cloudPullBtn').addEventListener('click', function(){ pullSettingsFromCloud(false, true); });
 const cloudSyncBtnEl = document.getElementById('cloudSyncBtn');
 if(cloudSyncBtnEl) cloudSyncBtnEl.addEventListener('click', async function(){
   const cfg = getCloudConfig();
@@ -3571,7 +3571,7 @@ async function syncTeachersNow(){
   try {
     const cfg = getCloudConfig();
     if(!cfg.url){ toast('未配置云端地址，无法同步教师数据'); return; }
-    await pullSettingsFromCloud(true);
+    await pullSettingsFromCloud(true, true);
     const admins = getAdmins();
     if(!admins.length){ toast('当前没有教师账号可同步'); return; }
     log('教师同步', '教师账号 ' + admins.length + ' 个提交云端，GitHub 私有仓库 data/teachers.json 自动备份');
@@ -3595,7 +3595,7 @@ async function syncSchoolsNow(){
   try {
     const cfg = getCloudConfig();
     if(!cfg.url){ toast('未配置云端地址，无法同步学校数据'); return; }
-    await pullSettingsFromCloud(true);
+    await pullSettingsFromCloud(true, true);
     const schools = getSchools();
     const students = getStudents();
     log('学校同步', '学校 ' + schools.length + ' 所、学生 ' + students.length + ' 名提交云端，GitHub 私有仓库 data/schools.json、data/students.json 自动备份');
