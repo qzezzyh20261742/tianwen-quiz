@@ -1809,7 +1809,22 @@ function downloadBackup(){
 }
 
 /* ===== 云端汇总（自建云服务器） ===== */
-var DEFAULT_CLOUD = { url: 'https://usually-talented-aluminum-prozac.trycloudflare.com', apiKey: 'astro2026' };
+var DEFAULT_CLOUD = { url: 'https://gibson-indiana-symbols-speed.trycloudflare.com', apiKey: 'astro2026' };
+/* 云端地址可能随隧道重建而变化：启动时读取同目录 cloud.json 自动纠正，无需重新部署页面 */
+var cloudCfgPromise = null;
+function refreshCloudConfigFromServer(){
+  try {
+    return fetch('cloud.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if(!j || !j.url) return;
+        DEFAULT_CLOUD.url = j.url.replace(/\/+$/, '');
+        if(j.apiKey) DEFAULT_CLOUD.apiKey = j.apiKey;
+      })
+      .catch(function(){ return null; });
+  } catch(e){ return Promise.resolve(null); }
+}
+cloudCfgPromise = refreshCloudConfigFromServer();
 function getCloudConfig(){
   var saved = {};
   try { saved = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}'); } catch(e){ saved = {}; }
@@ -1842,6 +1857,7 @@ function saveLocalExams(){ localStorage.setItem(LOCAL_EXAMS_KEY, JSON.stringify(
 
 async function cloudCall(path, opts){
   opts = opts || {};
+  if(cloudCfgPromise) await cloudCfgPromise;
   const cfg = getCloudConfig();
   if(!cfg.url) throw new Error('未配置云端地址');
   const headers = { 'X-API-Key': cfg.apiKey || '' };
