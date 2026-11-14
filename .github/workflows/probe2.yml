@@ -1,0 +1,36 @@
+name: probe2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        id: cpg
+        continue-on-error: true
+      - name: capture
+        run: |
+          {
+            echo "configure-pages outcome=${{ steps.cpg.outcome }}"
+            echo "== cdn with -L =="
+            curl -sSL -w "http=%{http_code} size=%{size_download}\n" -A "Mozilla/5.0" "https://aka.doubaocdn.com/s/yBsIDh3qrt" -o s2.html || echo "cdn fail exit=$?"
+            head -c 160 s2.html 2>/dev/null | base64
+          } > diag2.log 2>&1 || true
+      - name: push diag
+        run: |
+          git config user.email "ci@example.com"
+          git config user.name "ci"
+          git checkout -B diag
+          git add diag2.log
+          git commit -m "probe2 $(date -u +%s)" || true
+          git push origin diag --force
