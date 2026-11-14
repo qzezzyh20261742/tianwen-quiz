@@ -2681,6 +2681,7 @@ function roleLabel(a){
 function renderSchoolMgmt(){
   const el = document.getElementById('schoolMgmtBody');
   if(!el) return;
+  const canDelete = currentAdmin && currentAdmin.role === 'admin';
   const schools = getSchools();
   const students = getStudents();
   if(!schools.length){
@@ -2696,7 +2697,7 @@ function renderSchoolMgmt(){
       stuCount++;
       stuHtml += '<span style="font-size:13px;padding:4px 8px;border-radius:8px;background:' + (st.auto ? 'rgba(255,210,120,.1)' : 'rgba(91,200,255,.1)') + ';border:1px solid var(--line);margin:3px">'
         + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + st.group + (st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
-        + ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a></span>';
+        + (canDelete ? ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a>' : '') + '</span>';
     });
     html += '<div style="border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px;margin-bottom:10px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
@@ -2704,7 +2705,7 @@ function renderSchoolMgmt(){
       + '<span style="color:var(--muted);font-size:13px">' + stuCount + ' 名学生</span>'
       + '<div style="display:flex;gap:8px">'
       + '<button class="btn btn-ghost btn-sm" type="button" data-addstu="' + esc(s) + '">添加学生</button>'
-      + '<button class="btn btn-danger btn-sm" type="button" data-delschool="' + esc(s) + '">删除学校</button>'
+      + (canDelete ? '<button class="btn btn-danger btn-sm" type="button" data-delschool="' + esc(s) + '">删除学校</button>' : '')
       + '</div></div>'
       + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
       + '</div>';
@@ -2836,17 +2837,26 @@ function renderAdminList(){
   const admins = getAdmins();
   const el = document.getElementById('adminList');
   if(!el) return;
-  el.innerHTML = admins.map(a =>
+  const isSub = currentAdmin && currentAdmin.role === 'subadmin';
+  const visible = isSub ? admins.filter(a => (a.role || 'teacher') === 'teacher') : admins;
+  let html = isSub
+    ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">子管理员可添加普通教师账号；管理员/子管理员的权限与删除由超级管理员负责。</div>'
+    : '';
+  html += visible.map(a =>
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap">'
     + '<span>姓名：<b style="color:var(--text)">' + esc(a.name || '未填写') + '</b></span>'
     + '<span>账号：<b style="color:var(--accent)">' + esc(a.user) + '</b></span>'
     + '<span>密码：<b style="color:var(--gold)">' + esc(a.pass) + '</b></span>'
     + '<span>角色：<b style="color:' + (a.role === 'admin' ? 'var(--gold)' : 'var(--accent)') + '">' + roleLabel(a) + '</b></span>'
-    + '<button type="button" class="btn btn-ghost btn-sm" data-editpass="' + esc(a.user) + '">修改密码</button>'
-    + '<button type="button" class="btn btn-ghost btn-sm" data-setrole="' + esc(a.user) + '">设置权限</button>'
-    + (a.role === 'admin' ? '' : '<button type="button" class="btn btn-danger btn-sm" data-deladmin="' + esc(a.user) + '">删除</button>')
+    + (isSub ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-editpass="' + esc(a.user) + '">修改密码</button>'
+      + '<button type="button" class="btn btn-ghost btn-sm" data-setrole="' + esc(a.user) + '">设置权限</button>'
+      + (a.role === 'admin' ? '' : '<button type="button" class="btn btn-danger btn-sm" data-deladmin="' + esc(a.user) + '">删除</button>'))
     + '</div>'
   ).join('');
+  if(isSub && !visible.length){
+    html += '<div class="empty">尚无普通教师账号，点击右上角「添加教师账号」。</div>';
+  }
+  el.innerHTML = html;
   el.querySelectorAll('[data-editpass]').forEach(btn => {
     btn.addEventListener('click', () => openEditPass(btn.dataset.editpass));
   });
@@ -3008,15 +3018,15 @@ function applyAdminRole(){
   if(tabsBar){ tabsBar.style.display = isAdminOrSub ? '' : 'none'; }
   if(manageTab){
     manageTab.style.display = isAdminOrSub ? '' : 'none';
-    manageTab.textContent = isAdmin ? '权限与账号' : '操作日志';
+    manageTab.textContent = '权限与账号';
   }
   if(!isAdminOrSub && adminPage === 'manage'){ switchAdminPage('scores'); }
   const mgmt = document.getElementById('adminMgmtCard');
-  if(mgmt){ mgmt.style.display = isAdmin ? '' : 'none'; }
+  if(mgmt){ mgmt.style.display = isAdminOrSub ? '' : 'none'; }
   const examCard = document.getElementById('examMgmtCard');
   if(examCard){ examCard.style.display = isAdminOrSub ? '' : 'none'; }
   const schoolCard = document.getElementById('schoolMgmtCard');
-  if(schoolCard){ schoolCard.style.display = isAdmin ? '' : 'none'; }
+  if(schoolCard){ schoolCard.style.display = isAdminOrSub ? '' : 'none'; }
   const logCard = document.getElementById('logCard');
   if(logCard){ logCard.style.display = isAdminOrSub ? '' : 'none'; }
   const saveCard = document.getElementById('saveCard');
@@ -3052,6 +3062,7 @@ function setupGroupFilter(){
 }
 
 document.getElementById('addAdminBtn').addEventListener('click', function(){
+  const isAdmin = currentAdmin && currentAdmin.role === 'admin';
   const schoolOpts = '<option value="全部" selected>全部学校</option>'
     + getSchools().map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
   openModal('<div class="modal-head"><h3>添加教师账号</h3></div>'
@@ -3067,14 +3078,15 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     + '<label for="newAdminPass">登录密码</label>'
     + '<input id="newAdminPass" type="text" placeholder="请输入密码" maxlength="40">'
     + '</div>'
-    + '<div class="field" style="margin-bottom:12px">'
-    + '<label>权限等级</label>'
-    + '<div class="radio-row">'
-    + '<label class="radio-pill"><input type="radio" name="newRole" value="admin"><span>超级管理员</span></label>'
-    + '<label class="radio-pill"><input type="radio" name="newRole" value="subadmin"><span>子管理员</span></label>'
-    + '<label class="radio-pill"><input type="radio" name="newRole" value="teacher" checked><span>普通教师</span></label>'
-    + '</div>'
-    + '</div>'
+    + (isAdmin
+      ? '<div class="field" style="margin-bottom:12px">'
+        + '<label>权限等级</label>'
+        + '<div class="radio-row">'
+        + '<label class="radio-pill"><input type="radio" name="newRole" value="admin"><span>超级管理员</span></label>'
+        + '<label class="radio-pill"><input type="radio" name="newRole" value="subadmin"><span>子管理员</span></label>'
+        + '<label class="radio-pill"><input type="radio" name="newRole" value="teacher" checked><span>普通教师</span></label>'
+        + '</div></div>'
+      : '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">子管理员只能添加「普通教师」账号，权限设置由超级管理员负责。</div>')
     + '<div class="field" id="newTeacherField" style="margin-bottom:12px">'
     + '<label>可查看组别</label>'
     + '<div class="radio-row">'
@@ -3106,7 +3118,8 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     const p = document.getElementById('newAdminPass').value;
     if(!nm){ toast('请输入教师姓名'); return; }
     if(!u || !p){ toast('请完整填写账号与密码'); return; }
-    const role = document.querySelector('input[name="newRole"]:checked').value;
+    const roleChecked = document.querySelector('input[name="newRole"]:checked');
+    const role = isAdmin ? roleChecked.value : 'teacher';
     const scope = role === 'teacher' ? document.querySelector('input[name="newScope"]:checked').value : '';
     const schoolScope = role === 'teacher' ? document.getElementById('newSchoolScope').value : '';
     const admins = getAdmins();
