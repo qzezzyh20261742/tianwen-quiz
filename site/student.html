@@ -420,27 +420,58 @@ function saveRecords(records){
   localStorage.setItem(RECORD_KEY, JSON.stringify(records));
 }
 var DEFAULT_CLOUD = { url: 'https://astro-quiz-api.pages.dev', apiKey: 'astro2026' };
-/* 云端地址可能随隧道重建而变化：启动时读取同目录 cloud.json 自动纠正，无需重新部署页面 */
+/* 云端地址缓存：先用上次缓存立即发请求，后台再刷新，避免每次进页面都等一次 cloud.json */
+var CLOUD_CACHE_KEY = 'astro_quiz_cloud_cache';
 var cloudCfgPromise = null;
+function applyCloudJson(j){
+  if(!j || !j.url) return;
+  DEFAULT_CLOUD.url = j.url.replace(/\/+$/, '');
+  if(j.apiKey) DEFAULT_CLOUD.apiKey = j.apiKey;
+  try {
+    var savedCfg = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}');
+    if(savedCfg && savedCfg.url && savedCfg.url.replace(/\/+$/, '') !== DEFAULT_CLOUD.url){
+      localStorage.removeItem('astro_quiz_cloud');
+    }
+  } catch(e){}
+  try {
+    localStorage.setItem(CLOUD_CACHE_KEY, JSON.stringify({ url: DEFAULT_CLOUD.url, apiKey: DEFAULT_CLOUD.apiKey, ts: Date.now() }));
+  } catch(e){}
+}
+function readCloudCache(){
+  try {
+    var c = JSON.parse(localStorage.getItem(CLOUD_CACHE_KEY) || 'null');
+    if(c && c.url) return c;
+  } catch(e){}
+  return null;
+}
 function refreshCloudConfigFromServer(){
   try {
     return fetch('cloud.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
-        if(!j || !j.url) return;
-        DEFAULT_CLOUD.url = j.url.replace(/\/+$/, '');
-        if(j.apiKey) DEFAULT_CLOUD.apiKey = j.apiKey;
-        try {
-          var savedCfg = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}');
-          if(savedCfg && savedCfg.url && savedCfg.url.replace(/\/+$/, '') !== DEFAULT_CLOUD.url){
-            localStorage.removeItem('astro_quiz_cloud');
-          }
-        } catch(e){}
-      })
+      .then(function(j){ applyCloudJson(j); return null; })
       .catch(function(){ return null; });
   } catch(e){ return Promise.resolve(null); }
 }
-cloudCfgPromise = refreshCloudConfigFromServer();
+(function initCloudConfig(){
+  var cached = readCloudCache();
+  if(cached){
+    DEFAULT_CLOUD.url = cached.url;
+    if(cached.apiKey) DEFAULT_CLOUD.apiKey = cached.apiKey;
+    cloudCfgPromise = Promise.resolve(null);
+    refreshCloudConfigFromServer();
+  } else {
+    cloudCfgPromise = refreshCloudConfigFromServer();
+  }
+  setTimeout(function(){ warmUpCloud(); }, 0);
+})();
+/* 预热云端函数，避免第一次操作吃冷启动 */
+function warmUpCloud(){
+  try {
+    var cfg = getCloudConfig();
+    if(!cfg.url) return;
+    fetch(cfg.url.replace(/\/+$/, '') + '/health', { cache: 'no-store' }).catch(function(){});
+  } catch(e){}
+}
 function getCloudConfig(){
   var saved = {};
   try { saved = JSON.parse(localStorage.getItem('astro_quiz_cloud') || '{}'); } catch(e){ saved = {}; }
@@ -458,6 +489,26 @@ async function cloudApi(path, opts){
   var j = await res.json();
   if(!j.ok) throw new Error(j.error || ('HTTP ' + res.status));
   return j;
+}
+/* 试卷缓存（同一场次同组别 3 分钟内复用，刷新页面不再重新拉题） */
+var PAPER_CACHE_PREFIX = 'astro_quiz_paper_';
+function readPaperCache(key){
+  try {
+    var c = JSON.parse(sessionStorage.getItem(PAPER_CACHE_PREFIX + key) || 'null');
+    if(c && c.ts && (Date.now() - c.ts) < 180000 && c.paper) return c.paper;
+  } catch(e){}
+  return null;
+}
+function writePaperCache(key, paper){
+  try { sessionStorage.setItem(PAPER_CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), paper: paper })); } catch(e){}
+}
+async function fetchExamPaper(examId, group){
+  var key = examId + '||' + group;
+  var cached = readPaperCache(key);
+  if(cached) return cached;
+  var j = await cloudApi('/exam?id=' + encodeURIComponent(examId) + '&group=' + encodeURIComponent(group));
+  writePaperCache(key, j.exam);
+  return j.exam;
 }
 
 /* ===== 考试场次选择 ===== */
@@ -529,6 +580,9 @@ function chooseExam(id){
   var exam = EXAM_LIST.find(function(e){ return e.id === id; });
   if(!exam) return;
   state.exam = exam;
+  /* 学生填姓名/考号的这段时间里，提前把该场次各组别试题取回来，点“进入答题”时直接可用 */
+  var previewGroups = exam.groups && exam.groups.length ? exam.groups : ['小学组','初中组','高中组'];
+  previewGroups.forEach(function(g){ fetchExamPaper(exam.id, g).catch(function(){}); });
   var banner = document.getElementById('examBanner');
   if(banner) banner.textContent = exam.name;
   var sub = document.getElementById('loginSubtitle');
@@ -807,21 +861,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
       r.examId === exam.id && r.name === name && r.school === school && r.examNo === examNo && r.group === group)
     .sort((a,b) => b.id - a.id);
   let oldRecord = matched.length ? matched[0] : null;
-  /* 本机没有记录时，向云端查询同一场次同一身份是否已提交（支持换设备后直接调出成绩） */
-  if(!oldRecord){
-    try {
-      const qs = new URLSearchParams({ examId: exam.id, name: name, examNo: examNo, school: school, group: group });
-      const j = await cloudApi('/record?' + qs.toString());
-      if(j.record){
-        oldRecord = j.record;
-        const rs = getRecords();
-        rs.push(oldRecord);
-        saveRecords(rs);
-      }
-    } catch(e){ /* 云端查询失败不阻塞正常答题 */ }
-  }
-  if(oldRecord){
-    const old = oldRecord;
+  function showOldResult(old){
     state.student = { name: name, school: school, examNo: examNo, group: group };
     state.questions = (old.details || []).map(d => ({ no: d.no, stem: d.stem, options: d.options, score: d.score }));
     state.answers = Object.assign({}, old.answers);
@@ -831,14 +871,36 @@ document.getElementById('studentForm').addEventListener('submit', async function
     renderResult(old);
     showView('view-result');
     toast('检测到你已提交过，已调出历史成绩');
+  }
+  if(oldRecord){ showOldResult(oldRecord); return; }
+
+  /* 换设备恢复成绩与拉取试题并行，历史记录最多等 1.8 秒，不让它拖慢进入答题 */
+  const recordPromise = (async function(){
+    try {
+      const qs = new URLSearchParams({ examId: exam.id, name: name, examNo: examNo, school: school, group: group });
+      const j = await cloudApi('/record?' + qs.toString());
+      return j.record || null;
+    } catch(e){ return null; }
+  })();
+  const paperPromise = fetchExamPaper(exam.id, group);
+  recordPromise.catch(function(){});
+  paperPromise.catch(function(){});
+  const cloudRecord = await Promise.race([
+    recordPromise,
+    new Promise(function(res){ setTimeout(function(){ res(null); }, 1800); })
+  ]);
+  if(cloudRecord){
+    const rs = getRecords();
+    rs.push(cloudRecord);
+    saveRecords(rs);
+    showOldResult(cloudRecord);
     return;
   }
 
-  /* 从云端取本次考试该组别试题 */
+  /* 从云端取本次考试该组别试题（命中缓存则直接返回） */
   let paper;
   try {
-    const j = await cloudApi('/exam?id=' + encodeURIComponent(exam.id) + '&group=' + encodeURIComponent(group));
-    paper = j.exam;
+    paper = await paperPromise;
   } catch(err){
     toast('无法进入考试：' + (err.message || err));
     return;
