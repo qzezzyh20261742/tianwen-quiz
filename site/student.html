@@ -222,7 +222,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   .option .key{width:32px;height:32px;font-size:15px}
   .kpi-row{grid-template-columns:repeat(2,1fr)}
   .stat-grid{grid-template-columns:repeat(2,1fr);min-width:0;width:100%}
-  .q-actions{flex-direction:column}
+  .q-actions{display:none !important}
   .q-actions .btn{width:100% !important;min-width:0 !important}
   .q-nav{justify-content:center;gap:7px}
   .nav-dot{width:38px;height:38px;touch-action:manipulation}
@@ -233,7 +233,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   .float-actions{left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));flex-direction:row;gap:8px}
   .float-btn{flex:1;min-width:0;flex-direction:row;justify-content:center;min-height:46px;padding:10px 8px;font-size:12.5px}
   .float-btn svg{width:19px;height:19px}
-  #view-result.active{padding-bottom:78px}
+  #view-result.active{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
   .score-hero{flex-direction:column;gap:14px}
   .score-big{font-size:44px}
   .review-block .card{padding:16px 13px !important}
@@ -241,7 +241,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   .modal-mask{padding:12px;align-items:flex-end}
   .modal{padding:18px 16px calc(18px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;max-height:86vh}
   .toast{bottom:calc(84px + env(safe-area-inset-bottom));width:calc(100% - 32px);max-width:calc(100% - 32px);text-align:center}
-  #view-quiz.active{padding-bottom:82px}
+  #view-quiz.active{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
   .mobile-quiz-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:36;gap:9px;align-items:center;padding:9px 12px calc(9px + env(safe-area-inset-bottom));background:rgba(7,11,28,.94);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
   .mobile-quiz-bar button{flex:1;min-height:46px;border-radius:10px;font-family:inherit;font-size:15.5px;font-weight:700;cursor:pointer;touch-action:manipulation}
   .mobile-quiz-bar .mq-prev{background:transparent;border:1px solid var(--line-strong);color:var(--text)}
