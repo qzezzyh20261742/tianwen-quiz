@@ -416,6 +416,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
         <h2 class="sec-title" style="margin-bottom:0">学校与学生管理</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="refreshStudentsBtn" type="button" title="从云端重新读取最新学生登记，并合并到本机学校名单">刷新学生登记</button>
           <button class="btn btn-ghost btn-sm" id="syncSchoolsBtn" type="button" title="立即把学校和学生的数据保存到云端，并更新 GitHub 私有仓库的学校与学生备份">学校同步</button>
           <button class="btn btn-gold btn-sm" id="addSchoolBtn" type="button">添加学校</button>
         </div>
@@ -3508,6 +3509,8 @@ function applyAdminRole(){
   if(clearBtn){ clearBtn.style.display = isAdmin ? '' : 'none'; }
   const syncTeachersBtn = document.getElementById('syncTeachersBtn');
   if(syncTeachersBtn){ syncTeachersBtn.style.display = isAdmin ? '' : 'none'; }
+  const refreshStudentsBtn = document.getElementById('refreshStudentsBtn');
+  if(refreshStudentsBtn){ refreshStudentsBtn.style.display = isAdmin ? '' : 'none'; }
   const syncSchoolsBtn = document.getElementById('syncSchoolsBtn');
   if(syncSchoolsBtn){ syncSchoolsBtn.style.display = isAdmin ? '' : 'none'; }
 }
@@ -3614,7 +3617,33 @@ async function syncSchoolsNow(){
   }
 }
 
+async function refreshStudentsNow(){
+  const btn = document.getElementById('refreshStudentsBtn');
+  if(!btn) return;
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '刷新中…';
+  try {
+    const cfg = getCloudConfig();
+    if(!cfg.url){ toast('未配置云端地址，无法刷新学生登记'); return; }
+    const before = getStudents();
+    const beforeKeys = new Set(before.map(st => [st.name, st.examNo, st.school, st.group].join('|')));
+    const ok = await pullSettingsFromCloud(true, true);
+    if(!ok){ toast('刷新学生登记失败，请检查云端连接'); return; }
+    const students = getStudents();
+    const added = students.filter(st => !beforeKeys.has([st.name, st.examNo, st.school, st.group].join('|'))).length;
+    localStorage.setItem('astro_quiz_students_refresh_at', new Date().toLocaleString('zh-CN'));
+    renderSchoolMgmt();
+    updateCloudStatus();
+    toast('学生登记已刷新：现有 ' + students.length + ' 名学生' + (added ? '，新增 ' + added + ' 名' : ''));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
 document.getElementById('syncTeachersBtn').addEventListener('click', syncTeachersNow);
+document.getElementById('refreshStudentsBtn').addEventListener('click', refreshStudentsNow);
 document.getElementById('syncSchoolsBtn').addEventListener('click', syncSchoolsNow);
 document.getElementById('addAdminBtn').addEventListener('click', function(){
   const isAdmin = currentAdmin && currentAdmin.role === 'admin';
