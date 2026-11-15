@@ -2524,7 +2524,17 @@ async function refreshExamBoard(isAuto){
     const summaries = j.exams || [];
     const merged = summaries.map(s => {
       const l = local.find(x => x.id === s.id) || {};
-      return Object.assign({}, l, s, { questions: l.questions || {} });
+      const mergedExam = Object.assign({}, l, s, { questions: l.questions || {} });
+      if(l.settingsDirty){
+        /* 本机考试设置尚未成功写入云端时，刷新不得用旧云端值覆盖 */
+        mergedExam.name = l.name || mergedExam.name;
+        mergedExam.groups = Array.isArray(l.groups) ? l.groups : mergedExam.groups;
+        mergedExam.startAt = l.startAt || '';
+        mergedExam.endAt = l.endAt || '';
+        mergedExam.schools = Array.isArray(l.schools) ? l.schools : [];
+        mergedExam.settingsDirty = true;
+      }
+      return mergedExam;
     });
     /* 保留尚未上传的本地考试草稿 */
     local.forEach(l => {
@@ -2755,14 +2765,19 @@ async function saveExamSettings(exam, card, btn){
   exam.endAt = endAt;
   exam.schools = schools;
   exam.updatedAt = new Date().toLocaleString();
+  exam.settingsDirty = true;
   saveLocalExams();
   renderExamBoard();
   if(btn){ btn.disabled = true; btn.textContent = '保存中…'; }
+  let cloudSaved = false;
   try {
     await cloudCall('/exam-settings', { method: 'POST', body: {
       id: exam.id, name: exam.name, groups: exam.groups,
       startAt: exam.startAt, endAt: exam.endAt, schools: exam.schools
     } });
+    exam.settingsDirty = false;
+    saveLocalExams();
+    cloudSaved = true;
     toast('考试设置已保存，定时与参加学校已同步到云端');
     log('修改考试设置', name + ' · ' + groups.join('/') + (startAt ? ' · 定时开始' : '') + (endAt ? ' · 定时结束' : ''));
   } catch(e){
@@ -2772,7 +2787,7 @@ async function saveExamSettings(exam, card, btn){
       toast('已保存本机，云端同步失败：' + (e.message || e));
     }
   }
-  refreshExamBoard(true);
+  if(cloudSaved) refreshExamBoard(true);
 }
 
 function openCreateExam(){
