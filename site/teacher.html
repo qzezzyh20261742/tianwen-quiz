@@ -1959,6 +1959,7 @@ function settingsPayload(){
   };
 }
 function pushSettingsToCloud(keepalive){
+  if(!currentAdmin) return Promise.resolve(false);
   const cfg = getCloudConfig();
   if(!cfg.url) return Promise.resolve(false);
   const token = settingsChangeToken();
@@ -1979,13 +1980,18 @@ function pushSettingsToCloud(keepalive){
 function triggerCloudPush(){
   const cfg = getCloudConfig();
   if(!cfg.url) return;
+  if(!currentAdmin) return;
   markSettingsChanged();
   clearTimeout(triggerCloudPush._t);
   triggerCloudPush._t = setTimeout(function(){ pushSettingsToCloud(false); }, 250);
 }
 /* 刷新或关闭页面前，把最后一次改动补送云端，避免丢失 */
-window.addEventListener('pagehide', function(){ pushSettingsToCloud(true); });
-window.addEventListener('beforeunload', function(){ pushSettingsToCloud(true); });
+function canPushSettingsOnExit(){
+  /* 新设备/新域名尚未从云端取回数据时，绝不能把空的或默认的本机设置覆盖到云端 */
+  return !!(currentAdmin && (localStorage.getItem('astro_quiz_settings_sync') || hasPendingSettings()));
+}
+window.addEventListener('pagehide', function(){ if(canPushSettingsOnExit()) pushSettingsToCloud(true); });
+window.addEventListener('beforeunload', function(){ if(canPushSettingsOnExit()) pushSettingsToCloud(true); });
 async function pullSettingsFromCloud(silent, force){
   const cfg = getCloudConfig();
   if(!cfg.url) return false;
@@ -2016,6 +2022,11 @@ async function pullSettingsFromCloud(silent, force){
     const mergedAdmins = mergeAdmins(localAdmins, s.admins || []);
     const mergedSchools = mergeStringList(localSchools, s.schools || []);
     const mergedStudents = mergeStudents(localStudents, s.students || []);
+    /* 手机端自动注册的学生，其学校可能还没进入学校名单；补齐后再渲染学校卡片 */
+    mergedStudents.forEach(function(st){
+      const school = st && st.school ? st.school : '';
+      if(school && mergedSchools.indexOf(school) < 0) mergedSchools.push(school);
+    });
     const mergedSchoolSettings = mergeSchoolSettings(localSchoolSettings, s.schoolSettings || {});
     const mergedLogs = mergeLogs(localLogs, s.logs || []);
     const localChanged = !sameJson(localAdmins, mergedAdmins)
@@ -2227,10 +2238,15 @@ function groupStats(exam, group){
   return { count: qs.length, total: qs.reduce((s, q) => s + (Number(q.score) || 0), 0) };
 }
 
-async function refreshExamBoard(){
+async function refreshExamBoard(isAuto){
   const el = document.getElementById('examList');
   if(!el) return;
+  const btn = document.getElementById('refreshExamsBtn');
+  let oldLabel = '';
+  if(!isAuto && btn){ oldLabel = btn.textContent; btn.disabled = true; btn.textContent = '刷新中…'; }
   const local = loadLocalExams();
+  let cloudOk = false;
+  let cloudError = '';
   try {
     const j = await cloudCall('/exams');
     PORTAL_ON = j.portal !== false;
@@ -2245,17 +2261,23 @@ async function refreshExamBoard(){
     });
     EXAMS = merged;
     saveLocalExams();
+    cloudOk = true;
   } catch(e){
+    cloudError = e.message || String(e);
     EXAMS = local;
     if(!EXAMS.length){
-      el.innerHTML = '<div class="empty">云端不可达：' + esc(e.message || e) + '<br>可先在本机创建考试并导入试题，稍后上传。</div>';
+      el.innerHTML = '<div class="empty">云端不可达：' + esc(cloudError) + '<br>可先在本机创建考试并导入试题，稍后上传。</div>';
       renderPortal();
-      return;
+    } else {
+      toast('云端不可达，显示本机考试草稿');
     }
-    toast('云端不可达，显示本机考试草稿');
   }
   renderPortal();
   renderExamBoard();
+  if(!isAuto && btn){ btn.disabled = false; btn.textContent = oldLabel; }
+  if(!isAuto){
+    toast(cloudOk ? ('云端场次已刷新：共 ' + EXAMS.length + ' 场') : ('云端场次读取失败：' + cloudError));
+  }
 }
 
 function renderPortal(){
@@ -2755,7 +2777,7 @@ function bindExamMgmtButtons(){
   const r = document.getElementById('refreshExamsBtn');
   const p = document.getElementById('portalToggleBtn');
   if(c) c.addEventListener('click', openCreateExam);
-  if(r) r.addEventListener('click', refreshExamBoard);
+  if(r) r.addEventListener('click', function(){ refreshExamBoard(false); });
   if(p) p.addEventListener('click', togglePortal);
 }
 bindExamMgmtButtons();
@@ -2838,7 +2860,22 @@ window.addEventListener('storage', function(e){
   else if(e.key === ADMIN_KEY){ renderAdminList(); triggerAutoSave(); }
 });
 
-document.getElementById('refreshLogsBtn').addEventListener('click', renderLogs);
+async function refreshLogsNow(){
+  const btn = document.getElementById('refreshLogsBtn');
+  if(!btn){ renderLogs(); return; }
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '刷新中…';
+  try {
+    const ok = await pullSettingsFromCloud(true, true);
+    renderLogs();
+    toast((ok ? '日志已刷新：共 ' : '已刷新本机日志：共 ') + getLogs().length + ' 条');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+document.getElementById('refreshLogsBtn').addEventListener('click', refreshLogsNow);
 document.getElementById('logMore').addEventListener('click', function(){
   logExpanded = true;
   logPage = 1;
@@ -2891,7 +2928,7 @@ async function pollSettingsForStudents(){
 }
 function scheduleSettingsPoll(){
   clearTimeout(settingsPollTimer);
-  const delay = document.hidden ? 30000 : (adminPage === 'manage' ? 5000 : 30000);
+  const delay = document.hidden ? 30000 : 5000;
   settingsPollTimer = setTimeout(function(){
     pollSettingsForStudents().then(scheduleSettingsPoll, scheduleSettingsPoll);
   }, delay);
@@ -3044,7 +3081,7 @@ document.getElementById('adminForm').addEventListener('submit', function(e){
     log('登录后台', '账号 ' + matched.user);
     renderAdmin();
     syncCloudThenRender();
-    refreshExamBoard();
+    refreshExamBoard(true);
     pullSettingsFromCloud(true);
   } else {
     toast('管理员账号或密码错误');
@@ -3079,7 +3116,7 @@ function restoreAdminSession(){
   switchAdminPage(page);
   renderAdmin();
   syncCloudThenRender();
-  refreshExamBoard();
+  refreshExamBoard(true);
   pullSettingsFromCloud(true);
   return true;
 }
@@ -4235,6 +4272,9 @@ async function refreshStudentsNow(){
     const ok = await pullSettingsFromCloud(true, true);
     if(!ok){ toast('刷新学生失败，请检查云端连接'); return; }
     const students = getStudents();
+    const schools = getSchools();
+    const missingSchools = Array.from(new Set(students.map(function(st){ return st.school; }).filter(function(s){ return s && schools.indexOf(s) < 0; })));
+    if(missingSchools.length) saveSchools(schools.concat(missingSchools));
     const added = students.filter(st => !beforeKeys.has([st.name, st.examNo, st.school, st.group].join('|'))).length;
     localStorage.setItem('astro_quiz_students_refresh_at', new Date().toLocaleString('zh-CN'));
     renderSchoolMgmt();
