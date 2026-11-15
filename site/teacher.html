@@ -2331,7 +2331,10 @@ let PORTAL_ON = true;
 function loadLocalExams(){
   try { return JSON.parse(localStorage.getItem(LOCAL_EXAMS_KEY) || '[]'); } catch(e){ return []; }
 }
-function saveLocalExams(){ localStorage.setItem(LOCAL_EXAMS_KEY, JSON.stringify(EXAMS)); }
+function saveLocalExams(){
+  try { localStorage.setItem(LOCAL_EXAMS_KEY, JSON.stringify(EXAMS)); return true; }
+  catch(e){ return false; }
+}
 
 async function cloudCall(path, opts){
   opts = opts || {};
@@ -2932,10 +2935,16 @@ function openImportModal(exam, group){
     groups.forEach(function(g){
       exam2.questions[g] = JSON.parse(JSON.stringify(EXAM_IMPORT.list));
     });
+    const previousQuestions = {};
+    groups.forEach(function(g){ previousQuestions[g] = exam2.questions[g]; });
+    const previousUpdatedAt = exam2.updatedAt;
     exam2.updatedAt = new Date().toLocaleString();
-    try {
-      saveLocalExams();
-    } catch(e){
+    if(!saveLocalExams()){
+      groups.forEach(function(g){
+        if(previousQuestions[g] === undefined) delete exam2.questions[g];
+        else exam2.questions[g] = previousQuestions[g];
+      });
+      exam2.updatedAt = previousUpdatedAt;
       toast('本机存储空间不足，图片未能保存；请减少图片数量后重试');
       return;
     }
@@ -2992,9 +3001,9 @@ async function syncExamQuestions(exam, group){
     exam.questions = JSON.parse(JSON.stringify(cloudExam.questions || {}));
     const idx = EXAMS.findIndex(function(x){ return x.id === exam.id; });
     if(idx >= 0) EXAMS[idx] = exam;
-    saveLocalExams();
+    const saved = saveLocalExams();
     renderExamBoard();
-    toast('已从云端同步完整试题：' + cloudCount + ' 题' + (group ? '（' + group + '）' : ''));
+    toast(saved ? ('已从云端同步完整试题：' + cloudCount + ' 题' + (group ? '（' + group + '）' : '')) : ('已从云端读取 ' + cloudCount + ' 题，但本机缓存空间不足，图片未写入本机；可减少题图后重试'));
     log('同步试题', exam.name + ' · 云端完整试题 ' + cloudCount + ' 题');
   } catch(e){
     toast('同步试题失败：' + (e.message || e));
@@ -3061,8 +3070,9 @@ async function viewExamQuestions(exam, group){
     }
     if(!exam.questions) exam.questions = {};
     exam.questions[group] = JSON.parse(JSON.stringify(cloudQs));
-    saveLocalExams();
+    const saved = saveLocalExams();
     renderExamBoard();
+    if(!saved) toast('已从云端读取完整试题，但本机缓存空间不足，图片可能未写入本机');
     showExamQuestionsModal(exam, group, exam.questions[group]);
   } catch(e){
     openModal(head + '<div class="empty" style="padding:32px 0;line-height:1.9;color:var(--red)">读取云端试题失败：' + esc(e.message || e)
