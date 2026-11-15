@@ -3275,7 +3275,7 @@ function renderSchoolMgmt(){
       schoolStudents.push({
         idx: idx,
         html: '<span style="font-size:13px;padding:4px 8px;border-radius:8px;background:' + (st.auto ? 'rgba(255,210,120,.1)' : 'rgba(91,200,255,.1)') + ';border:1px solid var(--line);margin:3px">'
-          + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + esc(st.group) + (st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
+          + esc(st.name) + ' · ' + esc(st.examNo) + ' · ' + esc(st.group) + (st.recordOnly ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">答卷补录</i>' : st.auto ? ' <i style="color:var(--gold);font-style:normal;font-size:11px">自动登记</i>' : '')
           + (canDelete ? ' <a href="javascript:void(0)" data-delstu="' + idx + '" style="color:var(--red);text-decoration:none">×</a>' : '') + '</span>'
       });
     });
@@ -3316,7 +3316,7 @@ function openStudentList(school){
       + '<div style="min-width:0"><b style="font-size:13.5px">' + esc(st.name) + '</b>'
       + '<div style="color:var(--muted);font-size:12.5px;margin-top:2px;overflow-wrap:anywhere">' + esc(st.examNo) + ' · ' + esc(st.group) + '</div></div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex:none">'
-      + (st.auto ? '<span style="color:var(--gold);font-size:12px">自动登记</span>' : '')
+      + (st.recordOnly ? '<span style="color:var(--gold);font-size:12px">答卷补录</span>' : st.auto ? '<span style="color:var(--gold);font-size:12px">自动登记</span>' : '')
       + (canDelete ? '<a href="javascript:void(0)" data-delstu-modal="' + x.idx + '" style="color:var(--red);text-decoration:none;font-size:12px">删除</a>' : '')
       + '</div></div>';
   }).join('');
