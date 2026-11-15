@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>全国中学生天文知识竞赛 · 教师管理后台</title>
+<title>学科竞赛教师管理后台</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='13' fill='%235bc8ff'/%3E%3Cellipse cx='32' cy='32' rx='26' ry='8' fill='none' stroke='%23ffd479' stroke-width='4' transform='rotate(-20 32 32)'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -306,7 +306,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   <div class="brand">
     <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="12" fill="#5bc8ff"/><ellipse cx="32" cy="32" rx="27" ry="8" fill="none" stroke="#ffd479" stroke-width="4" transform="rotate(-20 32 32)"/></svg>
   </div>
-  <h1>全国中学生天文知识竞赛 · 教师管理后台</h1>
+  <h1>学科竞赛教师管理后台</h1>
   <p class="subtitle">教师管理后台 · 学生成绩、答案与错题汇总</p>
 
   <div class="card">
@@ -357,7 +357,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid rgba(91,200,255,.22);border-radius:12px;margin-bottom:14px;background:rgba(91,200,255,.06)">
-        <span style="font-size:13.5px;color:var(--muted)">竞赛学生入口</span>
+        <span style="font-size:13.5px;color:var(--muted)">学科竞赛学生入口</span>
         <button class="btn btn-sm" id="portalToggleBtn" type="button" style="min-width:118px">加载中…</button>
         <span id="portalHint" style="font-size:12.5px;color:var(--muted)"></span>
       </div>
@@ -2266,7 +2266,7 @@ function renderPortal(){
   btn.style.background = PORTAL_ON ? 'rgba(74,222,128,.16)' : 'rgba(248,113,113,.16)';
   btn.style.borderColor = PORTAL_ON ? 'rgba(74,222,128,.5)' : 'rgba(248,113,113,.5)';
   btn.style.color = PORTAL_ON ? 'var(--green)' : 'var(--red)';
-  if(hint) hint.textContent = PORTAL_ON ? '点击可关闭，学生将无法进入任何场次' : '点击可开启竞赛学生入口';
+  if(hint) hint.textContent = PORTAL_ON ? '点击可关闭，学生将无法进入任何场次' : '点击可开启学科竞赛学生入口';
 }
 
 async function togglePortal(){
@@ -2274,8 +2274,8 @@ async function togglePortal(){
     const j = await cloudCall('/portal', { method: 'POST', body: { enabled: !PORTAL_ON } });
     PORTAL_ON = !!j.enabled;
     renderPortal();
-    toast('竞赛学生入口已' + (PORTAL_ON ? '开启' : '关闭'));
-    log('竞赛学生入口开关', PORTAL_ON ? '开启' : '关闭');
+    toast('学科竞赛学生入口已' + (PORTAL_ON ? '开启' : '关闭'));
+    log('学科竞赛学生入口开关', PORTAL_ON ? '开启' : '关闭');
   } catch(e){
     toast('操作失败：' + (e.message || e));
   }
@@ -2351,7 +2351,7 @@ function openCreateExam(){
     + '<label class="radio-pill"><input type="checkbox" id="newExamAll" checked><span>全选</span></label>'
     + ['小学组','初中组','高中组'].map(g => '<label class="radio-pill"><input type="checkbox" name="newExamGroup" value="' + g + '" checked><span>' + g + '</span></label>').join('')
     + '</div></div>'
-    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需导入试题，一份题可同时套用到多个学段；导入并点击「开始此次考试」后，竞赛学生入口才会出现该场次入口。</p>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需导入试题，一份题可同时套用到多个学段；导入并点击「开始此次考试」后，学科竞赛学生入口才会出现该场次入口。</p>'
     + '<div style="display:flex;gap:10px;margin-top:18px">'
     + '<button class="btn btn-ghost" style="flex:1" id="createExamCancel" type="button">取消</button>'
     + '<button class="btn btn-gold" style="flex:1" id="createExamOk" type="button">创建考试</button></div>');
@@ -2717,7 +2717,7 @@ async function startExam(exam){
     await cloudCall('/exam-status', { method: 'POST', body: { id: exam.id, status: 'open' } });
     exam.status = 'open'; exam.updatedAt = new Date().toLocaleString();
     saveLocalExams(); renderExamBoard();
-    toast('考试已开始，竞赛学生入口现在可以看到入口');
+    toast('考试已开始，学科竞赛学生入口现在可以看到入口');
     log('开始考试', exam.name);
   } catch(e){ toast('开始失败：' + (e.message || e)); }
 }
@@ -2831,7 +2831,7 @@ async function syncCloudThenRender(){
   renderAdmin();
 }
 
-/* 跨标签页实时同步：竞赛学生入口登录自动登记时，管理端实时刷新并自动保存 */
+/* 跨标签页实时同步：学科竞赛学生入口登录自动登记时，管理端实时刷新并自动保存 */
 window.addEventListener('storage', function(e){
   if(e.key === LOG_KEY){ renderLogs(); triggerAutoSave(); }
   else if(e.key === SCHOOLS_KEY || e.key === STUDENTS_KEY){ renderSchoolMgmt(); triggerAutoSave(); }

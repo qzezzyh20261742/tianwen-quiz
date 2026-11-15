@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>竞赛学生入口 · 在线答题系统</title>
+<title>学科竞赛学生入口 · 在线答题系统</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='13' fill='%235bc8ff'/%3E%3Cellipse cx='32' cy='32' rx='26' ry='8' fill='none' stroke='%23ffd479' stroke-width='4' transform='rotate(-20 32 32)'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -292,7 +292,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   <div class="brand">
     <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="12" fill="#5bc8ff"/><ellipse cx="32" cy="32" rx="27" ry="8" fill="none" stroke="#ffd479" stroke-width="4" transform="rotate(-20 32 32)"/></svg>
   </div>
-  <h1>竞赛学生入口</h1>
+  <h1>学科竞赛学生入口</h1>
   <p class="subtitle">请选择本次要参加的考试场次</p>
 
   <div class="card">
@@ -306,7 +306,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   <div class="brand">
     <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="12" fill="#5bc8ff"/><ellipse cx="32" cy="32" rx="27" ry="8" fill="none" stroke="#ffd479" stroke-width="4" transform="rotate(-20 32 32)"/></svg>
   </div>
-  <h1>竞赛学生入口</h1>
+  <h1>学科竞赛学生入口</h1>
   <p class="subtitle" id="loginSubtitle">请填写个人信息后进入答题</p>
   <div class="card" style="margin-bottom:16px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
@@ -648,7 +648,7 @@ function renderExamHall(portalEnabled){
   var noteEl = document.getElementById('examHallNote');
   if(!portalEnabled){
     listEl.innerHTML = '<div class="empty" style="color:var(--gold)">学生答题入口暂未开放，请等待老师开启。</div>';
-    if(noteEl) noteEl.textContent = '竞赛学生入口当前处于关闭状态。';
+    if(noteEl) noteEl.textContent = '学科竞赛学生入口当前处于关闭状态。';
     return;
   }
   if(!EXAM_LIST.length){
