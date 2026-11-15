@@ -281,7 +281,11 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .sync-settings-wrap{position:relative}
 .sync-settings-wrap .sync-caret{display:inline-block;margin-left:6px;font-size:11px;color:var(--muted);transition:transform .18s ease}
 .sync-settings-wrap.open .sync-caret{transform:rotate(180deg)}
-.sync-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:248px;padding:6px;border:1px solid var(--line-strong);border-radius:14px;background:rgba(9,15,34,.97);box-shadow:0 18px 48px rgba(0,0,0,.46);backdrop-filter:blur(18px)}
+.sync-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:264px;max-height:232px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(91,200,255,.45) transparent;padding:6px;border:1px solid var(--line-strong);border-radius:14px;background:rgba(9,15,34,.97);box-shadow:0 18px 48px rgba(0,0,0,.46);backdrop-filter:blur(18px)}
+.sync-menu::-webkit-scrollbar{width:8px}
+.sync-menu::-webkit-scrollbar-track{background:transparent}
+.sync-menu::-webkit-scrollbar-thumb{background:rgba(91,200,255,.38);border-radius:8px}
+.sync-menu::-webkit-scrollbar-thumb:hover{background:rgba(91,200,255,.58)}
 .sync-menu[hidden]{display:none}
 .sync-menu-item{display:flex;flex-direction:column;gap:3px;width:100%;padding:10px 12px;border:0;border-radius:9px;background:transparent;color:var(--text);text-align:left;font:inherit;font-size:14px;cursor:pointer}
 .sync-menu-item:hover,.sync-menu-item:focus-visible{background:rgba(91,200,255,.1);outline:none}
@@ -435,11 +439,11 @@ tbody td.name-cell{text-align:left;font-weight:600}
             <button class="btn btn-ghost btn-sm" id="syncSettingsBtn" type="button" aria-haspopup="menu" aria-expanded="false" title="刷新或同步学校与学生数据">同步设置<span class="sync-caret" aria-hidden="true">▾</span></button>
             <div class="sync-menu" id="syncMenuPanel" role="menu" hidden>
               <button class="sync-menu-item" id="refreshStudentsBtn" type="button" role="menuitem">刷新学生<span>从云端合并全部学生名单</span></button>
+              <button class="sync-menu-item" id="fetchStudentsBtn" type="button" role="menuitem">学生获取<span>从云端获取注册学生与答卷记录补录</span></button>
               <button class="sync-menu-item" id="refreshSchoolsBtn" type="button" role="menuitem">刷新学校<span>读取云端学校名单与学校设置</span></button>
               <button class="sync-menu-item" id="syncSchoolsBtn" type="button" role="menuitem">学校同步<span>提交本机名单并更新 GitHub 备份</span></button>
             </div>
           </div>
-          <button class="btn btn-gold btn-sm" id="fetchStudentsBtn" type="button" title="从云端获取学生注册信息，并并入对应学校名单">学生获取</button>
           <button class="btn btn-gold btn-sm" id="addSchoolBtn" type="button">添加学校</button>
         </div>
       </div>
@@ -4429,9 +4433,7 @@ async function refreshSchoolsNow(){
 async function fetchRegisteredStudentsNow(){
   const btn = document.getElementById('fetchStudentsBtn');
   if(!btn) return;
-  const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '获取中…';
   try {
     const cfg = getCloudConfig();
     if(!cfg.url){ toast('未配置云端地址，无法获取注册学生'); return; }
@@ -4462,7 +4464,6 @@ async function fetchRegisteredStudentsNow(){
     toast('学生获取失败：' + (e.message || e));
   } finally {
     btn.disabled = false;
-    btn.textContent = label;
   }
 }
 
@@ -4475,6 +4476,7 @@ function bindSyncSettingsMenu(){
     panel.hidden = !open;
     wrap.classList.toggle('open', open);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(open) panel.scrollTop = 0;
   }
   function close(){ setOpen(false); }
   btn.addEventListener('click', function(e){
