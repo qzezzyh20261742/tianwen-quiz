@@ -356,6 +356,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .log-glass{background:linear-gradient(180deg,rgba(17,24,51,0) 0%,rgba(70,95,155,.10) 24%,rgba(40,58,105,.30) 58%,rgba(17,24,51,.66) 100%);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border-top:0;box-shadow:none;padding:14px 12px 8px;display:flex;flex-direction:column;align-items:center;gap:4px}
 .log-more,.log-collapse{display:inline-flex;align-items:center;justify-content:center;gap:5px;background:none;border:0;padding:4px 8px;font-family:inherit;font-size:13.5px;cursor:pointer;color:var(--accent);white-space:nowrap;flex-wrap:nowrap;flex:0 0 auto;min-width:max-content;width:auto}
 .log-more span,.log-collapse span{display:inline-block;white-space:nowrap;word-break:keep-all}
+.log-more svg,.log-collapse svg{width:14px;height:14px;flex:0 0 auto;display:block;overflow:visible}
 .log-more:hover,.log-collapse:hover{color:#8bdcff}
 .log-collapse{color:var(--muted);font-size:13px}
 .log-collapse:hover{color:var(--accent)}
@@ -4272,7 +4273,7 @@ function renderSchoolMgmt(){
     const expanded = schoolListExpanded;
     html += '<div class="log-glass admin-fold-glass">'
       + '<button type="button" class="' + (expanded ? 'log-collapse' : 'log-more') + '" id="schoolFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
-      + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      + '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       + '<span>' + (expanded ? '收起' : '展开') + '</span>'
       + '</button></div>';
   }
@@ -4996,7 +4997,7 @@ function renderAdminList(){
     const expanded = adminListExpanded;
     html += '<div class="log-glass admin-fold-glass">'
       + '<button type="button" class="' + (expanded ? 'log-collapse' : 'log-more') + '" id="adminFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
-      + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      + '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       + '<span>' + (expanded ? '收起' : '展开') + '</span>'
       + '</button></div>';
   }
