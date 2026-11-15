@@ -3696,7 +3696,7 @@ document.getElementById('adminForm').addEventListener('submit', async function(e
     log('登录后台', '账号 ' + matched.user + ' · ' + getAdminDeviceLabel());
     renderAdmin();
     startAdminHeartbeat();
-    if(currentAdmin.role === 'admin') refreshAdminSessions(true);
+    if(currentAdmin.role === 'admin' || currentAdmin.role === 'subadmin') refreshAdminSessions(true);
     syncCloudThenRender();
     refreshExamBoard(true);
     pullSettingsFromCloud(true);
@@ -3794,7 +3794,7 @@ function startAdminHeartbeat(){
   checkAdminSession();
   adminHeartbeatTimer = setInterval(checkAdminSession, 15000);
   adminSessionsTimer = setInterval(function(){
-    if(!document.hidden && currentAdmin && currentAdmin.role === 'admin' && adminPage === 'manage') refreshAdminSessions(true);
+    if(!document.hidden && currentAdmin && isBackendAdmin() && adminPage === 'manage') refreshAdminSessions(true);
   }, 30000);
 }
 /* 刷新后按上次登录的账号与板块自动恢复后台；必须先通过云端会话校验 */
@@ -3833,7 +3833,7 @@ async function restoreAdminSession(){
   switchAdminPage(page);
   renderAdmin();
   startAdminHeartbeat();
-  if(currentAdmin.role === 'admin') refreshAdminSessions(true);
+  if(currentAdmin.role === 'admin' || currentAdmin.role === 'subadmin') refreshAdminSessions(true);
   syncCloudThenRender();
   refreshExamBoard(true);
   pullSettingsFromCloud(true);
@@ -3866,11 +3866,14 @@ function roleLabel(a){
   if(a.role === 'subadmin') return '子管理员';
   return '普通教师 · ' + (a.scope || '小学组') + ' · ' + (a.schoolScope || '未关联学校');
 }
+function isBackendAdmin(){
+  return !!(currentAdmin && (currentAdmin.role === 'admin' || currentAdmin.role === 'subadmin'));
+}
 
 function renderSchoolMgmt(){
   const el = document.getElementById('schoolMgmtBody');
   if(!el) return;
-  const canDelete = currentAdmin && currentAdmin.role === 'admin';
+  const canDelete = isBackendAdmin();
   const schools = getSchools();
   const students = getStudents();
   if(!schools.length){
@@ -3918,7 +3921,7 @@ function renderSchoolMgmt(){
 }
 
 function openStudentList(school){
-  const canDelete = currentAdmin && currentAdmin.role === 'admin';
+  const canDelete = isBackendAdmin();
   const list = getStudents().map((st, idx) => ({ st: st, idx: idx })).filter(x => x.st.school === school);
   const rows = list.map(x => {
     const st = x.st;
@@ -3943,7 +3946,7 @@ function openStudentList(school){
 }
 
 function openSchoolSettings(school){
-  const isAdmin = currentAdmin && currentAdmin.role === 'admin';
+  const canDeleteSchool = isBackendAdmin();
   const free = isSchoolFreeRegister(school);
   const allowed = schoolAllowedGroups(school);
   const allGroups = ['小学组','初中组','高中组'];
@@ -3972,7 +3975,7 @@ function openSchoolSettings(school){
     + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     + '<button class="btn btn-ghost" style="flex:1" id="ssCancel" type="button">取消</button>'
     + '<button class="btn btn-gold" style="flex:1" id="ssSave" type="button">保存设置</button></div>'
-    + (isAdmin ? '<button class="btn btn-danger" style="width:100%;margin-top:10px" id="ssDelete" type="button">删除该校及全部学生</button>' : ''));
+    + (canDeleteSchool ? '<button class="btn btn-danger" style="width:100%;margin-top:10px" id="ssDelete" type="button">删除该校及全部学生</button>' : ''));
   document.getElementById('ssCancel').addEventListener('click', closeModal);
   document.getElementById('ssAddStudent').addEventListener('click', function(){
     openAddStudent(school, true);
@@ -4570,16 +4573,15 @@ function renderAdminList(){
   const admins = getAdmins();
   const el = document.getElementById('adminList');
   if(!el) return;
-  const isSub = currentAdmin && currentAdmin.role === 'subadmin';
-  const isAdmin = currentAdmin && currentAdmin.role === 'admin';
-  const visible = isSub ? admins.filter(a => (a.role || 'teacher') === 'teacher') : admins;
-  let html = isSub
-    ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">子管理员可添加普通教师账号；管理员/子管理员的权限与删除由超级管理员负责。</div>'
-    : (isAdmin ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.7">登录状态来自云端：同一账号仅允许一台电脑登录，后登录的电脑会使前一台自动退出。可对已登录账号执行「强制下线」。</div>' : '');
+  const canManage = isBackendAdmin();
+  const visible = admins;
+  let html = canManage
+    ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.7">登录状态来自云端：同一账号仅允许一台电脑登录，后登录的电脑会使前一台自动退出。可对已登录账号执行「强制下线」。</div>'
+    : '';
   html += visible.map(a => {
-    const s = isAdmin ? adminSessions[a.user] : null;
+    const s = canManage ? adminSessions[a.user] : null;
     let sessionHtml = '<span style="font-size:12px;color:var(--muted)">登录：—</span>';
-    if(isAdmin){
+    if(canManage){
       if(!adminSessionsReady){
         sessionHtml = '<span style="font-size:12px;color:var(--muted)">登录状态读取中…</span>';
       } else if(adminSessionsError){
@@ -4593,7 +4595,7 @@ function renderAdminList(){
         sessionHtml = '<span style="font-size:12px;color:var(--muted)">登录：未登录</span>';
       }
     }
-    const forceBtn = (isAdmin && s && a.user !== currentAdmin.user)
+    const forceBtn = (canManage && s && a.user !== currentAdmin.user)
       ? '<button type="button" class="btn btn-danger btn-sm" data-force-logout="' + esc(a.user) + '">强制下线</button>'
       : '';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px 14px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap">'
@@ -4605,13 +4607,13 @@ function renderAdminList(){
       + '</div>'
       + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">'
       + sessionHtml
-      + (isSub ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-teacher-setting="' + esc(a.user) + '">教师设置</button>')
+      + (canManage ? '<button type="button" class="btn btn-ghost btn-sm" data-teacher-setting="' + esc(a.user) + '">教师设置</button>' : '')
       + forceBtn
       + '</div>'
       + '</div>';
   }).join('');
-  if(isSub && !visible.length){
-    html += '<div class="empty">尚无普通教师账号，点击右上角「添加教师账号」。</div>';
+  if(!visible.length){
+    html += '<div class="empty">尚无教师账号，点击右上角「添加教师账号」。</div>';
   }
   el.innerHTML = html;
   el.querySelectorAll('[data-teacher-setting]').forEach(btn => {
@@ -4623,7 +4625,7 @@ function renderAdminList(){
 }
 
 async function refreshAdminSessions(force){
-  if(!currentAdmin || currentAdmin.role !== 'admin' || !adminSessionId) return;
+  if(!isBackendAdmin() || !adminSessionId) return;
   if(adminSessionsLoading) return;
   if(!force && adminSessionsLastAt && Date.now() - adminSessionsLastAt < 15000) return;
   adminSessionsLoading = true;
@@ -4650,7 +4652,7 @@ async function refreshAdminSessions(force){
 }
 
 function forceLogoutAdmin(user){
-  if(!currentAdmin || currentAdmin.role !== 'admin'){ toast('只有超级管理员可以操作账号下线'); return; }
+  if(!isBackendAdmin()){ toast('当前账号无权操作账号下线'); return; }
   if(!user) return;
   if(user === currentAdmin.user){ toast('当前账号正在这台电脑使用，不能在这里强制下线自己'); return; }
   const target = getAdmins().find(function(a){ return a.user === user; });
@@ -4700,7 +4702,7 @@ function deleteAdmin(user){
     saveAdmins(getAdmins().filter(x => x.user !== user));
     closeModal();
     renderAdminList();
-    if(currentAdmin && currentAdmin.role === 'admin'){
+    if(isBackendAdmin()){
       cloudCall('/admin-force-logout', {
         method: 'POST',
         body: { operator: currentAdmin.user, sessionId: adminSessionId, target: user }
@@ -4807,7 +4809,7 @@ function openSetRole(user){
 function openTeacherSettings(user){
   const initial = getAdmins().find(x => x.user === user);
   if(!initial){ toast('未找到该账号'); return; }
-  if(!(currentAdmin && currentAdmin.role === 'admin')){ toast('仅超级管理员可修改教师设置'); return; }
+  if(!isBackendAdmin()){ toast('当前账号无权修改教师设置'); return; }
   const fallbackScope = ['小学组','初中组','高中组'].find(g => groupSchools(g).length) || '小学组';
   const pickerScope = initial.role === 'teacher' ? (initial.scope || fallbackScope) : fallbackScope;
   const pickerSchool = initial.role === 'teacher' ? (initial.schoolScope || '全部') : '全部';
@@ -4919,7 +4921,7 @@ function openTeacherSettings(user){
         });
       }
       renderAdmin();
-    } else if(oldUser !== newUser && currentAdmin && currentAdmin.role === 'admin'){
+    } else if(oldUser !== newUser && isBackendAdmin()){
       /* 其他账号改名后，旧账号名的会话立即失效，避免旧页面继续使用 */
       cloudCall('/admin-force-logout', {
         method: 'POST',
@@ -4953,7 +4955,7 @@ function switchAdminPage(page){
   });
   if(target === 'manage'){
     renderLogs();
-    if(currentAdmin && currentAdmin.role === 'admin') refreshAdminSessions(true);
+    if(isBackendAdmin()) refreshAdminSessions(true);
     if(currentAdmin && !hasPendingSettings()) pollSettingsForStudents();
   } else {
     fitScoreScrollHeight();
@@ -4982,23 +4984,27 @@ function applyAdminRole(){
   const logCard = document.getElementById('logCard');
   if(logCard){ logCard.style.display = isAdminOrSub ? '' : 'none'; }
   const saveCard = document.getElementById('saveCard');
-  if(saveCard){ saveCard.style.display = isAdmin ? '' : 'none'; }
+  if(saveCard){ saveCard.style.display = isAdminOrSub ? '' : 'none'; }
   const clearBtn = document.getElementById('clearAllBtn');
-  if(clearBtn){ clearBtn.style.display = isAdmin ? '' : 'none'; }
+  if(clearBtn){ clearBtn.style.display = isAdminOrSub ? '' : 'none'; }
   const syncTeachersBtn = document.getElementById('syncTeachersBtn');
-  if(syncTeachersBtn){ syncTeachersBtn.style.display = isAdmin ? '' : 'none'; }
+  if(syncTeachersBtn){ syncTeachersBtn.style.display = isAdminOrSub ? '' : 'none'; }
   const refreshLoginStatusBtn = document.getElementById('refreshLoginStatusBtn');
-  if(refreshLoginStatusBtn){ refreshLoginStatusBtn.style.display = isAdmin ? '' : 'none'; }
+  if(refreshLoginStatusBtn){ refreshLoginStatusBtn.style.display = isAdminOrSub ? '' : 'none'; }
   const refreshSchoolsBtn = document.getElementById('refreshSchoolsBtn');
-  if(refreshSchoolsBtn){ refreshSchoolsBtn.style.display = isAdmin ? '' : 'none'; }
+  if(refreshSchoolsBtn){ refreshSchoolsBtn.style.display = isAdminOrSub ? '' : 'none'; }
   const refreshStudentsBtn = document.getElementById('refreshStudentsBtn');
-  if(refreshStudentsBtn){ refreshStudentsBtn.style.display = isAdmin ? '' : 'none'; }
+  if(refreshStudentsBtn){ refreshStudentsBtn.style.display = isAdminOrSub ? '' : 'none'; }
   const syncSchoolsBtn = document.getElementById('syncSchoolsBtn');
-  if(syncSchoolsBtn){ syncSchoolsBtn.style.display = isAdmin ? '' : 'none'; }
+  if(syncSchoolsBtn){ syncSchoolsBtn.style.display = isAdminOrSub ? '' : 'none'; }
   const syncSettingsWrap = document.getElementById('syncSettingsWrap');
-  if(syncSettingsWrap){ syncSettingsWrap.style.display = isAdmin ? '' : 'none'; }
+  if(syncSettingsWrap){ syncSettingsWrap.style.display = isAdminOrSub ? '' : 'none'; }
   const fetchStudentsBtn = document.getElementById('fetchStudentsBtn');
-  if(fetchStudentsBtn){ fetchStudentsBtn.style.display = isAdmin ? '' : 'none'; }
+  if(fetchStudentsBtn){ fetchStudentsBtn.style.display = isAdminOrSub ? '' : 'none'; }
+  ['pickSaveDirBtn','saveNowBtn','downloadBackupBtn','cloudPullBtn','settingsRollbackBtn'].forEach(function(id){
+    const btn = document.getElementById(id);
+    if(btn){ btn.style.display = isAdmin ? '' : 'none'; }
+  });
 }
 
 function visibleRecords(){
@@ -5224,7 +5230,7 @@ function bindSyncSettingsMenu(){
 
 document.getElementById('syncTeachersBtn').addEventListener('click', syncTeachersNow);
 document.getElementById('refreshLoginStatusBtn').addEventListener('click', function(){
-  if(!currentAdmin || currentAdmin.role !== 'admin'){ toast('只有超级管理员可以查看登录状态'); return; }
+  if(!isBackendAdmin()){ toast('当前账号无权查看登录状态'); return; }
   refreshAdminSessions(true);
   toast('正在从云端刷新登录状态');
 });
@@ -5296,7 +5302,7 @@ async function readTeacherImportFile(file){
 }
 
 function openAddTeacherModal(){
-  const isAdmin = currentAdmin && currentAdmin.role === 'admin';
+  const isAdminOrSub = isBackendAdmin();
   const defaultScope = ['小学组','初中组','高中组'].find(g => groupSchools(g).length) || '小学组';
   let mode = 'single';
   let teacherImport = null;
@@ -5318,7 +5324,7 @@ function openAddTeacherModal(){
     + '<label for="newAdminPass">登录密码</label>'
     + '<input id="newAdminPass" type="text" placeholder="请输入密码" maxlength="40">'
     + '</div>'
-    + (isAdmin
+    + (isAdminOrSub
       ? '<div class="field" style="margin-bottom:12px">'
         + '<label>权限等级</label>'
         + '<div class="radio-row">'
@@ -5326,7 +5332,7 @@ function openAddTeacherModal(){
         + '<label class="radio-pill"><input type="radio" name="newRole" value="subadmin"><span>子管理员</span></label>'
         + '<label class="radio-pill"><input type="radio" name="newRole" value="teacher" checked><span>普通教师</span></label>'
         + '</div></div>'
-      : '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">子管理员只能添加「普通教师」账号，权限设置由超级管理员负责。</div>')
+      : '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">当前账号只能添加「普通教师」账号。</div>')
     + '<div class="field" id="newTeacherField" style="margin-bottom:12px">'
     + '<label>组别 → 学校（先选组别，再选学校）</label>'
     + '<div class="picker-grid"><div class="picker-col" id="npScopeCol"></div><div class="picker-col" id="npSchoolCol"></div></div>'
@@ -5470,7 +5476,7 @@ function openAddTeacherModal(){
     if(!nm){ toast('请输入教师姓名'); return; }
     if(!u || !p){ toast('请完整填写账号与密码'); return; }
     const roleChecked = document.querySelector('input[name="newRole"]:checked');
-    const role = isAdmin ? roleChecked.value : 'teacher';
+    const role = isAdminOrSub ? roleChecked.value : 'teacher';
     const picked = newPicker.get();
     if(role === 'teacher' && !picked.hasSchool){ toast('所选组别下还没有学校，请先为学校设置组别'); return; }
     const scope = role === 'teacher' ? picked.scope : '';
@@ -6041,13 +6047,13 @@ document.getElementById('modalMask').addEventListener('click', function(e){
 document.addEventListener('visibilitychange', function(){
   if(!document.hidden && currentAdmin && adminSessionId){
     checkAdminSession();
-    if(currentAdmin.role === 'admin' && adminPage === 'manage') refreshAdminSessions(true);
+    if(isBackendAdmin() && adminPage === 'manage') refreshAdminSessions(true);
   }
 });
 window.addEventListener('focus', function(){
   if(currentAdmin && adminSessionId){
     checkAdminSession();
-    if(currentAdmin.role === 'admin' && adminPage === 'manage') refreshAdminSessions(true);
+    if(isBackendAdmin() && adminPage === 'manage') refreshAdminSessions(true);
   }
 });
 
