@@ -350,6 +350,10 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .log-page:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line);color:var(--muted)}
 .log-page svg{width:13px;height:13px}
 .log-ellipsis{color:var(--muted);font-size:12px;padding:0 2px;user-select:none}
+.admin-fold-bar{display:flex;width:100%;align-items:center;justify-content:center;gap:6px;margin-top:4px;padding:11px 10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(9,14,34,.42);color:var(--accent);font-family:inherit;font-size:13.5px;line-height:1.35;cursor:pointer;transition:color .18s,border-color .18s,background .18s}
+.admin-fold-bar:hover{color:#8bdcff;border-color:rgba(89,173,255,.42);background:rgba(30,51,89,.45)}
+.admin-fold-bar:active{transform:translateY(1px)}
+.admin-fold-bar svg{width:14px;height:14px;flex:none}
 @media (max-width:760px){
   .log-page{width:28px;height:28px}
 }
@@ -1799,6 +1803,7 @@ let adminSessionsReady = false;
 let adminSessionsError = '';
 let adminSessionsLoading = false;
 let adminSessionsLastAt = 0;
+let adminListExpanded = false;
 let adminHeartbeatTimer = null;
 let adminSessionsTimer = null;
 let adminHeartbeatBusy = false;
@@ -4840,7 +4845,13 @@ function renderAdminList(){
   const el = document.getElementById('adminList');
   if(!el) return;
   const canManage = isBackendAdmin();
-  const visible = admins;
+  const rank = function(a){
+    if(a.role === 'admin' || a.role === 'superadmin' || a.role === 'system') return 0;
+    if(a.role === 'subadmin') return 1;
+    return 2;
+  };
+  const sortedAdmins = admins.slice().sort(function(a, b){ return rank(a) - rank(b); });
+  const visible = adminListExpanded ? sortedAdmins : sortedAdmins.slice(0, 5);
   let html = canManage
     ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.7">登录状态来自云端：同一账号仅允许一台电脑登录，后登录的电脑会使前一台自动退出。可对已登录账号执行「强制下线」。</div>'
     : '';
@@ -4881,6 +4892,13 @@ function renderAdminList(){
   if(!visible.length){
     html += '<div class="empty">尚无教师账号，点击右上角「添加教师账号」。</div>';
   }
+  if(sortedAdmins.length > 5){
+    const expanded = adminListExpanded;
+    html += '<button type="button" class="admin-fold-bar" id="adminFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
+      + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      + '<span>' + (expanded ? '收起' : '展开') + '</span>'
+      + '</button>';
+  }
   el.innerHTML = html;
   el.querySelectorAll('[data-teacher-setting]').forEach(btn => {
     btn.addEventListener('click', () => openTeacherSettings(btn.dataset.teacherSetting));
@@ -4888,6 +4906,13 @@ function renderAdminList(){
   el.querySelectorAll('[data-force-logout]').forEach(btn => {
     btn.addEventListener('click', () => forceLogoutAdmin(btn.dataset.forceLogout));
   });
+  const foldBtn = el.querySelector('#adminFoldToggle');
+  if(foldBtn){
+    foldBtn.addEventListener('click', function(){
+      adminListExpanded = !adminListExpanded;
+      renderAdminList();
+    });
+  }
 }
 
 async function refreshAdminSessions(force){
