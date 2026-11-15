@@ -4274,10 +4274,79 @@ document.getElementById('syncTeachersBtn').addEventListener('click', syncTeacher
 document.getElementById('refreshSchoolsBtn').addEventListener('click', refreshSchoolsNow);
 document.getElementById('refreshStudentsBtn').addEventListener('click', refreshStudentsNow);
 document.getElementById('syncSchoolsBtn').addEventListener('click', syncSchoolsNow);
-document.getElementById('addAdminBtn').addEventListener('click', function(){
+function parseTeacherImportRows(rows){
+  const result = { valid: [], errors: [], skipped: 0 };
+  if(!Array.isArray(rows) || !rows.length) return result;
+  const maxRows = 500;
+  let headerRow = -1, idxName = 0, idxUser = 1, idxPass = 2, idxGroup = 3, idxSchool = 4;
+  for(let i = 0; i < Math.min(5, rows.length); i++){
+    const cells = (Array.isArray(rows[i]) ? rows[i] : []).map(function(v){
+      return String(v == null ? '' : v).replace(/\s+/g, '').replace(/[：:]/g, '').toLowerCase();
+    });
+    const ni = cells.findIndex(function(c){ return c === '姓名' || c === '教师姓名' || c === '名字' || c === 'name'; });
+    const ui = cells.findIndex(function(c){ return c === '账号' || c === '教师账号' || c === '用户名' || c === 'account' || c === 'user'; });
+    const pi = cells.findIndex(function(c){ return c === '密码' || c === '登录密码' || c === 'password' || c === 'pass'; });
+    const gi = cells.findIndex(function(c){ return c === '组别' || c === '学段' || c === 'group'; });
+    const si = cells.findIndex(function(c){ return c === '学校' || c === '学校名称' || c === 'school'; });
+    if([ni,ui,pi,gi,si].every(function(x){ return x >= 0; })){
+      headerRow = i; idxName = ni; idxUser = ui; idxPass = pi; idxGroup = gi; idxSchool = si; break;
+    }
+  }
+  const start = headerRow >= 0 ? headerRow + 1 : 0;
+  const end = Math.min(rows.length, start + maxRows);
+  const seen = new Set();
+  const knownGroups = ['小学组','初中组','高中组'];
+  for(let i = start; i < end; i++){
+    const row = Array.isArray(rows[i]) ? rows[i] : [];
+    const name = String(row[idxName] == null ? '' : row[idxName]).trim();
+    const user = String(row[idxUser] == null ? '' : row[idxUser]).trim();
+    const pass = String(row[idxPass] == null ? '' : row[idxPass]).trim();
+    const rawGroup = row[idxGroup] == null ? '' : row[idxGroup];
+    const school = String(row[idxSchool] == null ? '' : row[idxSchool]).trim();
+    if(!name && !user && !pass && !String(rawGroup).trim() && !school) continue;
+    if(!name){ result.errors.push('第 ' + (i + 1) + ' 行：姓名为空'); continue; }
+    if(name.length > 20){ result.errors.push('第 ' + (i + 1) + ' 行：姓名超过 20 个字'); continue; }
+    if(!user){ result.errors.push('第 ' + (i + 1) + ' 行：账号为空'); continue; }
+    if(user.length > 20){ result.errors.push('第 ' + (i + 1) + ' 行：账号超过 20 个字符'); continue; }
+    if(!pass){ result.errors.push('第 ' + (i + 1) + ' 行：密码为空'); continue; }
+    if(pass.length > 40){ result.errors.push('第 ' + (i + 1) + ' 行：密码超过 40 个字符'); continue; }
+    const group = normalizeImportGroup(rawGroup);
+    if(knownGroups.indexOf(group) < 0){ result.errors.push('第 ' + (i + 1) + ' 行：组别未填写或无法识别'); continue; }
+    if(!school){ result.errors.push('第 ' + (i + 1) + ' 行：学校为空'); continue; }
+    if(groupSchools(group).indexOf(school) < 0){ result.errors.push('第 ' + (i + 1) + ' 行：学校不存在，或未开设' + group); continue; }
+    if(seen.has(user)){ result.skipped++; result.errors.push('第 ' + (i + 1) + ' 行：文件内账号重复'); continue; }
+    seen.add(user);
+    result.valid.push({ name: name, user: user, pass: pass, group: group, school: school });
+  }
+  if(rows.length > end) result.errors.push('超过 ' + maxRows + ' 行，仅处理前 ' + maxRows + ' 行');
+  return result;
+}
+
+async function readTeacherImportFile(file){
+  const fname = file.name.toLowerCase();
+  if(fname.endsWith('.csv')) return parseCsvText(await file.text());
+  if(fname.endsWith('.xlsx') || fname.endsWith('.xls')){
+    const XLSX = await loadXlsxParser();
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const sheetName = wb.SheetNames && wb.SheetNames[0];
+    if(!sheetName) throw new Error('文件里没有可读取的工作表');
+    return XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', raw: false });
+  }
+  throw new Error('只支持 .xlsx / .xls / .csv 文件');
+}
+
+function openAddTeacherModal(){
   const isAdmin = currentAdmin && currentAdmin.role === 'admin';
   const defaultScope = ['小学组','初中组','高中组'].find(g => groupSchools(g).length) || '小学组';
+  let mode = 'single';
+  let teacherImport = null;
   openModal('<div class="modal-head"><h3>添加教师账号</h3></div>'
+    + '<div class="radio-row" style="flex-wrap:wrap;margin-bottom:14px">'
+    + '<label class="radio-pill"><input type="radio" name="addTeacherMode" value="single" checked><span>单个添加</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="addTeacherMode" value="batch"><span>批量添加</span></label>'
+    + '</div>'
+    + '<div id="addTeacherSinglePane">'
     + '<div class="field" style="margin-bottom:12px">'
     + '<label for="newAdminName">姓名（必填）</label>'
     + '<input id="newAdminName" type="text" placeholder="请输入教师真实姓名" maxlength="20">'
@@ -4303,18 +4372,139 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     + '<label>组别 → 学校（先选组别，再选学校）</label>'
     + '<div class="picker-grid"><div class="picker-col" id="npScopeCol"></div><div class="picker-col" id="npSchoolCol"></div></div>'
     + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin:8px 0 0">学校列表只显示已开设所选组别的学校；未出现的学校，请先到“学校设置”开启对应组别。</p>'
-    + '</div>'
+    + '</div></div>'
+    + '<div id="addTeacherBatchPane" style="display:none">'
+    + '<div style="border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px">'
+    + '<p style="font-size:13px;color:var(--muted);line-height:1.8;margin:0 0 8px">推荐使用 <b style="color:var(--text)">.xlsx</b> 文件。第一行建议使用表头：<b style="color:var(--text)">姓名 / 账号 / 密码 / 组别 / 学校</b>；组别填写小学组、初中组或高中组，学校必须是已开设该组别的学校。</p>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.8;margin:0 0 12px">批量添加仅创建<b style="color:var(--text)">普通教师</b>账号；超级管理员和子管理员请使用「单个添加」。已存在的账号会自动跳过。</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<button class="btn btn-ghost btn-sm" id="teacherBatchTplBtn" type="button">下载批量模板</button></div>'
+    + '<div class="field" style="margin-bottom:10px">'
+    + '<label>选择教师名单文件（.xlsx / .xls / .csv）</label>'
+    + '<input id="teacherBatchFile" type="file" accept=".xlsx,.xls,.csv" style="display:none">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" id="teacherBatchPickBtn" type="button">选择文件</button>'
+    + '<span id="teacherBatchFileName" style="font-size:12.5px;color:var(--muted)">未选择文件</span></div></div>'
+    + '<div id="teacherBatchPreview"></div></div></div>'
     + '<div style="display:flex;gap:10px;margin-top:20px">'
     + '<button class="btn btn-ghost" style="flex:1" id="addAdminCancel" type="button">取消</button>'
-    + '<button class="btn btn-gold" style="flex:1" id="addAdminOk" type="button">确认添加</button></div>');
+    + '<button class="btn btn-gold" style="flex:2" id="addAdminOk" type="button">确认添加</button></div>');
+
+  const singlePane = document.getElementById('addTeacherSinglePane');
+  const batchPane = document.getElementById('addTeacherBatchPane');
+  const okBtn = document.getElementById('addAdminOk');
+  const fileInput = document.getElementById('teacherBatchFile');
+  const fileName = document.getElementById('teacherBatchFileName');
+  const preview = document.getElementById('teacherBatchPreview');
   const newPicker = buildCascadePicker('np', defaultScope, '全部');
+
+  function updateOk(){
+    if(mode === 'single'){ okBtn.disabled = false; okBtn.textContent = '确认添加'; return; }
+    const n = teacherImport ? teacherImport.newCount : 0;
+    okBtn.disabled = !n;
+    okBtn.textContent = n ? ('批量添加 ' + n + ' 名教师') : (teacherImport ? '没有可新增的账号' : '请选择文件');
+  }
+
+  function renderPreview(){
+    if(!teacherImport){ preview.innerHTML = ''; updateOk(); return; }
+    const admins = getAdmins();
+    teacherImport.newCount = teacherImport.valid.filter(function(x){ return !admins.some(function(a){ return a.user === x.user; }); }).length;
+    const existingCount = teacherImport.valid.length - teacherImport.newCount;
+    let html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;font-size:13px">'
+      + '<span>可添加 <b style="color:var(--gold)">' + teacherImport.newCount + '</b> 名</span>'
+      + '<span>文件内有效 <b>' + teacherImport.valid.length + '</b> 名</span>'
+      + (existingCount ? '<span style="color:var(--muted)">账号已存在将跳过 <b>' + existingCount + '</b> 名</span>' : '')
+      + (teacherImport.skipped ? '<span style="color:var(--muted)">重复跳过 <b>' + teacherImport.skipped + '</b> 名</span>' : '')
+      + '<span style="color:' + (teacherImport.errors.length ? 'var(--red)' : 'var(--green)') + '">' + (teacherImport.errors.length ? teacherImport.errors.length + ' 处提示' : '校验通过') + '</span></div>';
+    if(teacherImport.errors.length){
+      html += '<div style="max-height:100px;overflow:auto;border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:var(--red);line-height:1.7">'
+        + teacherImport.errors.slice(0, 8).map(esc).join('<br>') + (teacherImport.errors.length > 8 ? '<br>…另有 ' + (teacherImport.errors.length - 8) + ' 处' : '') + '</div>';
+    }
+    if(teacherImport.valid.length){
+      html += '<div style="max-height:220px;overflow:auto;border:1px solid rgba(91,200,255,.2);border-radius:10px">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:#0b1a2a"><th style="padding:7px;text-align:left">姓名</th><th style="padding:7px;text-align:left">账号</th><th style="padding:7px;text-align:left">组别</th><th style="padding:7px;text-align:left">学校</th></tr></thead><tbody>'
+        + teacherImport.valid.slice(0, 20).map(function(x){
+            return '<tr style="border-top:1px solid rgba(255,255,255,.07)"><td style="padding:7px">' + esc(x.name) + '</td><td style="padding:7px;color:var(--accent)">' + esc(x.user) + '</td><td style="padding:7px;color:var(--muted)">' + esc(x.group) + '</td><td style="padding:7px;color:var(--muted)">' + esc(x.school) + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div>';
+    }
+    preview.innerHTML = html;
+    updateOk();
+  }
+
+  document.querySelectorAll('input[name="addTeacherMode"]').forEach(function(r){
+    r.addEventListener('change', function(){
+      mode = this.value;
+      singlePane.style.display = mode === 'single' ? '' : 'none';
+      batchPane.style.display = mode === 'batch' ? '' : 'none';
+      updateOk();
+    });
+  });
+
   document.getElementById('addAdminCancel').addEventListener('click', closeModal);
-  document.querySelectorAll('input[name="newRole"]').forEach(r => {
+  document.getElementById('teacherBatchPickBtn').addEventListener('click', function(){ fileInput.click(); });
+  fileInput.addEventListener('change', async function(){
+    const file = fileInput.files && fileInput.files[0];
+    if(!file){ teacherImport = null; fileName.textContent = '未选择文件'; renderPreview(); return; }
+    fileName.textContent = file.name + '（' + (file.size / 1024).toFixed(1) + ' KB）';
+    preview.innerHTML = '<div class="empty" style="padding:16px 0">正在解析…</div>';
+    try {
+      if(file.size > 10 * 1024 * 1024) throw new Error('文件过大，请控制在 10MB 以内');
+      const rows = await readTeacherImportFile(file);
+      teacherImport = parseTeacherImportRows(rows);
+      renderPreview();
+      if(!teacherImport.valid.length) toast('文件中没有可添加的教师，请检查表头和学校组别');
+    } catch(err){
+      teacherImport = null;
+      preview.innerHTML = '<div class="empty" style="padding:16px 0;color:var(--red)">' + esc(err.message || err) + '</div>';
+      updateOk();
+    }
+  });
+
+  document.getElementById('teacherBatchTplBtn').addEventListener('click', async function(){
+    const btn = this;
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = '生成中…';
+    try {
+      const XLSX = await loadXlsxParser();
+      const exampleSchool = groupSchools(defaultScope)[0] || '测试学校';
+      const ws = XLSX.utils.aoa_to_sheet([['姓名','账号','密码','组别','学校'], ['示例教师','teacher01','123456', defaultScope, exampleSchool]]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '教师名单');
+      XLSX.writeFile(wb, '教师账号批量添加模板.xlsx');
+      toast('教师批量添加模板已下载');
+    } catch(err){
+      toast('模板生成失败：' + (err.message || err));
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  });
+
+  document.querySelectorAll('input[name="newRole"]').forEach(function(r){
     r.addEventListener('change', function(){
       document.getElementById('newTeacherField').style.display = this.value === 'teacher' ? '' : 'none';
     });
   });
-  document.getElementById('addAdminOk').addEventListener('click', function(){
+
+  okBtn.addEventListener('click', function(){
+    if(mode === 'batch'){
+      if(!teacherImport || !teacherImport.valid.length){ toast('请先选择并解析教师名单文件'); return; }
+      const admins = getAdmins();
+      let added = 0, skippedExisting = 0;
+      teacherImport.valid.forEach(function(t){
+        if(admins.some(function(a){ return a.user === t.user; })){ skippedExisting++; return; }
+        clearDeletedAdmin(t.user);
+        admins.push({ user: t.user, pass: t.pass, name: t.name, role: 'teacher', scope: t.group, schoolScope: t.school, updatedAt: new Date().toISOString() });
+        added++;
+      });
+      if(!added){ toast('没有可新增的教师账号：账号均已存在或格式不正确'); return; }
+      saveAdmins(admins);
+      closeModal();
+      renderAdminList();
+      log('批量添加教师账号', '新增 ' + added + ' 名普通教师' + (skippedExisting ? '，跳过 ' + skippedExisting + ' 名已存在账号' : ''));
+      toast('批量导入完成：新增 ' + added + ' 名教师' + (skippedExisting ? '，跳过 ' + skippedExisting + ' 名' : ''));
+      return;
+    }
     const nm = document.getElementById('newAdminName').value.trim();
     const u = document.getElementById('newAdminUser').value.trim();
     const p = document.getElementById('newAdminPass').value;
@@ -4336,7 +4526,9 @@ document.getElementById('addAdminBtn').addEventListener('click', function(){
     log('添加账号', nm + '（' + u + '）→ ' + roleLabel({ role: role, scope: scope, schoolScope: schoolScope }));
     toast('教师账号已添加');
   });
-});
+}
+
+document.getElementById('addAdminBtn').addEventListener('click', openAddTeacherModal);
 
 function renderAdmin(){
   applyAdminRole();
