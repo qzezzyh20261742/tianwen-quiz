@@ -2522,8 +2522,11 @@ function openImportModal(exam, group){
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
     + '<button class="btn btn-ghost btn-sm" id="downloadTplBtn" type="button">下载导入模板</button>'
     + '<span style="font-size:12.5px;color:var(--muted);align-self:center">当前已有 ' + existing.length + ' 题，导入将整组替换</span></div>'
-    + '<div class="field" style="margin-bottom:10px"><label for="examFileInput">选择试题文件</label>'
-    + '<input id="examFileInput" type="file" accept=".xlsx,.xls,.csv,.json"></div>'
+    + '<div class="field" style="margin-bottom:10px"><label>选择试题文件</label>'
+    + '<input id="examFileInput" type="file" accept=".xlsx,.xls,.csv,.json" style="display:none">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" id="examFilePickBtn" type="button">选择文件</button>'
+    + '<span id="examFileName" style="font-size:12.5px;color:var(--muted)">未选择文件</span></div></div>'
     + '<div id="importPreview"></div>'
     + '<div style="display:flex;gap:10px;margin-top:16px">'
     + '<button class="btn btn-ghost" style="flex:1" id="importCancel" type="button">取消</button>'
@@ -2532,6 +2535,9 @@ function openImportModal(exam, group){
   document.getElementById('importCancel').addEventListener('click', closeModal);
   document.getElementById('downloadTplBtn').addEventListener('click', downloadExamTemplate);
   const input = document.getElementById('examFileInput');
+  const filePickBtn = document.getElementById('examFilePickBtn');
+  const fileNameEl = document.getElementById('examFileName');
+  if(filePickBtn){ filePickBtn.addEventListener('click', function(){ input.click(); }); }
   const confirmBtn = document.getElementById('importConfirm');
   document.querySelectorAll('input[name="importSegment"]').forEach(function(b){
     b.addEventListener('change', function(){
@@ -2545,7 +2551,8 @@ function openImportModal(exam, group){
   });
   input.addEventListener('change', async function(){
     const file = input.files && input.files[0];
-    if(!file) return;
+    if(!file){ if(fileNameEl) fileNameEl.textContent = '未选择文件'; return; }
+    if(fileNameEl) fileNameEl.textContent = file.name;
     const box = document.getElementById('importPreview');
     box.innerHTML = '<div class="empty" style="padding:20px 0">正在解析…</div>';
     confirmBtn.disabled = true;
