@@ -352,15 +352,16 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .log-collapse{color:var(--muted);font-size:13px}
 .log-collapse:hover{color:var(--accent)}
 .log-pager{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;padding:2px 0 3px}
-.log-page{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:rgba(9,14,34,.78);color:var(--muted);font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.18s;padding:0}
+.log-page{width:30px;height:30px;border-radius:5px;border:1px solid var(--line);background:rgba(9,14,34,.78);color:var(--muted);font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.18s;padding:0}
 .log-page:hover{border-color:var(--accent);color:var(--accent)}
 .log-page.on{background:linear-gradient(135deg,var(--accent-deep),#2b6fd0);border-color:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(45,118,224,.35)}
 .log-page:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line);color:var(--muted)}
 .log-page svg{width:13px;height:13px}
 .log-ellipsis{color:var(--muted);font-size:12px;padding:0 2px;user-select:none}
-.admin-fold-bar{display:flex;width:100%;align-items:center;justify-content:center;gap:6px;margin-top:4px;padding:11px 10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(9,14,34,.42);color:var(--accent);font-family:inherit;font-size:13.5px;line-height:1.35;cursor:pointer;transition:color .18s,border-color .18s,background .18s}
-.admin-fold-bar:hover{color:#8bdcff;border-color:rgba(89,173,255,.42);background:rgba(30,51,89,.45)}
-.admin-fold-bar:active{transform:translateY(1px)}
+.admin-fold-bar{display:flex;width:100%;align-items:center;justify-content:center;gap:5px;margin-top:8px;padding:4px 8px;border:0;border-radius:0;background:none;color:var(--accent);font-family:inherit;font-size:13.5px;line-height:1.35;cursor:pointer;transition:color .18s}
+.admin-fold-bar:hover{color:#8bdcff}
+.admin-fold-bar.is-open{color:var(--muted);font-size:13px}
+.admin-fold-bar.is-open:hover{color:var(--accent)}
 .admin-fold-bar svg{width:14px;height:14px;flex:none}
 @media (max-width:760px){
   .log-page{width:28px;height:28px}
@@ -4917,7 +4918,7 @@ function renderAdminList(){
   }
   if(sortedAdmins.length > 5){
     const expanded = adminListExpanded;
-    html += '<button type="button" class="admin-fold-bar" id="adminFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
+    html += '<button type="button" class="admin-fold-bar' + (expanded ? ' is-open' : '') + '" id="adminFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
       + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       + '<span>' + (expanded ? '收起' : '展开') + '</span>'
       + '</button>';
