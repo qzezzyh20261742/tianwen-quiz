@@ -355,6 +355,14 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .log-select-all{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none}
 .log-select-all:hover{color:var(--text)}
 .log-select-all input{width:15px;height:15px;margin:0;accent-color:var(--accent);cursor:pointer}
+.log-check,.log-select-all input{appearance:none;-webkit-appearance:none;box-sizing:border-box;background:transparent;border:1px solid rgba(120,160,220,.5);border-radius:4px;padding:0;position:relative;flex:none}
+.log-check:hover,.log-select-all input:hover{border-color:rgba(91,200,255,.75)}
+.log-check:checked,.log-select-all input:checked{border-color:var(--accent);background:transparent}
+.log-check:focus-visible,.log-select-all input:focus-visible{outline:2px solid rgba(91,200,255,.55);outline-offset:2px}
+.log-check::after,.log-select-all input::after{content:"";position:absolute;left:50%;top:50%;width:7px;height:4px;border-left:1.8px solid var(--accent);border-bottom:1.8px solid var(--accent);transform:translate(-50%,-62%) rotate(-45deg);opacity:0;transition:opacity .12s}
+.log-check:checked::after,.log-select-all input:checked::after{opacity:1}
+.log-select-all input:indeterminate::after{width:7px;height:2px;border:0;background:var(--accent);transform:translate(-50%,-50%);opacity:1}
+.log-select-all input:disabled{opacity:.4;border-color:rgba(120,160,220,.25);cursor:not-allowed}
 .log-row:last-child{border-bottom:0}
 .log-row .log-time{color:var(--muted)}
 .log-row .log-op{color:var(--accent);font-weight:700}
