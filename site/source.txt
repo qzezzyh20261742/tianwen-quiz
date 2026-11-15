@@ -1,3 +1,4 @@
 https://aka.doubaocdn.com/s/Dhdx2mftoT
-https://aka.doubaocdn.com/s/QPNRreaFe5
+https://aka.doubaocdn.com/s/TGTva2Vdr8
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
+# tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
