@@ -210,6 +210,32 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .filter-row select:focus{border-color:var(--accent)}
 .filter-row select option{background:#0d1533}
 
+/* ===== 列表式选择框（替代原生下拉框） ===== */
+.nice-select{position:relative;display:inline-block;min-width:150px;vertical-align:top}
+.nice-select > select{display:none}
+.nice-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:38px;padding:9px 13px;border-radius:9px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:14px;font-family:inherit;line-height:1.35;text-align:left;cursor:pointer;outline:none;transition:border-color .18s,background .18s}
+.nice-select-trigger:hover{border-color:rgba(91,200,255,.42)}
+.nice-select-trigger:focus-visible{border-color:var(--accent);box-shadow:0 0 0 2px rgba(91,200,255,.16)}
+.nice-select-trigger:disabled{opacity:.58;cursor:not-allowed}
+.nice-select.open .nice-select-trigger{border-color:var(--accent);background:rgba(12,26,52,.92)}
+.nice-select-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nice-select-chevron{flex:none;color:var(--muted);transition:transform .2s}
+.nice-select.open .nice-select-chevron{transform:rotate(180deg)}
+.nice-select-panel{position:absolute;top:calc(100% + 7px);left:0;z-index:120;min-width:100%;width:max-content;max-width:min(320px,calc(100vw - 42px));max-height:244px;overflow-y:auto;padding:6px;border:1px solid rgba(120,160,220,.4);border-radius:12px;background:#0b1330;box-shadow:0 16px 38px rgba(0,0,0,.48);scrollbar-width:thin;scrollbar-color:rgba(91,200,255,.38) transparent}
+.nice-select-panel::-webkit-scrollbar{width:7px}
+.nice-select-panel::-webkit-scrollbar-thumb{background:rgba(91,200,255,.38);border-radius:7px}
+.nice-select-panel::-webkit-scrollbar-track{background:transparent}
+.nice-select.is-end .nice-select-panel{left:auto;right:0}
+.nice-select.drop-up .nice-select-panel{top:auto;bottom:calc(100% + 7px)}
+.nice-select-caption{padding:5px 10px 7px;color:var(--muted);font-size:12px;line-height:1.4;letter-spacing:.03em}
+.nice-select-option{display:block;width:100%;padding:9px 11px;border:0;border-radius:8px;background:transparent;color:var(--text);font-family:inherit;font-size:14px;line-height:1.4;text-align:left;cursor:pointer;outline:none;transition:background .16s}
+.nice-select-option:hover{background:rgba(255,255,255,.065)}
+.nice-select-option.active{background:rgba(73,174,255,.19);color:var(--accent);font-weight:700}
+.nice-select-option:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.nice-select-empty{padding:10px 11px;color:var(--muted);font-size:13px}
+.nice-select--compact{min-width:126px}
+.nice-select--compact .nice-select-trigger{min-height:34px;padding:8px 12px;font-size:13.5px}
+
 /* ===== 详情可展开题目 ===== */
 .q-expand-head{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;border:none;color:var(--text);padding:13px 15px;cursor:pointer;font-family:inherit;font-size:14.5px;text-align:left}
 .q-expand-head:hover{background:rgba(91,200,255,.07)}
@@ -3419,6 +3445,173 @@ function openModal(html){
 }
 function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
 
+/* ===== 列表式选择器：保留原 select 作为值存储，界面改用深色列表面板 ===== */
+var niceSelectRegistry = {};
+var niceSelectGlobalBound = false;
+function initNiceSelects(){
+  initNiceSelect('filterSchool', { caption: '学校' });
+  initNiceSelect('filterGroup', { caption: '组别' });
+  initNiceSelect('logTypeFilter', { caption: '日志类型', compact: true, align: 'right' });
+}
+function niceSelectOptionLabel(select){
+  var opt = select.options[select.selectedIndex] || select.options[0];
+  return opt ? String(opt.textContent || opt.value || '').trim() : '';
+}
+function initNiceSelect(id, opts){
+  opts = opts || {};
+  var select = document.getElementById(id);
+  if(!select || select.dataset.niceReady === '1') return;
+  select.dataset.niceReady = '1';
+  var wrap = document.createElement('div');
+  wrap.className = 'nice-select' + (opts.compact ? ' nice-select--compact' : '') + (opts.align === 'right' ? ' is-end' : '');
+  var trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'nice-select-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.setAttribute('aria-label', select.getAttribute('aria-label') || '选择');
+  trigger.innerHTML = '<span class="nice-select-label"></span><svg class="nice-select-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var panel = document.createElement('div');
+  panel.className = 'nice-select-panel';
+  panel.hidden = true;
+  panel.setAttribute('role', 'listbox');
+  panel.setAttribute('aria-label', opts.caption || '选择');
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+  wrap.appendChild(trigger);
+  wrap.appendChild(panel);
+  var labelEl = trigger.querySelector('.nice-select-label');
+  niceSelectRegistry[id] = { select: select, wrap: wrap, trigger: trigger, panel: panel, labelEl: labelEl, caption: opts.caption || '' };
+  if(!niceSelectGlobalBound){
+    niceSelectGlobalBound = true;
+    document.addEventListener('click', function(e){
+      Object.keys(niceSelectRegistry).forEach(function(key){
+        var item = niceSelectRegistry[key];
+        if(item && !item.wrap.contains(e.target)) closeNiceSelect(key, false);
+      });
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape') closeAllNiceSelects();
+    });
+    window.addEventListener('resize', function(){ closeAllNiceSelects(); });
+  }
+  trigger.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(select.disabled) return;
+    if(wrap.classList.contains('open')) closeNiceSelect(id, false);
+    else openNiceSelect(id);
+  });
+  trigger.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); openNiceSelect(id); }
+  });
+  panel.addEventListener('keydown', function(e){
+    var items = Array.prototype.slice.call(panel.querySelectorAll('.nice-select-option:not([disabled])'));
+    var idx = items.indexOf(document.activeElement);
+    if(e.key === 'Escape'){
+      e.preventDefault();
+      closeNiceSelect(id, true);
+    } else if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      if(!items.length) return;
+      var next = e.key === 'ArrowDown'
+        ? (idx < 0 ? 0 : Math.min(items.length - 1, idx + 1))
+        : (idx <= 0 ? 0 : idx - 1);
+      items[next].focus({ preventScroll: true });
+    } else if(e.key === 'Home' || e.key === 'End'){
+      e.preventDefault();
+      if(!items.length) return;
+      items[e.key === 'Home' ? 0 : items.length - 1].focus({ preventScroll: true });
+    }
+  });
+  select.addEventListener('change', function(){ syncNiceSelect(id); });
+  if(window.MutationObserver){
+    new MutationObserver(function(){
+      setTimeout(function(){ syncNiceSelect(id); }, 0);
+    }).observe(select, { childList: true });
+  }
+  syncNiceSelect(id);
+}
+function drawNiceSelectPanel(id){
+  var item = niceSelectRegistry[id];
+  if(!item) return;
+  var select = item.select;
+  var panel = item.panel;
+  panel.innerHTML = '';
+  if(item.caption){
+    var cap = document.createElement('div');
+    cap.className = 'nice-select-caption';
+    cap.textContent = item.caption;
+    panel.appendChild(cap);
+  }
+  if(!select.options.length){
+    var empty = document.createElement('div');
+    empty.className = 'nice-select-empty';
+    empty.textContent = '暂无可选项';
+    panel.appendChild(empty);
+    return;
+  }
+  Array.prototype.forEach.call(select.options, function(opt){
+    if(opt.disabled) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nice-select-option' + (select.value === opt.value ? ' active' : '');
+    btn.setAttribute('role', 'option');
+    btn.setAttribute('aria-selected', select.value === opt.value ? 'true' : 'false');
+    btn.dataset.value = opt.value;
+    btn.textContent = String(opt.textContent || opt.value || '（空）').trim() || '（空）';
+    btn.addEventListener('click', function(){
+      if(select.disabled) return;
+      select.value = btn.dataset.value;
+      closeNiceSelect(id, true);
+      syncNiceSelect(id);
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    panel.appendChild(btn);
+  });
+}
+function syncNiceSelect(id){
+  var item = niceSelectRegistry[id];
+  if(!item) return;
+  item.labelEl.textContent = niceSelectOptionLabel(item.select) || '请选择';
+  item.trigger.disabled = !!item.select.disabled;
+  item.trigger.setAttribute('aria-disabled', item.select.disabled ? 'true' : 'false');
+  if(item.select.disabled) closeNiceSelect(id, false);
+  if(!item.panel.hidden) drawNiceSelectPanel(id);
+}
+function positionNiceSelectPanel(item){
+  item.wrap.classList.remove('drop-up');
+  var rect = item.trigger.getBoundingClientRect();
+  var panelHeight = item.panel.offsetHeight || 0;
+  if(rect.bottom + panelHeight + 12 > window.innerHeight && rect.top - panelHeight - 12 > 0){
+    item.wrap.classList.add('drop-up');
+  }
+}
+function openNiceSelect(id){
+  var item = niceSelectRegistry[id];
+  if(!item || item.select.disabled) return;
+  Object.keys(niceSelectRegistry).forEach(function(key){ if(key !== id) closeNiceSelect(key, false); });
+  drawNiceSelectPanel(id);
+  item.panel.hidden = false;
+  item.wrap.classList.add('open');
+  item.trigger.setAttribute('aria-expanded', 'true');
+  positionNiceSelectPanel(item);
+  var focusTarget = item.panel.querySelector('.nice-select-option.active') || item.panel.querySelector('.nice-select-option');
+  if(focusTarget) focusTarget.focus({ preventScroll: true });
+}
+function closeNiceSelect(id, refocus){
+  var item = niceSelectRegistry[id];
+  if(!item) return;
+  if(item.panel.hidden && !item.wrap.classList.contains('open')) return;
+  item.panel.hidden = true;
+  item.wrap.classList.remove('open');
+  item.wrap.classList.remove('drop-up');
+  item.trigger.setAttribute('aria-expanded', 'false');
+  if(refocus) item.trigger.focus({ preventScroll: true });
+}
+function closeAllNiceSelects(){
+  Object.keys(niceSelectRegistry).forEach(function(key){ closeNiceSelect(key, false); });
+}
+
 /* ===== 宇宙星空背景 ===== */
 (function starrySky(){
   const cv = document.getElementById('starCanvas');
@@ -4830,6 +5023,7 @@ function setupGroupFilter(){
       + groups.map(g => '<option value="' + g + '">' + g + '</option>').join('');
     sel.disabled = false;
   }
+  syncNiceSelect('filterGroup');
 }
 
 /* ===== 组别 → 学校 级联选择（普通教师关联学校用） ===== */
@@ -5315,6 +5509,7 @@ function renderAdmin(){
     document.getElementById('kpiRate').textContent = '0%';
     document.getElementById('scoreBars').innerHTML = '';
     document.getElementById('filterSchool').innerHTML = '<option value="">全部学校</option>';
+    syncNiceSelect('filterSchool');
     document.getElementById('adminTbody').innerHTML = '<tr><td colspan="10"><div class="empty">暂无学生提交记录</div></td></tr>';
     renderScorePager(0);
     fitScoreScrollHeight();
@@ -5370,6 +5565,7 @@ function renderAdmin(){
     schoolSel.value = schools.indexOf(curSchool) >= 0 ? curSchool : '';
     schoolSel.disabled = false;
   }
+  syncNiceSelect('filterSchool');
 
   renderAdminTable();
 }
@@ -5852,6 +6048,9 @@ window.addEventListener('focus', function(){
     if(currentAdmin.role === 'admin' && adminPage === 'manage') refreshAdminSessions(true);
   }
 });
+
+/* 原生 select 换成同风格的列表式选择框 */
+initNiceSelects();
 
 /* 页面打开时恢复上次的登录状态 */
 restoreAdminSession();
