@@ -4269,7 +4269,7 @@ function renderSchoolMgmt(){
       + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
       + '</div>';
   });
-  if(schools.length > 5){
+  if(schools.length > 0){
     const expanded = schoolListExpanded;
     html += '<div class="log-glass admin-fold-glass">'
       + '<button type="button" class="' + (expanded ? 'log-collapse' : 'log-more') + '" id="schoolFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
