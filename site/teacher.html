@@ -250,6 +250,10 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .btn-text-danger{background:none;border:0;color:var(--red);font-family:inherit;font-size:13px;cursor:pointer;padding:4px 0}
 .btn-text-danger:hover{text-decoration:underline}
 /* ===== 操作日志：折叠 + 毛玻璃 + 分页 ===== */
+.log-head-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.log-type-select{padding:8px 12px;border-radius:9px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:13.5px;font-family:inherit;min-width:126px;cursor:pointer;outline:none}
+.log-type-select:focus{border-color:var(--accent)}
+.log-type-select option{background:#0d1533}
 .log-shell{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(9,14,34,.42)}
 .log-scroll{padding:2px 14px}
 .log-shell.expanded .log-scroll{padding:2px 14px}
@@ -445,7 +449,18 @@ tbody td.name-cell{text-align:left;font-weight:600}
     <div class="card" style="margin-top:18px" id="logCard">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
         <h2 class="sec-title" style="margin-bottom:0">操作日志</h2>
-        <button class="btn btn-ghost btn-sm" id="refreshLogsBtn" type="button">刷新日志</button>
+        <div class="log-head-right">
+          <select id="logTypeFilter" class="log-type-select" aria-label="日志类型">
+            <option value="all">全部日志</option>
+            <option value="student">学生日志</option>
+            <option value="school">学校日志</option>
+            <option value="teacher">教师日志</option>
+            <option value="exam">考试日志</option>
+            <option value="sync">同步日志</option>
+            <option value="system">系统日志</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="refreshLogsBtn" type="button">刷新日志</button>
+        </div>
       </div>
       <div class="log-shell" id="logShell">
         <div id="logBody" class="log-scroll"></div>
@@ -1672,6 +1687,7 @@ const SCHOOLS_KEY = 'astro_quiz_schools';
 const STUDENTS_KEY = 'astro_quiz_students';
 const SCHOOL_SETTINGS_KEY = 'astro_quiz_school_settings';
 const LOG_KEY = 'astro_quiz_logs';
+const STUDENT_LOGS_KEY = 'astro_quiz_student_logs';
 const SETTINGS_PENDING_KEY = 'astro_quiz_settings_pending';
 const SETTINGS_CHANGE_KEY = 'astro_quiz_settings_change_at';
 const DELETED_ADMINS_KEY = 'astro_quiz_deleted_admins';
@@ -1936,16 +1952,73 @@ function getLogs(){
   try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
   catch(e){ return []; }
 }
+function getStudentLogs(){
+  try { return JSON.parse(localStorage.getItem(STUDENT_LOGS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
 function saveLogs(list){
   localStorage.setItem(LOG_KEY, JSON.stringify(list));
   triggerAutoSave();
 }
+function saveStudentLogs(list){
+  localStorage.setItem(STUDENT_LOGS_KEY, JSON.stringify(list));
+}
+function logCategoryOf(item){
+  if(item && item.category) return item.category;
+  const action = String((item && item.action) || '');
+  if(/学生|注册|答卷|成绩/.test(action)) return 'student';
+  if(/学校|班级/.test(action)) return 'school';
+  if(/教师|管理员|账号/.test(action)) return 'teacher';
+  if(/考试|场次|竞赛|开始|结束/.test(action)) return 'exam';
+  if(/同步|云端|备份|刷新/.test(action)) return 'sync';
+  return 'system';
+}
 function log(action, detail){
   const logs = getLogs();
   const opName = (currentAdmin && currentAdmin.name) ? currentAdmin.name + '（' + currentAdmin.user + '）' : ((currentAdmin && currentAdmin.user) || '');
-  logs.unshift({ time: new Date().toLocaleString('zh-CN'), operator: opName, action: action, detail: detail || '' });
+  const entry = { time: new Date().toLocaleString('zh-CN'), operator: opName, action: action, detail: detail || '' };
+  entry.category = logCategoryOf(entry);
+  logs.unshift(entry);
   if(logs.length > 500) logs.length = 500;
   saveLogs(logs);
+}
+function normalizeLogTime(value){
+  if(!value) return '';
+  const text = String(value).replace(/-/g, '/');
+  return text.length > 19 ? text.slice(0, 19) : text;
+}
+function logTimeValue(item){
+  const parsed = Date.parse(normalizeLogTime(item && item.time));
+  return isNaN(parsed) ? 0 : parsed;
+}
+function studentLogKey(item){
+  return [item.name || item.operator || '', item.examNo || '', item.school || '', item.group || '', item.examId || '', item.action || ''].join('|');
+}
+function derivedStudentLogsFromRecords(){
+  const existing = new Set(getStudentLogs().filter(function(x){ return x && x.action === '提交答卷'; }).map(studentLogKey));
+  return getRecords().filter(function(r){
+    if(!r) return false;
+    const key = studentLogKey({ name: r.name, examNo: r.examNo, school: r.school, group: r.group, examId: r.examId, action: '提交答卷' });
+    return !existing.has(key);
+  }).map(function(r){
+    return {
+      time: normalizeLogTime(r.submitTime),
+      operator: r.name || '',
+      action: '提交答卷',
+      detail: (r.examName || '') + ' · ' + (r.school || '') + ' · ' + (r.group || '') + ' · 得分 ' + (r.score == null ? '' : r.score),
+      category: 'student',
+      source: 'record',
+      name: r.name || '',
+      examNo: r.examNo || '',
+      school: r.school || '',
+      group: r.group || '',
+      examId: r.examId || ''
+    };
+  });
+}
+function allAdminLogs(){
+  const merged = mergeLogs(mergeLogs(getLogs(), getStudentLogs()), derivedStudentLogsFromRecords());
+  return merged.slice().sort(function(a, b){ return logTimeValue(b) - logTimeValue(a); });
 }
 
 /* ===== 数据自动保存到文件 ===== */
@@ -2030,6 +2103,7 @@ async function pullSettingsFromCloud(silent, force){
     const localStudents = getStudents();
     const localSchoolSettings = getSchoolSettings();
     const localLogs = getLogs();
+    const localStudentLogs = getStudentLogs();
     const localDeletedSchools = getDeletedSchools();
     const localDeletedStudents = getDeletedStudents();
     const mergedDeletedSchools = mergeDeletedRecords(localDeletedSchools, s.deletedSchools || [], deletedSchoolName);
@@ -2046,6 +2120,7 @@ async function pullSettingsFromCloud(silent, force){
     });
     const mergedSchoolSettings = mergeSchoolSettings(localSchoolSettings, s.schoolSettings || {});
     const mergedLogs = mergeLogs(localLogs, s.logs || []);
+    const mergedStudentLogs = mergeLogs(localStudentLogs, s.studentLogs || []);
     const localChanged = !sameJson(localAdmins, mergedAdmins)
       || !sameJson(localSchools, mergedSchools)
       || !sameJson(localStudents, mergedStudents)
@@ -2062,6 +2137,7 @@ async function pullSettingsFromCloud(silent, force){
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(mergedStudents));
     localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(mergedSchoolSettings));
     localStorage.setItem(LOG_KEY, JSON.stringify(mergedLogs));
+    localStorage.setItem(STUDENT_LOGS_KEY, JSON.stringify(mergedStudentLogs));
     if(mergedAdmins.length){
       const me = currentAdmin ? mergedAdmins.find(function(x){ return x.user === currentAdmin.user; }) : null;
       if(me) currentAdmin = me;
@@ -2071,6 +2147,7 @@ async function pullSettingsFromCloud(silent, force){
     renderAdminList();
     renderSchoolMgmt();
     renderAdmin();
+    renderLogs();
     updateCloudStatus();
     if(localChanged || cloudChanged || hasPendingSettings()) triggerCloudPush();
     if(!silent) toast('已合并云端与本机数据（本机修改优先，未删除任何账号）');
@@ -2873,11 +2950,12 @@ async function syncCloudThenRender(){
     }
   }
   renderAdmin();
+  renderLogs();
 }
 
 /* 跨标签页实时同步：学科竞赛学生入口登录自动登记时，管理端实时刷新并自动保存 */
 window.addEventListener('storage', function(e){
-  if(e.key === LOG_KEY){ renderLogs(); triggerAutoSave(); }
+  if(e.key === LOG_KEY || e.key === STUDENT_LOGS_KEY){ renderLogs(); triggerAutoSave(); }
   else if(e.key === SCHOOLS_KEY || e.key === STUDENTS_KEY){ renderSchoolMgmt(); triggerAutoSave(); }
   else if(e.key === ADMIN_KEY){ renderAdminList(); triggerAutoSave(); }
 });
@@ -2890,14 +2968,23 @@ async function refreshLogsNow(){
   btn.textContent = '刷新中…';
   try {
     const ok = await pullSettingsFromCloud(true, true);
+    try {
+      const cloud = await pullCloudRecords();
+      const added = mergeCloudIntoLocal(cloud);
+      if(added) toast('已从云端同步 ' + added + ' 条学生记录');
+    } catch(e){}
     renderLogs();
-    toast((ok ? '日志已刷新：共 ' : '已刷新本机日志：共 ') + getLogs().length + ' 条');
+    toast((ok ? '日志已刷新：共 ' : '已刷新本机日志：共 ') + allAdminLogs().length + ' 条');
   } finally {
     btn.disabled = false;
     btn.textContent = label;
   }
 }
 document.getElementById('refreshLogsBtn').addEventListener('click', refreshLogsNow);
+document.getElementById('logTypeFilter').addEventListener('change', function(){
+  logPage = 1;
+  renderLogs();
+});
 document.getElementById('logMore').addEventListener('click', function(){
   logExpanded = true;
   logPage = 1;
@@ -3617,9 +3704,12 @@ function renderLogPager(total){
 function renderLogs(){
   const el = document.getElementById('logBody');
   if(!el) return;
-  const logs = getLogs();
+  const filterEl = document.getElementById('logTypeFilter');
+  const filter = filterEl ? filterEl.value : 'all';
+  const allLogs = allAdminLogs();
+  const logs = filter === 'all' ? allLogs : allLogs.filter(function(l){ return logCategoryOf(l) === filter; });
   if(!logs.length){
-    el.innerHTML = '<div class="empty">暂无操作日志</div>';
+    el.innerHTML = '<div class="empty">' + (filter === 'all' ? '暂无操作日志' : '暂无此类日志') + '</div>';
     renderLogPager(0);
     return;
   }
