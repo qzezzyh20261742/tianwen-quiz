@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/CGL36wVWoE
-https://aka.doubaocdn.com/s/gsvozQdUDq
+https://aka.doubaocdn.com/s/mOna2tvYAm
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -17,3 +17,4 @@ https://aka.doubaocdn.com/s/gsvozQdUDq
 # tuned 2026-11-16 01:28 show school management fold bar
 # tuned 2026-11-16 01:34 sync exam button uses gold style
 # tuned 2026-11-16 01:42 log delete: checkbox, select all, delete selected/all
+# tuned 2026-11-16 01:52 keep log filter dropdown above sibling cards
