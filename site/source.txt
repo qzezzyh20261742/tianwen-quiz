@@ -1,3 +1,3 @@
 https://aka.doubaocdn.com/s/GZD0PCLSuu
-https://aka.doubaocdn.com/s/7Hg7oN7lbW
-# tuned 2026-11-15 13:50 fetch students in sync menu + wheel-scroll menu
+https://aka.doubaocdn.com/s/ToS3Quj1Ji
+# tuned 2026-11-15 13:56 two-row sync menu with stacking fix
