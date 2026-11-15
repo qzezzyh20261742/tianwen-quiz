@@ -584,6 +584,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
             <option value="sync">同步日志</option>
             <option value="system">系统日志</option>
           </select>
+          <button class="btn btn-ghost btn-sm" id="fetchLogsBtn" type="button">获取日志</button>
           <button class="btn btn-ghost btn-sm" id="refreshLogsBtn" type="button">刷新日志</button>
           <label class="log-select-all" title="全选当前筛选的日志"><input type="checkbox" id="logSelectAll"><span>全选</span></label>
           <button class="btn btn-danger btn-sm" id="deleteLogsBtn" type="button">删除日志</button>
@@ -3720,6 +3721,51 @@ async function refreshLogsNow(){
     btn.textContent = label;
   }
 }
+async function fetchLogsFromRepository(){
+  const btn = document.getElementById('fetchLogsBtn');
+  if(!btn) return;
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '获取中…';
+  try {
+    const j = await cloudCall('/settings');
+    const s = j && j.settings;
+    if(!s) throw new Error('云端仓库暂无设置数据');
+    const deleted = new Set(getDeletedLogIds());
+    function cleanCloudLogs(list){
+      return (Array.isArray(list) ? list : []).map(function(item){
+        if(item && !item.id) item.id = legacyLogId(item);
+        return item;
+      }).filter(function(item){
+        return item && !deleted.has(item.id || legacyLogId(item));
+      });
+    }
+    const beforeCount = allAdminLogs().length;
+    const cloudLogs = cleanCloudLogs(s.logs);
+    const cloudStudentLogs = cleanCloudLogs(s.studentLogs);
+    const localLogs = getLogs().filter(function(item){
+      return item && !deleted.has(item.id || legacyLogId(item));
+    });
+    const localStudentLogs = getStudentLogs().filter(function(item){
+      return item && !deleted.has(item.id || legacyLogId(item));
+    });
+    const mergedLogs = mergeLogs(localLogs, cloudLogs);
+    const mergedStudentLogs = mergeLogs(localStudentLogs, cloudStudentLogs);
+    localStorage.setItem(LOG_KEY, JSON.stringify(mergedLogs.slice(0, 500)));
+    localStorage.setItem(STUDENT_LOGS_KEY, JSON.stringify(mergedStudentLogs.slice(0, 500)));
+    logPage = 1;
+    logSelected.clear();
+    renderLogs();
+    const afterCount = allAdminLogs().length;
+    toast('已从仓库获取日志：共 ' + afterCount + ' 条' + (afterCount > beforeCount ? '，新增 ' + (afterCount - beforeCount) + ' 条' : ''));
+  } catch(e){
+    toast('获取日志失败：' + (e && e.message ? e.message : String(e)));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+document.getElementById('fetchLogsBtn').addEventListener('click', fetchLogsFromRepository);
 document.getElementById('refreshLogsBtn').addEventListener('click', refreshLogsNow);
 document.getElementById('logTypeFilter').addEventListener('change', function(){
   logPage = 1;
