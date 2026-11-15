@@ -1657,6 +1657,8 @@ const LOG_KEY = 'astro_quiz_logs';
 const SETTINGS_PENDING_KEY = 'astro_quiz_settings_pending';
 const SETTINGS_CHANGE_KEY = 'astro_quiz_settings_change_at';
 const DELETED_ADMINS_KEY = 'astro_quiz_deleted_admins';
+const DELETED_SCHOOLS_KEY = 'astro_quiz_deleted_schools';
+const DELETED_STUDENTS_KEY = 'astro_quiz_deleted_students';
 const DEFAULT_ADMINS = [
   { user: 'admin', pass: 'hi@tw2026', role: 'admin', name: '管理员' }
 ];
@@ -1709,6 +1711,76 @@ function clearDeletedAdmin(user){
   const list = getDeletedAdminNames().filter(x => x !== user);
   try { localStorage.setItem(DELETED_ADMINS_KEY, JSON.stringify(list)); } catch(e){}
 }
+/* 学校和学生的删除记录：写入云端后，其他设备和 GitHub 备份都不会把它们重新加回来 */
+function readDeletedRecords(key){
+  try {
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch(e){ return []; }
+}
+function writeDeletedRecords(key, list){
+  try { localStorage.setItem(key, JSON.stringify((list || []).slice(-500))); } catch(e){}
+}
+function deletedSchoolName(rec){
+  return typeof rec === 'string' ? rec : ((rec && rec.name) || '');
+}
+function getDeletedSchools(){ return readDeletedRecords(DELETED_SCHOOLS_KEY); }
+function getDeletedSchoolNames(){
+  return getDeletedSchools().map(deletedSchoolName).filter(Boolean);
+}
+function markDeletedSchool(name){
+  if(!name) return;
+  const list = getDeletedSchools().filter(x => deletedSchoolName(x) !== name);
+  list.push({ name: name, at: Date.now() });
+  writeDeletedRecords(DELETED_SCHOOLS_KEY, list);
+}
+function clearDeletedSchool(name){
+  if(!name) return;
+  writeDeletedRecords(DELETED_SCHOOLS_KEY, getDeletedSchools().filter(x => deletedSchoolName(x) !== name));
+}
+function studentDeletionKey(st){
+  if(!st) return '';
+  return [st.examNo || '', st.school || '', st.name || '', st.group || ''].join('|');
+}
+function deletedStudentKey(rec){
+  if(typeof rec === 'string') return rec;
+  return studentDeletionKey(rec);
+}
+function getDeletedStudents(){ return readDeletedRecords(DELETED_STUDENTS_KEY); }
+function markDeletedStudent(st){
+  if(!st) return;
+  const key = studentDeletionKey(st);
+  if(!key) return;
+  const list = getDeletedStudents().filter(x => deletedStudentKey(x) !== key);
+  list.push({ name: st.name || '', examNo: st.examNo || '', school: st.school || '', group: st.group || '', at: Date.now() });
+  writeDeletedRecords(DELETED_STUDENTS_KEY, list);
+}
+function clearDeletedStudent(st){
+  if(!st) return;
+  const key = studentDeletionKey(st);
+  if(!key) return;
+  writeDeletedRecords(DELETED_STUDENTS_KEY, getDeletedStudents().filter(x => deletedStudentKey(x) !== key));
+}
+function isDeletedStudent(st, records){
+  if(!st) return false;
+  const key = studentDeletionKey(st);
+  return (records || getDeletedStudents()).some(x => deletedStudentKey(x) === key);
+}
+function mergeDeletedRecords(local, cloud, keyFn){
+  const map = new Map();
+  [local || [], cloud || []].forEach(function(list){
+    (list || []).forEach(function(rec){
+      if(!rec) return;
+      const key = keyFn(rec);
+      if(!key) return;
+      const old = map.get(key);
+      const at = Number(rec.at) || 0;
+      const oldAt = old ? (Number(old.at) || 0) : -1;
+      if(!old || at >= oldAt) map.set(key, rec);
+    });
+  });
+  return Array.from(map.values()).slice(-500);
+}
 function mergeAdmins(local, cloud){
   const deleted = new Set(getDeletedAdminNames());
   const byUser = new Map();
@@ -1727,9 +1799,10 @@ function mergeAdmins(local, cloud){
   return out;
 }
 function mergeStringList(local, cloud){
+  const deleted = new Set(getDeletedSchoolNames());
   const out = [];
-  (local || []).forEach(function(x){ if(x && out.indexOf(x) < 0) out.push(x); });
-  (cloud || []).forEach(function(x){ if(x && out.indexOf(x) < 0) out.push(x); });
+  (local || []).forEach(function(x){ if(x && !deleted.has(x) && out.indexOf(x) < 0) out.push(x); });
+  (cloud || []).forEach(function(x){ if(x && !deleted.has(x) && out.indexOf(x) < 0) out.push(x); });
   return out;
 }
 function studentKey(st){
@@ -1738,15 +1811,21 @@ function studentKey(st){
 }
 function mergeStudents(local, cloud){
   const map = new Map();
-  (local || []).forEach(function(st){ if(st) map.set(studentKey(st), st); });
+  const deletedSchools = new Set(getDeletedSchoolNames());
+  const deletedStudents = getDeletedStudents();
+  function keep(st){
+    return st && !deletedSchools.has(st.school) && !isDeletedStudent(st, deletedStudents);
+  }
+  (local || []).forEach(function(st){ if(keep(st)) map.set(studentKey(st), st); });
   (cloud || []).forEach(function(st){
     const k = studentKey(st);
-    if(k && !map.has(k)) map.set(k, st);
+    if(k && keep(st) && !map.has(k)) map.set(k, st);
   });
   return Array.from(map.values());
 }
 function mergeSchoolSettings(local, cloud){
   const out = Object.assign({}, cloud || {});
+  const deletedSchools = new Set(getDeletedSchoolNames());
   Object.keys(local || {}).forEach(function(k){
     const l = local[k];
     const c = out[k];
@@ -1755,6 +1834,7 @@ function mergeSchoolSettings(local, cloud){
     const ct = Date.parse((c && c.updatedAt) || '') || 0;
     if(lt >= ct) out[k] = l;
   });
+  Object.keys(out).forEach(function(k){ if(deletedSchools.has(k)) delete out[k]; });
   return out;
 }
 function mergeLogs(local, cloud){
@@ -1872,7 +1952,9 @@ function settingsPayload(){
     students: getStudents(),
     schoolSettings: getSchoolSettings(),
     admins: getAdmins(),
-    logs: getLogs()
+    logs: getLogs(),
+    deletedSchools: getDeletedSchools(),
+    deletedStudents: getDeletedStudents()
   };
 }
 function pushSettingsToCloud(keepalive){
@@ -1924,6 +2006,12 @@ async function pullSettingsFromCloud(silent, force){
     const localStudents = getStudents();
     const localSchoolSettings = getSchoolSettings();
     const localLogs = getLogs();
+    const localDeletedSchools = getDeletedSchools();
+    const localDeletedStudents = getDeletedStudents();
+    const mergedDeletedSchools = mergeDeletedRecords(localDeletedSchools, s.deletedSchools || [], deletedSchoolName);
+    const mergedDeletedStudents = mergeDeletedRecords(localDeletedStudents, s.deletedStudents || [], deletedStudentKey);
+    writeDeletedRecords(DELETED_SCHOOLS_KEY, mergedDeletedSchools);
+    writeDeletedRecords(DELETED_STUDENTS_KEY, mergedDeletedStudents);
     const mergedAdmins = mergeAdmins(localAdmins, s.admins || []);
     const mergedSchools = mergeStringList(localSchools, s.schools || []);
     const mergedStudents = mergeStudents(localStudents, s.students || []);
@@ -1932,11 +2020,15 @@ async function pullSettingsFromCloud(silent, force){
     const localChanged = !sameJson(localAdmins, mergedAdmins)
       || !sameJson(localSchools, mergedSchools)
       || !sameJson(localStudents, mergedStudents)
-      || !sameJson(localSchoolSettings, mergedSchoolSettings);
+      || !sameJson(localSchoolSettings, mergedSchoolSettings)
+      || !sameJson(localDeletedSchools, mergedDeletedSchools)
+      || !sameJson(localDeletedStudents, mergedDeletedStudents);
     const cloudChanged = !sameJson(s.admins || [], mergedAdmins)
       || !sameJson(s.schools || [], mergedSchools)
       || !sameJson(s.students || [], mergedStudents)
-      || !sameJson(s.schoolSettings || {}, mergedSchoolSettings);
+      || !sameJson(s.schoolSettings || {}, mergedSchoolSettings)
+      || !sameJson(s.deletedSchools || [], mergedDeletedSchools)
+      || !sameJson(s.deletedStudents || [], mergedDeletedStudents);
     localStorage.setItem(SCHOOLS_KEY, JSON.stringify(mergedSchools));
     localStorage.setItem(STUDENTS_KEY, JSON.stringify(mergedStudents));
     localStorage.setItem(SCHOOL_SETTINGS_KEY, JSON.stringify(mergedSchoolSettings));
@@ -3239,6 +3331,7 @@ function openBatchAddStudents(school){
         toast('没有可新增的学生：' + (parsed.errors[0] || '考号与组别均已存在或格式不正确'));
         return;
       }
+      toAdd.forEach(clearDeletedStudent);
       saveStudents(existing.concat(toAdd));
       closeModal();
       renderSchoolMgmt();
@@ -3286,6 +3379,7 @@ function openAddStudent(school, reopenSettings){
     if(students.some(st => st.school === school && st.examNo === examNo && st.group === group)){
       toast('该校该组别下该考号已存在'); return;
     }
+    clearDeletedStudent({ name: name, examNo: examNo, school: school, group: group });
     students.push({ name: name, examNo: examNo, school: school, group: group });
     saveStudents(students);
     closeModal();
@@ -3304,14 +3398,17 @@ function deleteSchool(school){
     + '<button class="btn btn-danger" style="flex:1" id="dsOk" type="button">确认删除</button></div>');
   document.getElementById('dsCancel').addEventListener('click', closeModal);
   document.getElementById('dsOk').addEventListener('click', function(){
+    const removedStudents = getStudents().filter(st => st.school === school);
+    removedStudents.forEach(markDeletedStudent);
+    markDeletedSchool(school);
     saveSchools(getSchools().filter(s => s !== school));
     saveStudents(getStudents().filter(st => st.school !== school));
     const map = getSchoolSettings();
     if(map[school]){ delete map[school]; saveSchoolSettings(map); }
     closeModal();
     renderSchoolMgmt();
-    log('删除学校', school);
-    toast('学校已删除');
+    log('删除学校', school + ' · 同步删除云端与备份（学生 ' + removedStudents.length + ' 名）');
+    toast('学校已删除，云端名单已同步；GitHub 备份将在下一次自动同步时更新');
   });
 }
 
@@ -3327,12 +3424,13 @@ function deleteStudent(idx){
   document.getElementById('dstCancel').addEventListener('click', closeModal);
   document.getElementById('dstOk').addEventListener('click', function(){
     const list = getStudents();
+    markDeletedStudent(st);
     list.splice(idx, 1);
     saveStudents(list);
     closeModal();
     renderSchoolMgmt();
-    log('删除学生', st.school + ' ' + st.name + '（' + st.examNo + '）');
-    toast('学生已删除');
+    log('删除学生', st.school + ' ' + st.name + '（' + st.examNo + '） · 同步删除云端与备份');
+    toast('学生已删除，云端名单已同步；GitHub 备份将在下一次自动同步时更新');
   });
 }
 
@@ -3433,6 +3531,7 @@ document.getElementById('addSchoolBtn').addEventListener('click', function(){
     if(!groups.length){ toast('请选择该校开设的组别（至少一个）'); return; }
     const schools = getSchools();
     if(schools.indexOf(n) >= 0){ toast('该校已存在'); return; }
+    clearDeletedSchool(n);
     schools.push(n);
     saveSchools(schools);
     const map = getSchoolSettings();
