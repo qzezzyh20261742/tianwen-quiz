@@ -178,6 +178,45 @@ tbody td{padding:11px 10px;border-top:1px solid var(--line);text-align:center;ve
 tbody tr:hover{background:rgba(91,200,255,.06)}
 tbody td.name-cell{text-align:left;font-weight:600}
 .pill-tag{font-size:12px;border-radius:20px;padding:2px 10px;border:1px solid var(--line-strong);color:var(--muted)}
+/* ===== 考试卡片：试题设置 / 考试设置 ===== */
+.exam-card{position:relative;z-index:2;border:1px solid rgba(91,200,255,.22);border-radius:14px;padding:16px;margin-bottom:14px}
+.exam-card.school-panel-open{z-index:80}
+.exam-settings-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:14px;margin-top:14px}
+.exam-panel{min-width:0;border:1px solid rgba(91,200,255,.16);border-radius:12px;padding:12px;background:rgba(8,13,32,.42)}
+.exam-panel-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;margin:0 0 10px;color:var(--text)}
+.exam-panel-title span{font-size:11.5px;font-weight:400;color:var(--muted)}
+.exam-group-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid rgba(91,200,255,.14);border-radius:10px;margin-bottom:8px}
+.exam-group-actions{display:flex;gap:7px;flex-wrap:wrap}
+.exam-config-form .field{margin-bottom:9px}
+.exam-config-form .field label{font-size:12px;margin-bottom:5px}
+.exam-config-form .field input{font-size:13px;padding:8px 9px;border-radius:8px}
+.exam-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.exam-mini-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);min-width:0}
+.exam-mini-field input{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:13px;outline:none;color-scheme:dark}
+.exam-mini-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
+.exam-check-row{display:flex;gap:6px;flex-wrap:wrap}
+.exam-check{position:relative;min-width:0}
+.exam-check input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.exam-check span{display:block;text-align:center;padding:7px 10px;border-radius:8px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);font-size:12px;cursor:pointer}
+.exam-check input:checked+span{border-color:var(--accent);background:rgba(91,200,255,.16);color:#fff}
+.exam-school-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.exam-school-summary{font-size:12px;color:var(--muted)}
+.exam-schools-wrap{position:relative}
+.sync-menu.exam-schools-menu{right:0;left:auto;min-width:300px;max-height:230px;padding:6px 6px 0}
+.exam-school-item{display:flex;align-items:flex-start;gap:9px;width:100%;box-sizing:border-box;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--text);font-size:13px}
+.exam-school-item:hover{background:rgba(91,200,255,.1)}
+.exam-school-item input{width:15px;height:15px;margin:1px 0 0;accent-color:var(--accent);flex:none;cursor:pointer}
+.exam-school-item b{display:block;font-size:13.5px;font-weight:600}
+.exam-school-item small{display:block;margin-top:2px;color:var(--muted);font-size:11.5px;line-height:1.5}
+.exam-school-item + .exam-school-item{border-top:1px solid rgba(132,168,255,.1)}
+.exam-school-empty{padding:14px 12px;color:var(--muted);font-size:12.5px;line-height:1.7}
+.exam-settings-actions{display:flex;justify-content:flex-end;margin-top:9px}
+@media (max-width:820px){
+  .exam-settings-grid{grid-template-columns:1fr}
+  .exam-mini-grid{grid-template-columns:1fr 1fr}
+  .exam-schools-menu{right:auto;left:0;min-width:min(300px,calc(100vw - 60px))}
+}
+@media (max-width:520px){.exam-mini-grid{grid-template-columns:1fr}}
 .bar-chart{display:flex;align-items:flex-end;gap:10px;height:150px;padding:14px 8px 0;margin-bottom:20px}
 .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
 .bar-col i{width:70%;background:linear-gradient(180deg,var(--accent),#3f6fd0);border-radius:6px 6px 0 0;min-width:18px}
@@ -2407,6 +2446,69 @@ function groupStats(exam, group){
   return { count: qs.length, total: qs.reduce((s, q) => s + (Number(q.score) || 0), 0) };
 }
 
+/* ===== 考试设置：参加学校、定时开放、有效状态 ===== */
+function examCandidateSchools(exam){
+  const names = {};
+  ((exam && exam.groups) || []).forEach(function(g){
+    groupSchools(g).forEach(function(s){ names[s] = true; });
+  });
+  return Object.keys(names).sort(function(a,b){ return a.localeCompare(b, 'zh-Hans-CN'); });
+}
+function examSelectedSchools(exam){
+  const all = examCandidateSchools(exam);
+  const stored = Array.isArray(exam.schools) ? exam.schools : [];
+  if(!stored.length) return all;
+  return all.filter(function(s){ return stored.indexOf(s) >= 0; });
+}
+function examSchoolsSummary(exam){
+  const all = examCandidateSchools(exam);
+  const selected = examSelectedSchools(exam);
+  if(!all.length) return '暂无可参加的学校';
+  if(!Array.isArray(exam.schools) || !exam.schools.length) return '全部 ' + all.length + ' 所';
+  return '已选 ' + selected.length + ' / ' + all.length + ' 所';
+}
+function toLocalDatetimeValue(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  const p = function(n){ return String(n).padStart(2,'0'); };
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function examHasAllGroupQuestions(exam){
+  const groups = (exam && exam.groups) || [];
+  if(!groups.length) return false;
+  return groups.every(function(g){ return (((exam.questions || {})[g]) || []).length > 0; });
+}
+function effectiveExamStatus(exam){
+  const now = Date.now();
+  const start = exam && exam.startAt ? Date.parse(exam.startAt) : NaN;
+  const end = exam && exam.endAt ? Date.parse(exam.endAt) : NaN;
+  if(!isNaN(end) && now >= end) return 'closed';
+  if(!exam || exam.status === 'closed') return 'closed';
+  if(exam.status === 'open') return 'open';
+  if(!isNaN(start)){
+    if(now < start) return 'draft';
+    if(!examHasAllGroupQuestions(exam)) return 'draft';
+    return 'open';
+  }
+  return 'draft';
+}
+function examSchoolPanelHtml(exam){
+  const all = examCandidateSchools(exam);
+  const stored = Array.isArray(exam.schools) ? exam.schools : [];
+  const checked = !stored.length ? all : examSelectedSchools(exam);
+  if(!all.length){
+    return '<div class="exam-school-empty">当前场次的组别下还没有学校。请先在「学校与学生管理 → 学校设置」里为学校勾选组别。</div>';
+  }
+  const students = getStudents();
+  return all.map(function(s){
+    const groups = schoolAllowedGroups(s).join(' / ');
+    const count = students.filter(function(st){ return st.school === s; }).length;
+    return '<label class="exam-school-item"><input type="checkbox" data-exam-school value="' + esc(s) + '"' + (checked.indexOf(s) >= 0 ? ' checked' : '') + '>'
+      + '<span><b>' + esc(s) + '</b><small>' + (count ? count + ' 名学生 · ' : '') + esc(groups) + '</small></span></label>';
+  }).join('');
+}
+
 async function refreshExamBoard(isAuto){
   const el = document.getElementById('examList');
   if(!el) return;
@@ -2481,26 +2583,51 @@ function renderExamBoard(){
   }
   let html = '';
   EXAMS.forEach(e => {
-    const isOpen = e.status === 'open';
+    const status = effectiveExamStatus(e);
+    const isOpen = status === 'open';
     let groupsHtml = '';
     (e.groups || []).forEach(g => {
       const st = groupStats(e, g);
-      groupsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid rgba(91,200,255,.14);border-radius:10px;margin-bottom:8px">'
+      groupsHtml += '<div class="exam-group-row">'
         + '<div style="font-size:13.5px"><span class="pill-tag">' + esc(g) + '</span>'
         + '<span style="color:var(--muted);margin-left:8px">' + st.count + ' 题 · ' + st.total + ' 分</span></div>'
-        + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + '<div class="exam-group-actions">'
+        + '<button class="btn btn-sm" type="button" data-act="sync" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">同步试题</button>'
         + '<button class="btn btn-ghost btn-sm" type="button" data-act="view" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">查看试题</button>'
-        + '<button class="btn btn-ghost btn-sm" type="button" data-act="sync" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">同步试题</button>'
         + '<button class="btn btn-ghost btn-sm" type="button" data-act="import" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">'
         + (st.count ? '重新导入' : '导入试题') + '</button></div></div>';
     });
-    html += '<div style="border:1px solid rgba(91,200,255,.22);border-radius:14px;padding:16px;margin-bottom:14px">'
+    if(!groupsHtml) groupsHtml = '<div class="empty" style="padding:16px 0">尚未设置参加组别，请在右侧「考试设置」里选择。</div>';
+    const groupChecks = ['小学组','初中组','高中组'].map(function(g){
+      return '<label class="exam-check"><input type="checkbox" data-exam-group value="' + g + '"' + ((e.groups || []).indexOf(g) >= 0 ? ' checked' : '') + '><span>' + g + '</span></label>';
+    }).join('');
+    const startVal = toLocalDatetimeValue(e.startAt);
+    const endVal = toLocalDatetimeValue(e.endAt);
+    const schoolPanel = examSchoolPanelHtml(e);
+    const schoolSummary = examSchoolsSummary(e);
+    html += '<div class="exam-card" data-exam-card="' + esc(e.id) + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<div><b style="font-size:17px">' + esc(e.name) + '</b>'
       + '<div style="font-size:12.5px;color:var(--muted);margin-top:4px">适用学段：' + esc((e.groups || []).join('、') || '未设置') + '</div>'
-      + '<span style="margin-left:10px;font-size:12.5px;font-weight:700;color:' + (isOpen ? 'var(--green)' : (e.status === 'closed' ? 'var(--muted)' : 'var(--gold)')) + '">' + examStatusText(e.status) + '</span></div>'
+      + '<span style="margin-left:10px;font-size:12.5px;font-weight:700;color:' + (isOpen ? 'var(--green)' : (status === 'closed' ? 'var(--muted)' : 'var(--gold)')) + '">' + examStatusText(status) + '</span></div>'
       + '<div style="font-size:12px;color:var(--muted)">更新 ' + esc(e.updatedAt || '') + '</div></div>'
-      + '<div style="margin-top:12px">' + groupsHtml + '</div>'
+      + '<div class="exam-settings-grid">'
+      + '<section class="exam-panel"><div class="exam-panel-title">试题设置<span>按重要程度排序：同步 → 查看 → 重新导入</span></div>'
+      + groupsHtml + '</section>'
+      + '<section class="exam-panel"><div class="exam-panel-title">考试设置<span>修改后点保存</span></div>'
+      + '<div class="exam-config-form">'
+      + '<div class="field"><label>考试名称</label><input type="text" data-exam-name value="' + esc(e.name) + '" placeholder="例如：2026 年预赛第一场"></div>'
+      + '<div class="field"><label>参加组别</label><div class="exam-check-row">' + groupChecks + '</div></div>'
+      + '<div class="exam-mini-grid">'
+      + '<label class="exam-mini-field">定时开始<input type="datetime-local" data-exam-start value="' + esc(startVal) + '"></label>'
+      + '<label class="exam-mini-field">定时结束<input type="datetime-local" data-exam-end value="' + esc(endVal) + '"></label>'
+      + '</div>'
+      + '<div class="field" style="margin-top:10px;margin-bottom:0"><label>参加学校</label>'
+      + '<div class="exam-school-row"><span class="exam-school-summary" data-school-summary>' + esc(schoolSummary) + '</span>'
+      + '<div class="exam-schools-wrap"><button class="btn btn-ghost btn-sm" type="button" data-schools-toggle aria-haspopup="menu" aria-expanded="false">查看学校</button>'
+      + '<div class="sync-menu exam-schools-menu" data-schools-panel role="menu" hidden>' + schoolPanel + '</div></div></div></div>'
+      + '<div class="exam-settings-actions"><button class="btn btn-gold btn-sm" type="button" data-exam-save>保存考试设置</button></div>'
+      + '</div></section></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
       + '<button class="btn btn-ghost btn-sm" type="button" data-act="upload" data-id="' + esc(e.id) + '">上传 / 更新到云端</button>'
       + (!isOpen ? '<button class="btn btn-gold btn-sm" type="button" data-act="start" data-id="' + esc(e.id) + '">开始此次考试</button>' : '')
@@ -2533,6 +2660,119 @@ function renderExamBoard(){
       else if(act === 'delete') deleteExam(exam);
     });
   });
+  el.querySelectorAll('[data-schools-toggle]').forEach(btn => {
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      const card = btn.closest('[data-exam-card]');
+      const panel = card ? card.querySelector('[data-schools-panel]') : null;
+      if(!card || !panel) return;
+      const willOpen = panel.hidden;
+      closeExamSchoolPanels(card);
+      panel.hidden = !willOpen;
+      card.classList.toggle('school-panel-open', willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if(willOpen) panel.scrollTop = 0;
+    });
+  });
+  el.querySelectorAll('[data-schools-panel]').forEach(panel => {
+    panel.addEventListener('click', function(ev){ ev.stopPropagation(); });
+  });
+  el.querySelectorAll('[data-exam-card]').forEach(function(card){
+    card.addEventListener('change', function(ev){
+      if(ev.target.matches('[data-exam-school]')) refreshExamSchoolSummary(card);
+      else if(ev.target.matches('[data-exam-group]')) refreshExamSchoolPanel(card);
+    });
+  });
+  el.querySelectorAll('[data-exam-save]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const card = btn.closest('[data-exam-card]');
+      const exam = card ? EXAMS.find(x => x.id === card.dataset.examCard) : null;
+      if(exam) saveExamSettings(exam, card, btn);
+    });
+  });
+}
+
+function closeExamSchoolPanels(exceptCard){
+  document.querySelectorAll('#examList [data-exam-card].school-panel-open').forEach(function(card){
+    if(exceptCard && card === exceptCard) return;
+    card.classList.remove('school-panel-open');
+    card.querySelectorAll('[data-schools-panel]').forEach(function(panel){ panel.hidden = true; });
+    card.querySelectorAll('[data-schools-toggle]').forEach(function(btn){ btn.setAttribute('aria-expanded', 'false'); });
+  });
+}
+
+function refreshExamSchoolSummary(card){
+  if(!card) return;
+  const boxes = Array.from(card.querySelectorAll('[data-exam-school]'));
+  const checked = boxes.filter(function(b){ return b.checked; }).length;
+  const summary = card.querySelector('[data-school-summary]');
+  if(!summary) return;
+  if(!boxes.length){ summary.textContent = '暂无可参加的学校'; return; }
+  if(!checked){ summary.textContent = '请至少选择一所学校'; return; }
+  summary.textContent = checked === boxes.length ? ('全部 ' + boxes.length + ' 所') : ('已选 ' + checked + ' / ' + boxes.length + ' 所');
+}
+
+function refreshExamSchoolPanel(card){
+  if(!card) return;
+  const exam = EXAMS.find(function(x){ return x.id === card.dataset.examCard; });
+  if(!exam) return;
+  const groups = Array.from(card.querySelectorAll('[data-exam-group]:checked')).map(function(x){ return x.value; });
+  const panel = card.querySelector('[data-schools-panel]');
+  if(panel){
+    panel.innerHTML = examSchoolPanelHtml(Object.assign({}, exam, { groups: groups }));
+  }
+  refreshExamSchoolSummary(card);
+}
+
+async function saveExamSettings(exam, card, btn){
+  const nameEl = card.querySelector('[data-exam-name]');
+  const name = nameEl ? nameEl.value.trim() : '';
+  const groups = Array.from(card.querySelectorAll('[data-exam-group]:checked')).map(function(x){ return x.value; });
+  const startEl = card.querySelector('[data-exam-start]');
+  const endEl = card.querySelector('[data-exam-end]');
+  const startVal = startEl ? startEl.value : '';
+  const endVal = endEl ? endEl.value : '';
+  if(!name){ toast('请填写考试名称'); if(nameEl) nameEl.focus(); return; }
+  if(!groups.length){ toast('请至少选择一个参加组别'); return; }
+  let startAt = '';
+  let endAt = '';
+  try {
+    startAt = startVal ? new Date(startVal).toISOString() : '';
+    endAt = endVal ? new Date(endVal).toISOString() : '';
+  } catch(e){ toast('定时时间格式不正确'); return; }
+  if(startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)){
+    toast('定时结束时间必须晚于开始时间'); return;
+  }
+  const nextExam = Object.assign({}, exam, { groups: groups });
+  const eligible = examCandidateSchools(nextExam);
+  const boxes = Array.from(card.querySelectorAll('[data-exam-school]'));
+  const checkedSchools = boxes.filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
+  if(eligible.length && !checkedSchools.length){ toast('请至少选择一所参加学校'); return; }
+  const schools = (checkedSchools.length === eligible.length) ? [] : checkedSchools;
+  exam.name = name;
+  exam.groups = groups;
+  exam.startAt = startAt;
+  exam.endAt = endAt;
+  exam.schools = schools;
+  exam.updatedAt = new Date().toLocaleString();
+  saveLocalExams();
+  renderExamBoard();
+  if(btn){ btn.disabled = true; btn.textContent = '保存中…'; }
+  try {
+    await cloudCall('/exam-settings', { method: 'POST', body: {
+      id: exam.id, name: exam.name, groups: exam.groups,
+      startAt: exam.startAt, endAt: exam.endAt, schools: exam.schools
+    } });
+    toast('考试设置已保存，定时与参加学校已同步到云端');
+    log('修改考试设置', name + ' · ' + groups.join('/') + (startAt ? ' · 定时开始' : '') + (endAt ? ' · 定时结束' : ''));
+  } catch(e){
+    if(String(e.message || e).indexOf('考试不存在') >= 0){
+      toast('已保存本机；该场次尚未上传到云端，上传试题后定时与学校设置会一并生效');
+    } else {
+      toast('已保存本机，云端同步失败：' + (e.message || e));
+    }
+  }
+  refreshExamBoard(true);
 }
 
 function openCreateExam(){
@@ -2544,7 +2784,7 @@ function openCreateExam(){
     + '<label class="radio-pill"><input type="checkbox" id="newExamAll" checked><span>全选</span></label>'
     + ['小学组','初中组','高中组'].map(g => '<label class="radio-pill"><input type="checkbox" name="newExamGroup" value="' + g + '" checked><span>' + g + '</span></label>').join('')
     + '</div></div>'
-    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需导入试题，一份题可同时套用到多个学段；导入并点击「开始此次考试」后，学科竞赛学生入口才会出现该场次入口。</p>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7">创建后需导入试题；可在场次卡片的「考试设置」里配置定时开始/结束、参加组别与参加学校，定时到点后学科竞赛学生入口会自动开放。</p>'
     + '<div style="display:flex;gap:10px;margin-top:18px">'
     + '<button class="btn btn-ghost" style="flex:1" id="createExamCancel" type="button">取消</button>'
     + '<button class="btn btn-gold" style="flex:1" id="createExamOk" type="button">创建考试</button></div>');
@@ -2567,7 +2807,7 @@ function openCreateExam(){
     const groups = Array.from(document.querySelectorAll('input[name="newExamGroup"]:checked')).map(x => x.value);
     if(!name){ toast('请填写考试名称'); return; }
     if(!groups.length){ toast('请至少选择一个参加组别'); return; }
-    const exam = { id: 'exam_' + Date.now(), name: name, groups: groups, status: 'draft', questions: {}, updatedAt: new Date().toLocaleString() };
+    const exam = { id: 'exam_' + Date.now(), name: name, groups: groups, status: 'draft', questions: {}, schools: [], startAt: '', endAt: '', updatedAt: new Date().toLocaleString() };
     EXAMS.push(exam);
     saveLocalExams();
     closeModal();
@@ -3035,6 +3275,9 @@ async function syncExamQuestions(exam, group){
     exam.name = cloudExam.name || exam.name;
     exam.groups = Array.isArray(cloudExam.groups) && cloudExam.groups.length ? cloudExam.groups : (exam.groups || []);
     exam.status = cloudExam.status || exam.status || 'draft';
+    exam.startAt = cloudExam.startAt || exam.startAt || '';
+    exam.endAt = cloudExam.endAt || exam.endAt || '';
+    exam.schools = Array.isArray(cloudExam.schools) ? cloudExam.schools : (exam.schools || []);
     exam.updatedAt = cloudExam.updatedAt || exam.updatedAt || '';
     exam.questions = JSON.parse(JSON.stringify(cloudExam.questions || {}));
     const idx = EXAMS.findIndex(function(x){ return x.id === exam.id; });
@@ -3124,6 +3367,8 @@ async function viewExamQuestions(exam, group){
 function examPayload(exam){
   return {
     id: exam.id, name: exam.name, groups: exam.groups,
+    schools: Array.isArray(exam.schools) ? exam.schools : [],
+    startAt: exam.startAt || '', endAt: exam.endAt || '',
     status: exam.status, questions: exam.questions || {}, updatedAt: exam.updatedAt || new Date().toLocaleString()
   };
 }
@@ -3205,6 +3450,12 @@ function bindExamMgmtButtons(){
   if(p) p.addEventListener('click', togglePortal);
 }
 bindExamMgmtButtons();
+document.addEventListener('click', function(e){
+  if(!e.target.closest || !e.target.closest('.exam-schools-wrap')) closeExamSchoolPanels();
+});
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape') closeExamSchoolPanels();
+});
 
 function openCloudSetup(){
   const cfg = getCloudConfig();

@@ -300,7 +300,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
   <div class="card">
     <div id="examHallList"><div class="empty">正在加载考试场次…</div></div>
   </div>
-  <p class="footer-note" id="examHallNote">只显示管理员已创建并点击“开始考试”的场次；未开始的场次暂不可进入。</p>
+  <p class="footer-note" id="examHallNote">只显示管理员已创建并开放或已到定时开始时间的场次；未开始的场次暂不可进入。</p>
 </section>
 
 <!-- ===== 视图：登录 ===== -->
@@ -645,6 +645,24 @@ function examStatusMeta(s){
   if(s === 'closed') return { text: '已结束', cls: 'var(--muted)' };
   return { text: '未开始', cls: 'var(--gold)' };
 }
+function examAllowsSchool(exam, school){
+  if(!exam) return false;
+  if(!Array.isArray(exam.schools) || !exam.schools.length) return true;
+  return exam.schools.indexOf(String(school || '').trim()) >= 0;
+}
+function examScheduleText(exam){
+  function fmt(iso){
+    if(!iso) return '';
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    var p = function(n){ return String(n).padStart(2,'0'); };
+    return (d.getMonth()+1) + '月' + d.getDate() + '日 ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  var start = fmt(exam.startAt);
+  var end = fmt(exam.endAt);
+  if(!start && !end) return '';
+  return '定时：' + (start ? start + ' 开始' : '') + (start && end ? ' · ' : '') + (end ? end + ' 结束' : '');
+}
 function renderExamHall(portalEnabled){
   var listEl = document.getElementById('examHallList');
   var noteEl = document.getElementById('examHallNote');
@@ -667,13 +685,14 @@ function renderExamHall(portalEnabled){
       var p = per[g] || { count: 0, totalScore: 0 };
       return esc(g) + ' ' + p.count + ' 题 / ' + p.totalScore + ' 分';
     }).join(' ｜ ');
+    var schedule = examScheduleText(e);
     var btn = '';
     if(e.status === 'open'){
       btn = '<button class="btn btn-gold" type="button" data-exam="' + esc(e.id) + '" style="width:100%;margin-top:12px">进入考试</button>';
     } else if(e.status === 'closed'){
       btn = '<button class="btn btn-ghost" type="button" disabled style="width:100%;margin-top:12px">本场考试已结束</button>';
     } else {
-      btn = '<button class="btn btn-ghost" type="button" disabled style="width:100%;margin-top:12px">等待老师开始考试</button>';
+      btn = '<button class="btn btn-ghost" type="button" disabled style="width:100%;margin-top:12px">' + (e.startAt ? '等待定时开始' : '等待老师开始考试') + '</button>';
     }
     html += '<div class="card" style="box-shadow:none;border:1px solid rgba(91,200,255,.22);margin-bottom:14px;padding:18px">'
       + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">'
@@ -681,13 +700,14 @@ function renderExamHall(portalEnabled){
       + '<span style="font-size:13px;font-weight:700;color:' + meta.cls + '">' + meta.text + '</span></div>'
       + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' + groups + '</div>'
       + '<div style="margin-top:10px;color:var(--muted);font-size:13px">' + detail + '</div>'
+      + (schedule ? '<div style="margin-top:6px;color:var(--muted);font-size:12.5px">' + esc(schedule) + '</div>' : '')
       + btn + '</div>';
   });
   listEl.innerHTML = html;
   listEl.querySelectorAll('[data-exam]').forEach(function(b){
     b.addEventListener('click', function(){ chooseExam(b.dataset.exam); });
   });
-  if(noteEl) noteEl.textContent = '选择场次后填写个人信息；考试开始后入口才可进入。';
+  if(noteEl) noteEl.textContent = '选择场次后填写个人信息；已到定时开始时间或老师手动开始后，入口才可进入。';
 }
 function chooseExam(id){
   var exam = EXAM_LIST.find(function(e){ return e.id === id; });
@@ -784,7 +804,7 @@ async function restoreSession(){
         return true;
       }
     } catch(e){}
-    if(exam.status !== 'open'){ clearSession(); return false; }
+    if(exam.status !== 'open' || !examAllowsSchool(exam, s.school)){ clearSession(); return false; }
     var pj = await cloudApi('/exam?id=' + encodeURIComponent(s.examId) + '&group=' + encodeURIComponent(s.group));
     var paper = pj.exam;
     var questions = (paper && paper.questions) || [];
@@ -943,6 +963,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
   const group = document.querySelector('input[name="stuGroup"]:checked').value;
   if(!name || !school || !examNo){ toast('请完整填写姓名、学校与考号'); return; }
   if((state.exam.groups || []).indexOf(group) < 0){ toast('该组别不参加此次考试'); return; }
+  if(!examAllowsSchool(state.exam, school)){ toast('该学校不参加此次考试，请联系老师'); return; }
 
   /* 学校策略：自由注册开关 + 可报名组别（来自云端管理员设置） */
   const policy = await ensureSchoolPolicy();
