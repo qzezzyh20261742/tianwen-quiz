@@ -291,6 +291,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .nice-select-empty{padding:10px 11px;color:var(--muted);font-size:13px}
 .nice-select--compact{min-width:126px}
 .nice-select--compact .nice-select-trigger{min-height:34px;padding:8px 12px;font-size:13.5px}
+.card.nice-select-card-open{position:relative;z-index:140 !important}
 
 /* ===== 详情可展开题目 ===== */
 .q-expand-head{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;border:none;color:var(--text);padding:13px 15px;cursor:pointer;font-family:inherit;font-size:14.5px;text-align:left}
@@ -4025,6 +4026,8 @@ function openNiceSelect(id){
   drawNiceSelectPanel(id);
   item.panel.hidden = false;
   item.wrap.classList.add('open');
+  var openCard = item.wrap.closest('.card');
+  if(openCard) openCard.classList.add('nice-select-card-open');
   item.trigger.setAttribute('aria-expanded', 'true');
   positionNiceSelectPanel(item);
   var focusTarget = item.panel.querySelector('.nice-select-option.active') || item.panel.querySelector('.nice-select-option');
@@ -4037,6 +4040,8 @@ function closeNiceSelect(id, refocus){
   item.panel.hidden = true;
   item.wrap.classList.remove('open');
   item.wrap.classList.remove('drop-up');
+  var closeCard = item.wrap.closest('.card');
+  if(closeCard && !closeCard.querySelector('.nice-select.open')) closeCard.classList.remove('nice-select-card-open');
   item.trigger.setAttribute('aria-expanded', 'false');
   if(refocus) item.trigger.focus({ preventScroll: true });
 }
