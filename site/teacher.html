@@ -3580,8 +3580,72 @@ function renderLogs(){
   renderLogPager(logs.length);
 }
 
-document.getElementById('addSchoolBtn').addEventListener('click', function(){
+function parseSchoolGroupsCell(value){
+  const hits = String(value == null ? '' : value).match(/小学|初中|高中/g) || [];
+  const groups = [];
+  hits.forEach(function(h){
+    const g = h + '组';
+    if(groups.indexOf(g) < 0) groups.push(g);
+  });
+  return groups;
+}
+
+function parseSchoolImportRows(rows){
+  const result = { valid: [], errors: [], skipped: 0 };
+  if(!Array.isArray(rows) || !rows.length) return result;
+  const maxRows = 500;
+  let headerRow = -1, idxName = 0, idxGroup = 1;
+  for(let i = 0; i < Math.min(5, rows.length); i++){
+    const cells = (Array.isArray(rows[i]) ? rows[i] : []).map(function(v){
+      return String(v == null ? '' : v).replace(/\s+/g, '').replace(/[：:]/g, '').toLowerCase();
+    });
+    const ni = cells.findIndex(function(c){ return c === '学校名称' || c === '学校' || c === 'school' || c === 'name'; });
+    const gi = cells.findIndex(function(c){ return c === '组别' || c === '学段' || c === 'group' || c.indexOf('组别') >= 0; });
+    if(ni >= 0 && gi >= 0){ headerRow = i; idxName = ni; idxGroup = gi; break; }
+  }
+  const start = headerRow >= 0 ? headerRow + 1 : 0;
+  const end = Math.min(rows.length, start + maxRows);
+  const seen = new Set();
+  for(let i = start; i < end; i++){
+    const row = Array.isArray(rows[i]) ? rows[i] : [];
+    const name = String(row[idxName] == null ? '' : row[idxName]).trim();
+    const rawGroup = row[idxGroup] == null ? '' : row[idxGroup];
+    if(!name && !String(rawGroup).trim()) continue;
+    if(!name){ result.errors.push('第 ' + (i + 1) + ' 行：学校名称为空'); continue; }
+    if(name.length > 40){ result.errors.push('第 ' + (i + 1) + ' 行：学校名称超过 40 个字'); continue; }
+    const groups = parseSchoolGroupsCell(rawGroup);
+    if(!groups.length){ result.errors.push('第 ' + (i + 1) + ' 行：组别未填写或无法识别'); continue; }
+    if(seen.has(name)){ result.skipped++; result.errors.push('第 ' + (i + 1) + ' 行：文件内学校重复'); continue; }
+    seen.add(name);
+    result.valid.push({ name: name, groups: groups });
+  }
+  if(rows.length > end) result.errors.push('超过 ' + maxRows + ' 行，仅处理前 ' + maxRows + ' 行');
+  return result;
+}
+
+async function readSchoolImportFile(file){
+  const fname = file.name.toLowerCase();
+  if(fname.endsWith('.csv')) return parseCsvText(await file.text());
+  if(fname.endsWith('.xlsx') || fname.endsWith('.xls')){
+    const XLSX = await loadXlsxParser();
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const sheetName = wb.SheetNames && wb.SheetNames[0];
+    if(!sheetName) throw new Error('文件里没有可读取的工作表');
+    return XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', raw: false });
+  }
+  throw new Error('只支持 .xlsx / .xls / .csv 文件');
+}
+
+function openAddSchoolModal(){
+  let mode = 'single';
+  let schoolImport = null;
   openModal('<div class="modal-head"><h3>添加学校</h3></div>'
+    + '<div class="radio-row" style="flex-wrap:wrap;margin-bottom:14px">'
+    + '<label class="radio-pill"><input type="radio" name="addSchoolMode" value="single" checked><span>单个添加</span></label>'
+    + '<label class="radio-pill"><input type="radio" name="addSchoolMode" value="batch"><span>批量添加</span></label>'
+    + '</div>'
+    + '<div id="addSchoolSinglePane">'
     + '<div class="field" style="margin-bottom:12px">'
     + '<label for="newSchoolName">学校名称</label>'
     + '<input id="newSchoolName" type="text" placeholder="请输入学校全称" maxlength="40">'
@@ -3594,15 +3658,137 @@ document.getElementById('addSchoolBtn').addEventListener('click', function(){
     + '<label class="radio-pill"><input type="checkbox" name="newSchoolGroup" value="高中组"><span>高中组</span></label>'
     + '</div>'
     + '<p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin:8px 0 0">只有勾选的组别，该校学生才能报名；普通教师关联学校时也按组别筛选学校。</p>'
-    + '</div>'
+    + '</div></div>'
+    + '<div id="addSchoolBatchPane" style="display:none">'
+    + '<div style="border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px">'
+    + '<p style="font-size:13px;color:var(--muted);line-height:1.8;margin:0 0 8px">推荐使用 <b style="color:var(--text)">.xlsx</b> 文件。第一行建议使用表头：<b style="color:var(--text)">学校名称 / 组别</b>；组别可填 1–3 个，多个用 <b>/</b>、<b>、</b> 或逗号分隔，例如“小学组/初中组/高中组”。</p>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.8;margin:0 0 12px">已存在的学校会自动跳过；新学校默认允许自由注册，可在学校设置中调整。</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<button class="btn btn-ghost btn-sm" id="schoolBatchTplBtn" type="button">下载批量模板</button></div>'
+    + '<div class="field" style="margin-bottom:10px">'
+    + '<label>选择学校名单文件（.xlsx / .xls / .csv）</label>'
+    + '<input id="schoolBatchFile" type="file" accept=".xlsx,.xls,.csv" style="display:none">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" id="schoolBatchPickBtn" type="button">选择文件</button>'
+    + '<span id="schoolBatchFileName" style="font-size:12.5px;color:var(--muted)">未选择文件</span></div></div>'
+    + '<div id="schoolBatchPreview"></div></div></div>'
     + '<div style="display:flex;gap:10px;margin-top:20px">'
     + '<button class="btn btn-ghost" style="flex:1" id="schoolCancel" type="button">取消</button>'
-    + '<button class="btn btn-gold" style="flex:1" id="schoolOk" type="button">确认添加</button></div>');
+    + '<button class="btn btn-gold" style="flex:2" id="schoolOk" type="button">确认添加</button></div>');
+
+  const singlePane = document.getElementById('addSchoolSinglePane');
+  const batchPane = document.getElementById('addSchoolBatchPane');
+  const okBtn = document.getElementById('schoolOk');
+  const fileInput = document.getElementById('schoolBatchFile');
+  const fileName = document.getElementById('schoolBatchFileName');
+  const preview = document.getElementById('schoolBatchPreview');
+
+  function updateOk(){
+    if(mode === 'single'){ okBtn.disabled = false; okBtn.textContent = '确认添加'; return; }
+    const n = schoolImport ? schoolImport.newCount : 0;
+    okBtn.disabled = !n;
+    okBtn.textContent = n ? ('批量添加 ' + n + ' 所学校') : (schoolImport ? '没有可新增的学校' : '请选择文件');
+  }
+
+  function renderPreview(){
+    if(!schoolImport){ preview.innerHTML = ''; updateOk(); return; }
+    const existing = getSchools();
+    schoolImport.newCount = schoolImport.valid.filter(function(x){ return existing.indexOf(x.name) < 0; }).length;
+    const existingCount = schoolImport.valid.length - schoolImport.newCount;
+    let html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;font-size:13px">'
+      + '<span>可添加 <b style="color:var(--gold)">' + schoolImport.newCount + '</b> 所</span>'
+      + '<span>文件内有效 <b>' + schoolImport.valid.length + '</b> 所</span>'
+      + (existingCount ? '<span style="color:var(--muted)">已存在将跳过 <b>' + existingCount + '</b> 所</span>' : '')
+      + (schoolImport.skipped ? '<span style="color:var(--muted)">重复跳过 <b>' + schoolImport.skipped + '</b> 所</span>' : '')
+      + '<span style="color:' + (schoolImport.errors.length ? 'var(--red)' : 'var(--green)') + '">' + (schoolImport.errors.length ? schoolImport.errors.length + ' 处提示' : '校验通过') + '</span></div>';
+    if(schoolImport.errors.length){
+      html += '<div style="max-height:100px;overflow:auto;border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:var(--red);line-height:1.7">'
+        + schoolImport.errors.slice(0, 8).map(esc).join('<br>') + (schoolImport.errors.length > 8 ? '<br>…另有 ' + (schoolImport.errors.length - 8) + ' 处' : '') + '</div>';
+    }
+    if(schoolImport.valid.length){
+      html += '<div style="max-height:220px;overflow:auto;border:1px solid rgba(91,200,255,.2);border-radius:10px">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="position:sticky;top:0;background:#0b1a2a"><th style="padding:7px;text-align:left">学校名称</th><th style="padding:7px;text-align:left">组别</th></tr></thead><tbody>'
+        + schoolImport.valid.slice(0, 20).map(function(x){
+            return '<tr style="border-top:1px solid rgba(255,255,255,.07)"><td style="padding:7px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.name) + '</td><td style="padding:7px;color:var(--muted)">' + esc(x.groups.join(' / ')) + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div>';
+    }
+    preview.innerHTML = html;
+    updateOk();
+  }
+
+  document.querySelectorAll('input[name="addSchoolMode"]').forEach(function(r){
+    r.addEventListener('change', function(){
+      mode = this.value;
+      singlePane.style.display = mode === 'single' ? '' : 'none';
+      batchPane.style.display = mode === 'batch' ? '' : 'none';
+      updateOk();
+    });
+  });
+
   document.getElementById('schoolCancel').addEventListener('click', closeModal);
-  document.getElementById('schoolOk').addEventListener('click', function(){
+  document.getElementById('schoolBatchPickBtn').addEventListener('click', function(){ fileInput.click(); });
+  fileInput.addEventListener('change', async function(){
+    const file = fileInput.files && fileInput.files[0];
+    if(!file){ schoolImport = null; fileName.textContent = '未选择文件'; renderPreview(); return; }
+    fileName.textContent = file.name + '（' + (file.size / 1024).toFixed(1) + ' KB）';
+    preview.innerHTML = '<div class="empty" style="padding:16px 0">正在解析…</div>';
+    try {
+      if(file.size > 10 * 1024 * 1024) throw new Error('文件过大，请控制在 10MB 以内');
+      const rows = await readSchoolImportFile(file);
+      schoolImport = parseSchoolImportRows(rows);
+      renderPreview();
+      if(!schoolImport.valid.length) toast('文件中没有可添加的学校，请检查表头和组别');
+    } catch(err){
+      schoolImport = null;
+      preview.innerHTML = '<div class="empty" style="padding:16px 0;color:var(--red)">' + esc(err.message || err) + '</div>';
+      updateOk();
+    }
+  });
+
+  document.getElementById('schoolBatchTplBtn').addEventListener('click', async function(){
+    const btn = this;
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = '生成中…';
+    try {
+      const XLSX = await loadXlsxParser();
+      const ws = XLSX.utils.aoa_to_sheet([['学校名称','组别'], ['示例学校A','小学组/初中组/高中组'], ['示例学校B','高中组']]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '学校名单');
+      XLSX.writeFile(wb, '学校批量添加模板.xlsx');
+      toast('学校批量添加模板已下载');
+    } catch(err){
+      toast('模板生成失败：' + (err.message || err));
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  });
+
+  okBtn.addEventListener('click', function(){
+    if(mode === 'batch'){
+      if(!schoolImport || !schoolImport.valid.length){ toast('请先选择并解析学校名单文件'); return; }
+      const existing = getSchools();
+      const map = getSchoolSettings();
+      let added = 0, skippedExisting = 0;
+      schoolImport.valid.forEach(function(item){
+        if(existing.indexOf(item.name) >= 0){ skippedExisting++; return; }
+        clearDeletedSchool(item.name);
+        existing.push(item.name);
+        map[item.name] = { freeRegister: true, groups: item.groups.slice(), updatedAt: new Date().toLocaleString('zh-CN') };
+        added++;
+      });
+      if(!added){ toast('没有可新增的学校：均已存在或格式不正确'); return; }
+      saveSchools(existing);
+      saveSchoolSettings(map);
+      closeModal();
+      renderSchoolMgmt();
+      log('批量添加学校', '新增 ' + added + ' 所' + (skippedExisting ? '，跳过 ' + skippedExisting + ' 所已存在学校' : ''));
+      toast('批量导入完成：新增 ' + added + ' 所学校' + (skippedExisting ? '，跳过 ' + skippedExisting + ' 所' : ''));
+      return;
+    }
     const n = document.getElementById('newSchoolName').value.trim();
     if(!n){ toast('请输入学校名称'); return; }
-    const groups = Array.from(document.querySelectorAll('input[name="newSchoolGroup"]:checked')).map(x => x.value);
+    const groups = Array.from(document.querySelectorAll('input[name="newSchoolGroup"]:checked')).map(function(x){ return x.value; });
     if(!groups.length){ toast('请选择该校开设的组别（至少一个）'); return; }
     const schools = getSchools();
     if(schools.indexOf(n) >= 0){ toast('该校已存在'); return; }
@@ -3617,7 +3803,9 @@ document.getElementById('addSchoolBtn').addEventListener('click', function(){
     log('添加学校', n + ' · ' + groups.join('/'));
     toast('学校已添加（' + groups.join('/') + '）');
   });
-});
+}
+
+document.getElementById('addSchoolBtn').addEventListener('click', openAddSchoolModal);
 
 function renderAdminList(){
   const admins = getAdmins();
