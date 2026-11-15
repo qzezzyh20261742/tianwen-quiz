@@ -4916,7 +4916,10 @@ function fitScoreScrollHeight(){
   const firstRow = table ? table.querySelector('tbody tr') : null;
   const headH = head ? head.getBoundingClientRect().height : 0;
   const rowH = firstRow ? firstRow.getBoundingClientRect().height : 0;
-  if(rowH > 0 && headH > 0) scroll.style.maxHeight = Math.ceil(headH + rowH * 5 + 1) + 'px';
+  if(rowH > 0 && headH > 0){
+    const hbar = Math.max(0, scroll.offsetHeight - scroll.clientHeight);
+    scroll.style.maxHeight = Math.ceil(headH + rowH * 5 + hbar + 1) + 'px';
+  }
 }
 
 function scrollScoreTop(){
