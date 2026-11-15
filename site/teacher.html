@@ -273,6 +273,17 @@ tbody td.name-cell{text-align:left;font-weight:600}
 @media (max-width:760px){
   .log-page{width:28px;height:28px}
 }
+.sync-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sync-settings-wrap{position:relative}
+.sync-settings-wrap .sync-caret{display:inline-block;margin-left:6px;font-size:11px;color:var(--muted);transition:transform .18s ease}
+.sync-settings-wrap.open .sync-caret{transform:rotate(180deg)}
+.sync-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:248px;padding:6px;border:1px solid var(--line-strong);border-radius:14px;background:rgba(9,15,34,.97);box-shadow:0 18px 48px rgba(0,0,0,.46);backdrop-filter:blur(18px)}
+.sync-menu[hidden]{display:none}
+.sync-menu-item{display:flex;flex-direction:column;gap:3px;width:100%;padding:10px 12px;border:0;border-radius:9px;background:transparent;color:var(--text);text-align:left;font:inherit;font-size:14px;cursor:pointer}
+.sync-menu-item:hover,.sync-menu-item:focus-visible{background:rgba(91,200,255,.1);outline:none}
+.sync-menu-item span{font-size:11.5px;color:var(--muted);font-weight:400;line-height:1.45}
+.sync-menu-item + .sync-menu-item{border-top:1px solid rgba(132,168,255,.1)}
+@media (max-width:560px){.sync-menu{right:auto;left:0;min-width:230px}}
 </style>
 </head>
 <body>
@@ -415,10 +426,16 @@ tbody td.name-cell{text-align:left;font-weight:600}
     <div class="card" style="margin-top:18px" id="schoolMgmtCard">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
         <h2 class="sec-title" style="margin-bottom:0">学校与学生管理</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" id="refreshStudentsBtn" type="button" title="从云端重新读取最新学生登记，并合并到本机学校名单">刷新学生</button>
-          <button class="btn btn-ghost btn-sm" id="refreshSchoolsBtn" type="button" title="从云端重新读取学校名单和学校设置">刷新学校</button>
-          <button class="btn btn-ghost btn-sm" id="syncSchoolsBtn" type="button" title="立即把学校和学生的数据保存到云端，并更新 GitHub 私有仓库的学校与学生备份">学校同步</button>
+        <div class="sync-tools">
+          <div class="sync-settings-wrap" id="syncSettingsWrap">
+            <button class="btn btn-ghost btn-sm" id="syncSettingsBtn" type="button" aria-haspopup="menu" aria-expanded="false" title="刷新或同步学校与学生数据">同步设置<span class="sync-caret" aria-hidden="true">▾</span></button>
+            <div class="sync-menu" id="syncMenuPanel" role="menu" hidden>
+              <button class="sync-menu-item" id="refreshStudentsBtn" type="button" role="menuitem">刷新学生<span>从云端合并全部学生名单</span></button>
+              <button class="sync-menu-item" id="refreshSchoolsBtn" type="button" role="menuitem">刷新学校<span>读取云端学校名单与学校设置</span></button>
+              <button class="sync-menu-item" id="syncSchoolsBtn" type="button" role="menuitem">学校同步<span>提交本机名单并更新 GitHub 备份</span></button>
+            </div>
+          </div>
+          <button class="btn btn-gold btn-sm" id="fetchStudentsBtn" type="button" title="从云端获取学生注册信息，并并入对应学校名单">学生获取</button>
           <button class="btn btn-gold btn-sm" id="addSchoolBtn" type="button">添加学校</button>
         </div>
       </div>
@@ -4159,6 +4176,10 @@ function applyAdminRole(){
   if(refreshStudentsBtn){ refreshStudentsBtn.style.display = isAdmin ? '' : 'none'; }
   const syncSchoolsBtn = document.getElementById('syncSchoolsBtn');
   if(syncSchoolsBtn){ syncSchoolsBtn.style.display = isAdmin ? '' : 'none'; }
+  const syncSettingsWrap = document.getElementById('syncSettingsWrap');
+  if(syncSettingsWrap){ syncSettingsWrap.style.display = isAdmin ? '' : 'none'; }
+  const fetchStudentsBtn = document.getElementById('fetchStudentsBtn');
+  if(fetchStudentsBtn){ fetchStudentsBtn.style.display = isAdmin ? '' : 'none'; }
 }
 
 function visibleRecords(){
@@ -4315,10 +4336,76 @@ async function refreshSchoolsNow(){
   }
 }
 
+async function fetchRegisteredStudentsNow(){
+  const btn = document.getElementById('fetchStudentsBtn');
+  if(!btn) return;
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '获取中…';
+  try {
+    const cfg = getCloudConfig();
+    if(!cfg.url){ toast('未配置云端地址，无法获取注册学生'); return; }
+    const j = await cloudCall('/student-registrations');
+    const cloudStudents = (j.students || []).filter(function(st){ return st && st.auto; });
+    const before = getStudents();
+    const beforeKeys = new Set(before.map(function(st){ return [st.name, st.examNo, st.school, st.group].join('|'); }));
+    const merged = mergeStudents(before, cloudStudents);
+    const added = merged.filter(function(st){ return !beforeKeys.has([st.name, st.examNo, st.school, st.group].join('|')); }).length;
+    let schools = getSchools();
+    const missingSchools = Array.from(new Set(merged.map(function(st){ return st.school; }).filter(function(s){ return s && schools.indexOf(s) < 0; })));
+    if(missingSchools.length){
+      schools = schools.concat(missingSchools);
+      saveSchools(schools);
+    }
+    if(added) saveStudents(merged);
+    renderSchoolMgmt();
+    updateCloudStatus();
+    if(added){
+      log('学生获取', '从云端获取注册学生，新增 ' + added + ' 名；GitHub data/students.json 自动归纳');
+      toast('学生获取完成：新增 ' + added + ' 名注册学生' + (cloudStudents.length ? '，云端共 ' + cloudStudents.length + ' 名' : ''));
+    } else {
+      toast('学生获取完成：没有新的注册学生' + (cloudStudents.length ? '，云端共 ' + cloudStudents.length + ' 名' : ''));
+    }
+  } catch(e){
+    toast('学生获取失败：' + (e.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+function bindSyncSettingsMenu(){
+  const wrap = document.getElementById('syncSettingsWrap');
+  const btn = document.getElementById('syncSettingsBtn');
+  const panel = document.getElementById('syncMenuPanel');
+  if(!wrap || !btn || !panel) return;
+  function setOpen(open){
+    panel.hidden = !open;
+    wrap.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  function close(){ setOpen(false); }
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    setOpen(panel.hidden);
+  });
+  panel.querySelectorAll('button').forEach(function(item){
+    item.addEventListener('click', close);
+  });
+  document.addEventListener('click', function(e){
+    if(!wrap.contains(e.target)) close();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') close();
+  });
+}
+
 document.getElementById('syncTeachersBtn').addEventListener('click', syncTeachersNow);
 document.getElementById('refreshSchoolsBtn').addEventListener('click', refreshSchoolsNow);
 document.getElementById('refreshStudentsBtn').addEventListener('click', refreshStudentsNow);
 document.getElementById('syncSchoolsBtn').addEventListener('click', syncSchoolsNow);
+document.getElementById('fetchStudentsBtn').addEventListener('click', fetchRegisteredStudentsNow);
+bindSyncSettingsMenu();
 function parseTeacherImportRows(rows){
   const result = { valid: [], errors: [], skipped: 0 };
   if(!Array.isArray(rows) || !rows.length) return result;
