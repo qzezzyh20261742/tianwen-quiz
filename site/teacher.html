@@ -4452,8 +4452,10 @@ async function fetchRegisteredStudentsNow(){
     updateCloudStatus();
     if(added){
       log('学生获取', '从云端获取注册学生，新增 ' + added + ' 名；GitHub data/students.json 自动归纳');
+      renderLogs();
       toast('学生获取完成：新增 ' + added + ' 名注册学生' + (cloudStudents.length ? '，云端共 ' + cloudStudents.length + ' 名' : ''));
     } else {
+      renderLogs();
       toast('学生获取完成：没有新的注册学生' + (cloudStudents.length ? '，云端共 ' + cloudStudents.length + ' 名' : ''));
     }
   } catch(e){
