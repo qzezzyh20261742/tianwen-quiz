@@ -213,6 +213,12 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .exam-school-item + .exam-school-item{border-top:1px solid rgba(132,168,255,.1)}
 .exam-school-empty{padding:14px 12px;color:var(--muted);font-size:12.5px;line-height:1.7}
 .exam-settings-actions{display:flex;justify-content:flex-end;margin-top:9px}
+.exam-quick-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 10px 8px 12px;border:1px solid rgba(91,200,255,.14);border-radius:10px;background:rgba(8,13,32,.28)}
+.exam-quick-title{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+.exam-quick-title b{font-size:14px}
+.exam-quick-title span{font-size:11.5px;color:var(--muted);font-weight:400}
+.exam-group-list{margin-top:8px}
+.modal .sync-menu.exam-schools-menu{top:auto;bottom:calc(100% + 8px)}
 @media (max-width:820px){
   .exam-settings-grid{grid-template-columns:1fr}
   .exam-mini-grid{grid-template-columns:1fr 1fr}
@@ -2614,37 +2620,18 @@ function renderExamBoard(){
         + '<button class="btn btn-ghost btn-sm" type="button" data-act="import" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">'
         + (st.count ? '重新导入' : '导入试题') + '</button></div></div>';
     });
-    if(!groupsHtml) groupsHtml = '<div class="empty" style="padding:16px 0">尚未设置参加组别，请在右侧「考试设置」里选择。</div>';
-    const groupChecks = ['小学组','初中组','高中组'].map(function(g){
-      return '<label class="exam-check"><input type="checkbox" data-exam-group value="' + g + '"' + ((e.groups || []).indexOf(g) >= 0 ? ' checked' : '') + '><span>' + g + '</span></label>';
-    }).join('');
-    const startVal = toLocalDatetimeValue(e.startAt);
-    const endVal = toLocalDatetimeValue(e.endAt);
-    const schoolPanel = examSchoolPanelHtml(e);
-    const schoolSummary = examSchoolsSummary(e);
+    if(!groupsHtml) groupsHtml = '<div class="empty" style="padding:14px 0">尚未设置参加组别，请点上方「考试设置」选择。</div>';
     html += '<div class="exam-card" data-exam-card="' + esc(e.id) + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<div><b style="font-size:17px">' + esc(e.name) + '</b>'
       + '<div style="font-size:12.5px;color:var(--muted);margin-top:4px">适用学段：' + esc((e.groups || []).join('、') || '未设置') + '</div>'
       + '<span style="margin-left:10px;font-size:12.5px;font-weight:700;color:' + (isOpen ? 'var(--green)' : (status === 'closed' ? 'var(--muted)' : 'var(--gold)')) + '">' + examStatusText(status) + '</span></div>'
       + '<div style="font-size:12px;color:var(--muted)">更新 ' + esc(e.updatedAt || '') + '</div></div>'
-      + '<div class="exam-settings-grid">'
-      + '<section class="exam-panel"><div class="exam-panel-title">试题设置<span>按重要程度排序：同步 → 查看 → 重新导入</span></div>'
-      + groupsHtml + '</section>'
-      + '<section class="exam-panel"><div class="exam-panel-title">考试设置<span>修改后点保存</span></div>'
-      + '<div class="exam-config-form">'
-      + '<div class="field"><label>考试名称</label><input type="text" data-exam-name value="' + esc(e.name) + '" placeholder="例如：2026 年预赛第一场"></div>'
-      + '<div class="field"><label>参加组别</label><div class="exam-check-row">' + groupChecks + '</div></div>'
-      + '<div class="exam-mini-grid">'
-      + '<label class="exam-mini-field">定时开始<input type="datetime-local" data-exam-start value="' + esc(startVal) + '"></label>'
-      + '<label class="exam-mini-field">定时结束<input type="datetime-local" data-exam-end value="' + esc(endVal) + '"></label>'
+      + '<div class="exam-quick-bar">'
+      + '<div class="exam-quick-title"><b>试题设置</b><span>按重要程度排序：同步 → 查看 → 重新导入</span></div>'
+      + '<button class="btn btn-ghost btn-sm" type="button" data-exam-settings-open data-id="' + esc(e.id) + '">考试设置</button>'
       + '</div>'
-      + '<div class="field" style="margin-top:10px;margin-bottom:0"><label>参加学校</label>'
-      + '<div class="exam-school-row"><span class="exam-school-summary" data-school-summary>' + esc(schoolSummary) + '</span>'
-      + '<div class="exam-schools-wrap"><button class="btn btn-ghost btn-sm" type="button" data-schools-toggle aria-haspopup="menu" aria-expanded="false">查看学校</button>'
-      + '<div class="sync-menu exam-schools-menu" data-schools-panel role="menu" hidden>' + schoolPanel + '</div></div></div></div>'
-      + '<div class="exam-settings-actions"><button class="btn btn-gold btn-sm" type="button" data-exam-save>保存考试设置</button></div>'
-      + '</div></section></div>'
+      + '<div class="exam-group-list">' + groupsHtml + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
       + '<button class="btn btn-ghost btn-sm" type="button" data-act="upload" data-id="' + esc(e.id) + '">上传 / 更新到云端</button>'
       + (!isOpen ? '<button class="btn btn-gold btn-sm" type="button" data-act="start" data-id="' + esc(e.id) + '">开始此次考试</button>' : '')
@@ -2677,35 +2664,66 @@ function renderExamBoard(){
       else if(act === 'delete') deleteExam(exam);
     });
   });
-  el.querySelectorAll('[data-schools-toggle]').forEach(btn => {
-    btn.addEventListener('click', function(ev){
+  el.querySelectorAll('[data-exam-settings-open]').forEach(btn => {
+    btn.addEventListener('click', function(){
+      const exam = EXAMS.find(x => x.id === btn.dataset.id);
+      if(exam) openExamSettingsModal(exam);
+    });
+  });
+}
+
+function openExamSettingsModal(exam){
+  if(!exam) return;
+  const groupChecks = ['小学组','初中组','高中组'].map(function(g){
+    return '<label class="exam-check"><input type="checkbox" data-exam-group value="' + g + '"' + ((exam.groups || []).indexOf(g) >= 0 ? ' checked' : '') + '><span>' + g + '</span></label>';
+  }).join('');
+  const startVal = toLocalDatetimeValue(exam.startAt);
+  const endVal = toLocalDatetimeValue(exam.endAt);
+  const schoolPanel = examSchoolPanelHtml(exam);
+  const schoolSummary = examSchoolsSummary(exam);
+  openModal('<div class="modal-head"><h3>考试设置 · ' + esc(exam.name) + '</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<div class="exam-config-form" data-exam-card="' + esc(exam.id) + '" data-exam-settings-form>'
+    + '<div class="field"><label>考试名称</label><input type="text" data-exam-name value="' + esc(exam.name) + '" placeholder="例如：2026 年预赛第一场"></div>'
+    + '<div class="field"><label>参加组别</label><div class="exam-check-row">' + groupChecks + '</div></div>'
+    + '<div class="exam-mini-grid">'
+    + '<label class="exam-mini-field">定时开始<input type="datetime-local" data-exam-start value="' + esc(startVal) + '"></label>'
+    + '<label class="exam-mini-field">定时结束<input type="datetime-local" data-exam-end value="' + esc(endVal) + '"></label>'
+    + '</div>'
+    + '<div class="field" style="margin-top:10px;margin-bottom:0"><label>参加学校</label>'
+    + '<div class="exam-school-row"><span class="exam-school-summary" data-school-summary>' + esc(schoolSummary) + '</span>'
+    + '<div class="exam-schools-wrap"><button class="btn btn-ghost btn-sm" type="button" data-schools-toggle aria-haspopup="menu" aria-expanded="false">查看学校</button>'
+    + '<div class="sync-menu exam-schools-menu" data-schools-panel role="menu" hidden>' + schoolPanel + '</div></div></div></div>'
+    + '<div class="exam-settings-actions"><button class="btn btn-gold btn-sm" type="button" data-exam-save>保存考试设置</button></div>'
+    + '</div>');
+  const closeBtn = document.getElementById('modalX');
+  if(closeBtn) closeBtn.addEventListener('click', closeModal);
+  const form = document.querySelector('[data-exam-settings-form]');
+  if(!form) return;
+  form.addEventListener('change', function(ev){
+    if(ev.target.matches('[data-exam-school]')) refreshExamSchoolSummary(form);
+    else if(ev.target.matches('[data-exam-group]')) refreshExamSchoolPanel(form);
+  });
+  const toggle = form.querySelector('[data-schools-toggle]');
+  const panel = form.querySelector('[data-schools-panel]');
+  if(toggle && panel){
+    toggle.addEventListener('click', function(ev){
       ev.stopPropagation();
-      const card = btn.closest('[data-exam-card]');
-      const panel = card ? card.querySelector('[data-schools-panel]') : null;
-      if(!card || !panel) return;
       const willOpen = panel.hidden;
-      closeExamSchoolPanels(card);
       panel.hidden = !willOpen;
-      card.classList.toggle('school-panel-open', willOpen);
-      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
       if(willOpen) panel.scrollTop = 0;
     });
-  });
-  el.querySelectorAll('[data-schools-panel]').forEach(panel => {
     panel.addEventListener('click', function(ev){ ev.stopPropagation(); });
-  });
-  el.querySelectorAll('[data-exam-card]').forEach(function(card){
-    card.addEventListener('change', function(ev){
-      if(ev.target.matches('[data-exam-school]')) refreshExamSchoolSummary(card);
-      else if(ev.target.matches('[data-exam-group]')) refreshExamSchoolPanel(card);
+    form.addEventListener('click', function(ev){
+      if(!ev.target.closest('.exam-schools-wrap')){
+        panel.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+      }
     });
-  });
-  el.querySelectorAll('[data-exam-save]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      const card = btn.closest('[data-exam-card]');
-      const exam = card ? EXAMS.find(x => x.id === card.dataset.examCard) : null;
-      if(exam) saveExamSettings(exam, card, btn);
-    });
+  }
+  const saveBtn = form.querySelector('[data-exam-save]');
+  if(saveBtn) saveBtn.addEventListener('click', function(){
+    saveExamSettings(exam, form, saveBtn, closeModal);
   });
 }
 
@@ -2741,7 +2759,7 @@ function refreshExamSchoolPanel(card){
   refreshExamSchoolSummary(card);
 }
 
-async function saveExamSettings(exam, card, btn){
+async function saveExamSettings(exam, card, btn, onSaved){
   const nameEl = card.querySelector('[data-exam-name]');
   const name = nameEl ? nameEl.value.trim() : '';
   const groups = Array.from(card.querySelectorAll('[data-exam-group]:checked')).map(function(x){ return x.value; });
@@ -2794,7 +2812,10 @@ async function saveExamSettings(exam, card, btn){
       toast('已保存本机，云端同步失败：' + (e.message || e));
     }
   }
-  if(cloudSaved) refreshExamBoard(true);
+  if(cloudSaved){
+    if(typeof onSaved === 'function') onSaved();
+    refreshExamBoard(true);
+  }
 }
 
 function openCreateExam(){
