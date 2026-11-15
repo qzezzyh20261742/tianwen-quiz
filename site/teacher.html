@@ -3338,10 +3338,12 @@ function openBatchAddStudents(school){
     + '<p style="color:var(--muted);font-size:13px;line-height:1.8;margin:0 0 10px">推荐使用 <b style="color:var(--text)">.xlsx</b> 文件。第一行建议使用表头：<b style="color:var(--text)">姓名 / 考号 / 组别</b>；也可以直接按 A/B/C 三列填写。</p>'
     + '<p style="color:var(--muted);font-size:12.5px;line-height:1.8;margin:0 0 12px">该校已开放组别：' + groups.map(esc).join(' / ') + '</p>'
     + '<div class="field" style="margin-bottom:10px">'
-    + '<label for="batchStuFile">选择 Excel 文件（.xlsx / .xls / .csv）</label>'
-    + '<input id="batchStuFile" type="file" accept=".xlsx,.xls,.csv" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:rgba(9,14,34,.55);color:var(--text)">'
+    + '<label>选择 Excel 文件（.xlsx / .xls / .csv）</label>'
+    + '<input id="batchStuFile" type="file" accept=".xlsx,.xls,.csv" style="display:none">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" id="batchStuPickBtn" type="button">选择文件</button>'
+    + '<span id="batchStuFileHint" style="color:var(--muted);font-size:12.5px">未选择文件</span></div>'
     + '</div>'
-    + '<div id="batchStuFileHint" style="color:var(--muted);font-size:12.5px">未选择文件</div>'
     + '</div>'
     + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">'
     + '<button class="btn btn-ghost" style="flex:1" id="batchStuBack" type="button">返回学校设置</button>'
@@ -3351,6 +3353,8 @@ function openBatchAddStudents(school){
   const hint = document.getElementById('batchStuFileHint');
   const importBtn = document.getElementById('batchStuImport');
   const templateBtn = document.getElementById('batchStuTemplate');
+  const pickFileBtn = document.getElementById('batchStuPickBtn');
+  if(pickFileBtn){ pickFileBtn.addEventListener('click', function(){ fileInput.click(); }); }
   document.getElementById('batchStuBack').addEventListener('click', function(){ openSchoolSettings(school); });
   fileInput.addEventListener('change', function(){
     const file = fileInput.files && fileInput.files[0];
