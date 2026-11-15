@@ -2826,27 +2826,8 @@ async function syncExamQuestions(exam, group){
 }
 
 /* 查看某一学段的完整试题（题干、选项、答案、解析与提示） */
-function viewExamQuestions(exam, group){
-  const all = ((exam.questions || {})[group] || []).slice();
-  const meta = ((exam.perGroup || {})[group]) || null;
-  const closeHtml = '<button class="modal-close" id="modalX" type="button">×</button>';
-  if(!all.length){
-    const cloudHint = meta && Number(meta.count) > 0;
-    openModal('<div class="modal-head"><h3>查看试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>' + closeHtml + '</div>'
-      + '<div class="empty" style="padding:32px 0;line-height:1.9">'
-      + (cloudHint
-        ? '本机还没有缓存该学段的完整试题。<br>云端记录为 ' + Number(meta.count) + ' 题 · ' + Number(meta.totalScore) + ' 分，可从云端同步后再查看。'
-        : '该学段还没有导入试题，请先点右侧「重新导入」。')
-      + '</div>'
-      + (cloudHint ? '<div style="text-align:center;padding-bottom:10px"><button class="btn btn-ghost" id="viewSyncBtn" type="button">从云端同步试题</button></div>' : ''));
-    document.getElementById('modalX').addEventListener('click', closeModal);
-    const syncBtn = document.getElementById('viewSyncBtn');
-    if(syncBtn) syncBtn.addEventListener('click', function(){
-      closeModal();
-      syncExamQuestions(exam, group);
-    });
-    return;
-  }
+function showExamQuestionsModal(exam, group, all){
+  all = (all || []).slice();
   all.sort(function(a, b){ return (Number(a.no) || 0) - (Number(b.no) || 0); });
   const total = all.reduce(function(s, q){ return s + (Number(q.score) || 0); }, 0);
   let list = '';
@@ -2873,10 +2854,47 @@ function viewExamQuestions(exam, group){
       + (q.tips ? '<div style="font-size:12.3px;line-height:1.8;color:#9aa9c5;margin-top:2px"><span style="color:var(--gold)">提醒：</span>' + esc(q.tips) + '</div>' : '')
       + '</div>';
   });
-  openModal('<div class="modal-head"><h3>查看试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>' + closeHtml + '</div>'
+  openModal('<div class="modal-head"><h3>查看试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>'
+    + '<button class="modal-close" id="modalX" type="button">×</button></div>'
     + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px">共 <b style="color:var(--gold)">' + all.length + '</b> 题 · 总分 <b style="color:var(--gold)">' + total + '</b> 分</div>'
     + '<div style="max-height:62vh;overflow-y:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:rgba(91,200,255,.4) transparent">' + list + '</div>');
   document.getElementById('modalX').addEventListener('click', closeModal);
+}
+
+async function viewExamQuestions(exam, group){
+  const all = ((exam.questions || {})[group] || []).slice();
+  if(all.length){ showExamQuestionsModal(exam, group, all); return; }
+  const meta = ((exam.perGroup || {})[group]) || null;
+  const closeHtml = '<button class="modal-close" id="modalX" type="button">×</button>';
+  const head = '<div class="modal-head"><h3>查看试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>' + closeHtml + '</div>';
+  if(!meta || !Number(meta.count)){
+    openModal(head + '<div class="empty" style="padding:32px 0;line-height:1.9">该学段还没有导入试题，请先点右侧「重新导入」。</div>');
+    document.getElementById('modalX').addEventListener('click', closeModal);
+    return;
+  }
+  openModal(head + '<div class="empty" style="padding:32px 0;line-height:1.9">正在从云端读取完整试题…<br><span style="font-size:12.5px;color:#8fa6cc">云端记录 ' + Number(meta.count) + ' 题 · ' + Number(meta.totalScore) + ' 分</span></div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  try {
+    const j = await cloudCall('/exams-full');
+    const cloudExam = (j.exams || []).find(function(x){ return x.id === exam.id; });
+    const cloudQs = ((cloudExam && cloudExam.questions || {})[group]) || [];
+    if(!cloudQs.length){
+      openModal(head + '<div class="empty" style="padding:32px 0;line-height:1.9">云端也没有该学段的完整试题。<br>请先点右侧「重新导入」上传试题。</div>');
+      document.getElementById('modalX').addEventListener('click', closeModal);
+      return;
+    }
+    if(!exam.questions) exam.questions = {};
+    exam.questions[group] = JSON.parse(JSON.stringify(cloudQs));
+    saveLocalExams();
+    renderExamBoard();
+    showExamQuestionsModal(exam, group, exam.questions[group]);
+  } catch(e){
+    openModal(head + '<div class="empty" style="padding:32px 0;line-height:1.9;color:var(--red)">读取云端试题失败：' + esc(e.message || e)
+      + '</div><div style="text-align:center;padding-bottom:10px"><button class="btn btn-ghost" id="viewRetryBtn" type="button">重新尝试</button></div>');
+    document.getElementById('modalX').addEventListener('click', closeModal);
+    const retry = document.getElementById('viewRetryBtn');
+    if(retry) retry.addEventListener('click', function(){ closeModal(); viewExamQuestions(exam, group); });
+  }
 }
 
 function examPayload(exam){
