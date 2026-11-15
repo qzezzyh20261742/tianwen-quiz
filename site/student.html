@@ -773,7 +773,7 @@ async function restoreSession(){
       if(rj.record){
         var old = rj.record;
         state.student = { name: s.name, school: s.school, examNo: s.examNo, group: s.group };
-        state.questions = (old.details || []).map(function(d){ return { no: d.no, stem: d.stem, options: d.options, score: d.score }; });
+        state.questions = (old.details || []).map(function(d){ return { no: d.no, stem: d.stem, options: d.options, score: d.score, images: d.images || d.image || [] }; });
         state.answers = Object.assign({}, old.answers);
         state.qTimes = Object.assign({}, old.qTimes || {});
         state.record = old;
@@ -997,7 +997,7 @@ document.getElementById('studentForm').addEventListener('submit', async function
   let oldRecord = matched.length ? matched[0] : null;
   function showOldResult(old){
     state.student = { name: name, school: school, examNo: examNo, group: group };
-    state.questions = (old.details || []).map(d => ({ no: d.no, stem: d.stem, options: d.options, score: d.score }));
+    state.questions = (old.details || []).map(d => ({ no: d.no, stem: d.stem, options: d.options, score: d.score, images: d.images || d.image || [] }));
     state.answers = Object.assign({}, old.answers);
     state.qTimes = Object.assign({}, old.qTimes || {});
     state.record = old;
@@ -1129,6 +1129,25 @@ function stopTimer(){ if(state.timerId){ clearInterval(state.timerId); state.tim
 function getOptions(q){
   return q.options.concat([{key:'E', text:'不知道'}]);
 }
+/* 题目图片：兼容 images 数组与单个 image 字段 */
+function questionImageList(q){
+  const raw = (q && q.images && q.images.length) ? q.images : ((q && q.image) ? [q.image] : []);
+  const items = Array.isArray(raw) ? raw : [raw];
+  const out = [];
+  items.forEach(function(item){
+    const src = (typeof item === 'string') ? item : (item && (item.src || item.url || item.image));
+    const s = String(src || '').trim();
+    if(!/^(https?:\/\/|data:image\/(?:png|jpe?g|webp|gif);base64,)/i.test(s)) return;
+    if(out.some(function(x){ return x.src === s; })) return;
+    out.push({ src: s, alt: (item && typeof item === 'object' && (item.alt || item.caption)) || '题目图片' });
+  });
+  return out.slice(0, 6);
+}
+function questionImagesHtml(q){
+  return questionImageList(q).map(function(img, idx){
+    return '<img src="' + esc(img.src) + '" alt="' + esc(img.alt || ('题目图片 ' + (idx + 1))) + '" loading="lazy">';
+  }).join('');
+}
 /* 判定单题结果：correct / unknown（选E，0分）/ wrong */
 function judgeAnswer(stu, q){
   if(stu === q.answer) return 'correct';
@@ -1145,7 +1164,7 @@ function renderQuiz(){
     + '<span class="q-no">第 ' + q.no + ' 题</span>'
     + '<span class="q-tag">第 ' + (state.curIdx+1) + ' / ' + state.questions.length + ' 题</span>'
     + '</div>'
-    + '<div class="q-stem">' + esc(q.stem) + '</div>'
+    + '<div class="q-stem">' + esc(q.stem) + questionImagesHtml(q) + '</div>'
     + '<div class="options">';
   getOptions(q).forEach(o => {
     const cls = 'option' + (selected === o.key ? ' selected' : '') + (o.key === 'E' ? ' option-e' : '');
@@ -1350,6 +1369,7 @@ function renderResult(record){
   const qs = details ? details.map(d => ({
     no: d.no, stem: d.stem, options: d.options, answer: d.answer,
     analysis: d.analysis || [], points: d.points || [], tips: d.tips || '',
+    images: d.images || d.image || [],
     verdict: d.verdict, stu: d.stu, time: d.time
   })) : state.questions;
   const total = qs.length || 1;
@@ -1372,7 +1392,7 @@ function renderResult(record){
       + '<div class="q-head"><span class="q-no">第 ' + q.no + ' 题</span>'
       + (q.time != null ? '<span class="q-tag">本题用时 ' + fmtShort(q.time) + '</span>' : '')
       + '<span class="verdict ' + verdictCls + '">' + verdictTxt + '</span></div>'
-      + '<div class="q-stem" style="font-size:16px;margin-bottom:14px">' + esc(q.stem) + '</div>'
+      + '<div class="q-stem" style="font-size:16px;margin-bottom:14px">' + esc(q.stem) + questionImagesHtml(q) + '</div>'
       + '<div class="options">';
     getOptions(q).forEach(o => {
       let cls = 'option locked';
