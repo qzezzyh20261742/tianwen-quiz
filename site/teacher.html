@@ -2296,8 +2296,10 @@ function renderExamBoard(){
       groupsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid rgba(91,200,255,.14);border-radius:10px;margin-bottom:8px">'
         + '<div style="font-size:13.5px"><span class="pill-tag">' + esc(g) + '</span>'
         + '<span style="color:var(--muted);margin-left:8px">' + st.count + ' 题 · ' + st.total + ' 分</span></div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + '<button class="btn btn-ghost btn-sm" type="button" data-act="sync" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">同步试题</button>'
         + '<button class="btn btn-ghost btn-sm" type="button" data-act="import" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">'
-        + (st.count ? '重新导入' : '导入试题') + '</button></div>';
+        + (st.count ? '重新导入' : '导入试题') + '</button></div></div>';
     });
     html += '<div style="border:1px solid rgba(91,200,255,.22);border-radius:14px;padding:16px;margin-bottom:14px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
@@ -2320,6 +2322,12 @@ function renderExamBoard(){
       const exam = EXAMS.find(x => x.id === btn.dataset.id);
       if(!exam) return;
       if(act === 'import') openImportModal(exam, btn.dataset.group);
+      else if(act === 'sync'){
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '同步中…';
+        syncExamQuestions(exam, btn.dataset.group).finally(function(){ btn.disabled = false; btn.textContent = oldText; });
+      }
       else if(act === 'upload'){
         btn.disabled = true;
         const oldText = btn.textContent;
@@ -2599,9 +2607,64 @@ function openImportModal(exam, group){
     saveLocalExams();
     closeModal();
     renderExamBoard();
-    toast('已导入 ' + EXAM_IMPORT.list.length + ' 题到 ' + groups.join('、') + '，记得上传到云端');
     log('导入试题', exam2.name + ' · ' + groups.join('/') + ' · ' + EXAM_IMPORT.list.length + ' 题');
+    const missingGroups = (exam2.groups || []).filter(function(g){ return !((exam2.questions || {})[g] || []).length; });
+    if(missingGroups.length){
+      toast('已导入 ' + EXAM_IMPORT.list.length + ' 题；还需为 ' + missingGroups.join('、') + ' 导入试题后，才能同步云端');
+      return;
+    }
+    toast('已导入 ' + EXAM_IMPORT.list.length + ' 题，正在同步云端…');
+    uploadExam(exam2, true).then(function(ok){
+      if(ok) toast('试题已保存到云端；GitHub 备份将在下一次同步时更新');
+      else toast('试题已保存在本机，但云端同步失败，可点击「同步试题」重试');
+    });
   });
+}
+
+function examQuestionCount(exam){
+  let n = 0;
+  Object.keys((exam && exam.questions) || {}).forEach(function(g){ n += (((exam.questions || {})[g]) || []).length; });
+  return n;
+}
+function examUpdatedMs(exam){
+  const t = Date.parse((exam && exam.updatedAt) || '');
+  return Number.isFinite(t) ? t : 0;
+}
+async function syncExamQuestions(exam, group){
+  try {
+    const j = await cloudCall('/exams-full');
+    const cloudExam = (j.exams || []).find(function(x){ return x.id === exam.id; });
+    const localCount = examQuestionCount(exam);
+    const cloudCount = examQuestionCount(cloudExam);
+    if(!cloudExam || !cloudCount){
+      if(localCount){
+        const ok = await uploadExam(exam, true);
+        if(ok) toast('云端暂无完整试题，已将本机试题上传');
+        else toast('云端暂无完整试题，本机上传失败');
+      } else {
+        toast('云端与本机都没有该场次试题，请先导入试题');
+      }
+      return;
+    }
+    if(localCount && examUpdatedMs(exam) > examUpdatedMs(cloudExam)){
+      const ok = await uploadExam(exam, true);
+      if(ok) toast('本机试题较新，已同步到云端');
+      return;
+    }
+    exam.name = cloudExam.name || exam.name;
+    exam.groups = Array.isArray(cloudExam.groups) && cloudExam.groups.length ? cloudExam.groups : (exam.groups || []);
+    exam.status = cloudExam.status || exam.status || 'draft';
+    exam.updatedAt = cloudExam.updatedAt || exam.updatedAt || '';
+    exam.questions = JSON.parse(JSON.stringify(cloudExam.questions || {}));
+    const idx = EXAMS.findIndex(function(x){ return x.id === exam.id; });
+    if(idx >= 0) EXAMS[idx] = exam;
+    saveLocalExams();
+    renderExamBoard();
+    toast('已从云端同步完整试题：' + cloudCount + ' 题' + (group ? '（' + group + '）' : ''));
+    log('同步试题', exam.name + ' · 云端完整试题 ' + cloudCount + ' 题');
+  } catch(e){
+    toast('同步试题失败：' + (e.message || e));
+  }
 }
 
 function examPayload(exam){
