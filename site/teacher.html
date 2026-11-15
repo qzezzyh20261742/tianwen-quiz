@@ -2876,7 +2876,7 @@ function openQuestionInfoModal(exam, group){
     + '<div class="q-editor-images" data-q-image-list></div>'
     + '<div class="q-editor-hint">支持 JPG / PNG / WebP，系统会压缩后随题目保存；单题最多 6 张，图片总量约不超过 4 MB。</div></div>'
     + '<div class="q-editor-error" data-q-error></div>'
-    + '<div class="q-editor-hint">补充已有题目可只改需要的内容或添加图片；新增题目需要完整填写题干、四个选项、正确答案和分值。</div>'
+    + '<div class="q-editor-hint">补充已有题目可只改需要的内容或添加图片；新增题目需要完整填写题干、四个选项、正确答案、分值和解析。</div>'
     + '<div class="q-editor-actions"><button class="btn btn-ghost btn-sm" type="button" data-q-cancel>取消</button><button class="btn btn-gold btn-sm" type="button" data-q-save>保存题目</button></div>'
     + '</div>');
   const closeBtn = document.getElementById('modalX');
@@ -3028,6 +3028,7 @@ function openQuestionInfoModal(exam, group){
     if(missing.length) return '请填写选项 ' + missing.join('、');
     if(groupKeys.indexOf(q.answer) < 0) return '正确答案必须是 A / B / C / D';
     if(!(q.score > 0)) return '分值必须大于 0';
+    if(mode === 'new' && !q.analysis.length) return '新增题目的解析不能为空';
     const oldQuestion = mode === 'edit' ? existing[editIndex] : null;
     const source = ((exam.questions || {})[group] || []);
     if(source.some(function(x){ return x !== oldQuestion && Number(x && x.no) === q.no; })) return '题号 ' + q.no + ' 已存在，请换一个题号';
