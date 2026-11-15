@@ -369,6 +369,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .admin-fold-bar:hover{color:#8bdcff}
 .admin-fold-bar.is-open{color:var(--muted);font-size:13px}
 .admin-fold-bar.is-open:hover{color:var(--accent)}
+.admin-fold-glass{border:1px solid var(--line);border-radius:12px;margin-top:8px;padding:14px 12px 8px}
 .admin-fold-bar svg{width:14px;height:14px;flex:none}
 @media (max-width:760px){
   .log-page{width:28px;height:28px}
@@ -1820,6 +1821,7 @@ let adminSessionsError = '';
 let adminSessionsLoading = false;
 let adminSessionsLastAt = 0;
 let adminListExpanded = false;
+let schoolListExpanded = false;
 let adminHeartbeatTimer = null;
 let adminSessionsTimer = null;
 let adminHeartbeatBusy = false;
@@ -4232,8 +4234,9 @@ function renderSchoolMgmt(){
     el.innerHTML = '<div class="empty">尚未添加学校，点击右上角「添加学校」开始。</div>';
     return;
   }
+  const visibleSchools = schoolListExpanded ? schools : schools.slice(0, 5);
   let html = '';
-  schools.forEach(s => {
+  visibleSchools.forEach(s => {
     const schoolStudents = [];
     students.forEach((st, idx) => {
       if(st.school !== s) return;
@@ -4264,12 +4267,27 @@ function renderSchoolMgmt(){
       + (stuHtml ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center">' + stuHtml + '</div>' : '<div style="margin-top:8px;color:var(--muted);font-size:13px">该校尚未添加学生。</div>')
       + '</div>';
   });
+  if(schools.length > 5){
+    const expanded = schoolListExpanded;
+    html += '<div class="log-glass admin-fold-glass">'
+      + '<button type="button" class="' + (expanded ? 'log-collapse' : 'log-more') + '" id="schoolFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
+      + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      + '<span>' + (expanded ? '收起' : '展开') + '</span>'
+      + '</button></div>';
+  }
   el.innerHTML = html;
   el.querySelectorAll('[data-setschool]').forEach(b => b.addEventListener('click', () => openSchoolSettings(b.dataset.setschool)));
   el.querySelectorAll('[data-viewstudents]').forEach(b => b.addEventListener('click', () => openStudentList(b.dataset.viewstudents)));
   el.querySelectorAll('[data-addstu]').forEach(b => b.addEventListener('click', () => openAddStudent(b.dataset.addstu)));
   el.querySelectorAll('[data-delschool]').forEach(b => b.addEventListener('click', () => deleteSchool(b.dataset.delschool)));
   el.querySelectorAll('[data-delstu]').forEach(a => a.addEventListener('click', () => deleteStudent(parseInt(a.dataset.delstu, 10))));
+  const schoolFoldBtn = el.querySelector('#schoolFoldToggle');
+  if(schoolFoldBtn){
+    schoolFoldBtn.addEventListener('click', function(){
+      schoolListExpanded = !schoolListExpanded;
+      renderSchoolMgmt();
+    });
+  }
 }
 
 function openStudentList(school){
@@ -4975,10 +4993,11 @@ function renderAdminList(){
   }
   if(sortedAdmins.length > 5){
     const expanded = adminListExpanded;
-    html += '<button type="button" class="admin-fold-bar' + (expanded ? ' is-open' : '') + '" id="adminFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
+    html += '<div class="log-glass admin-fold-glass">'
+      + '<button type="button" class="' + (expanded ? 'log-collapse' : 'log-more') + '" id="adminFoldToggle" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
       + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (expanded ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6') + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       + '<span>' + (expanded ? '收起' : '展开') + '</span>'
-      + '</button>';
+      + '</button></div>';
   }
   el.innerHTML = html;
   el.querySelectorAll('[data-teacher-setting]').forEach(btn => {
