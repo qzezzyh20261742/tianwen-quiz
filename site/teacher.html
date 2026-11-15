@@ -163,6 +163,14 @@ h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;backgrou
 .kpi b{display:block;font-size:25px;color:var(--accent)}
 .kpi span{font-size:13px;color:var(--muted)}
 .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.score-shell{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(9,14,34,.42)}
+.score-scroll{overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(91,200,255,.42) transparent}
+.score-scroll::-webkit-scrollbar{width:8px;height:8px}
+.score-scroll::-webkit-scrollbar-track{background:transparent}
+.score-scroll::-webkit-scrollbar-thumb{background:rgba(91,200,255,.38);border-radius:8px}
+.score-scroll::-webkit-scrollbar-thumb:hover{background:rgba(91,200,255,.58)}
+.score-scroll::-webkit-scrollbar-corner{background:transparent}
+#scoreScroll thead th{position:sticky;top:0;z-index:3}
 table{width:100%;border-collapse:collapse;font-size:14px;min-width:830px}
 thead th{background:#1a2550;color:var(--text);padding:12px 10px;text-align:center;font-weight:700;white-space:nowrap}
 tbody td{padding:11px 10px;border-top:1px solid var(--line);text-align:center;vertical-align:middle}
@@ -407,15 +415,28 @@ tbody td.name-cell{text-align:left;font-weight:600}
           <option value="高中组">高中组</option>
         </select>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:18%">姓名 / 学校</th><th>考号</th><th>组别</th><th>得分</th><th>正确</th><th>错误</th><th>选 E</th><th>错题数</th><th>提交时间</th><th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="adminTbody"></tbody>
-        </table>
+      <div class="score-shell" id="scoreShell">
+        <div class="score-scroll" id="scoreScroll">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:18%">姓名 / 学校</th><th>考号</th><th>组别</th><th>得分</th><th>正确</th><th>错误</th><th>选 E</th><th>错题数</th><th>提交时间</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="adminTbody"></tbody>
+          </table>
+        </div>
+        <div class="log-glass" id="scoreGlass">
+          <div class="log-pager" id="scorePager"></div>
+          <button class="log-more" id="scoreMore" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>展开</span>
+          </button>
+          <button class="log-collapse" id="scoreCollapse" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>收起</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -4236,6 +4257,8 @@ function switchAdminPage(page){
   if(target === 'manage'){
     renderLogs();
     if(currentAdmin && !hasPendingSettings()) pollSettingsForStudents();
+  } else {
+    fitScoreScrollHeight();
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4783,6 +4806,8 @@ function renderAdmin(){
     document.getElementById('scoreBars').innerHTML = '';
     document.getElementById('filterSchool').innerHTML = '<option value="">全部学校</option>';
     document.getElementById('adminTbody').innerHTML = '<tr><td colspan="10"><div class="empty">暂无学生提交记录</div></td></tr>';
+    renderScorePager(0);
+    fitScoreScrollHeight();
     return;
   }
 
@@ -4840,19 +4865,91 @@ function renderAdmin(){
 }
 
 /* 按当前筛选条件渲染学生表格 */
+let scoreExpanded = false;
+let scorePage = 1;
+let scoreFilterKey = null;
+const SCORE_COLLAPSED = 5;
+const SCORE_PER_PAGE = 15;
+
+function scorePageIcon(dir){
+  return logPageIcon(dir);
+}
+
+function renderScorePager(total){
+  const pager = document.getElementById('scorePager');
+  const more = document.getElementById('scoreMore');
+  const collapse = document.getElementById('scoreCollapse');
+  const glass = document.getElementById('scoreGlass');
+  const shell = document.getElementById('scoreShell');
+  if(!pager || !more || !collapse || !glass) return;
+  const pages = Math.max(1, Math.ceil(total / SCORE_PER_PAGE));
+  if(scorePage > pages) scorePage = pages;
+  if(scorePage < 1) scorePage = 1;
+  glass.style.display = total > 0 ? 'flex' : 'none';
+  more.style.display = scoreExpanded ? 'none' : 'inline-flex';
+  collapse.style.display = scoreExpanded ? 'inline-flex' : 'none';
+  pager.style.display = (scoreExpanded && pages > 1) ? 'flex' : 'none';
+  if(shell) shell.classList.toggle('expanded', scoreExpanded);
+  if(!scoreExpanded || pages <= 1){ pager.innerHTML = ''; return; }
+  let items = [];
+  if(pages <= 10){
+    for(let i = 1; i <= pages; i++) items.push(i);
+  } else if(scorePage <= 5){
+    items = [1,2,3,4,5,'...',pages-3,pages-2,pages-1,pages];
+  } else if(scorePage >= pages - 3){
+    items = [1,'...',pages-3,pages-2,pages-1,pages];
+  } else {
+    items = [1,'...',scorePage-1,scorePage,scorePage+1,'...',pages];
+  }
+  pager.innerHTML = '<button type="button" class="log-page" data-score-page="prev" ' + (scorePage <= 1 ? 'disabled' : '') + ' aria-label="上一页">' + scorePageIcon('prev') + '</button>'
+    + items.map(it => it === '...'
+      ? '<span class="log-ellipsis">…</span>'
+      : '<button type="button" class="log-page' + (it === scorePage ? ' on' : '') + '" data-score-page="' + it + '">' + it + '</button>').join('')
+    + '<button type="button" class="log-page" data-score-page="next" ' + (scorePage >= pages ? 'disabled' : '') + ' aria-label="下一页">' + scorePageIcon('next') + '</button>';
+}
+
+function fitScoreScrollHeight(){
+  const scroll = document.getElementById('scoreScroll');
+  if(!scroll) return;
+  const table = scroll.querySelector('table');
+  const head = table ? table.querySelector('thead') : null;
+  const firstRow = table ? table.querySelector('tbody tr') : null;
+  const headH = head ? head.getBoundingClientRect().height : 0;
+  const rowH = firstRow ? firstRow.getBoundingClientRect().height : 0;
+  if(rowH > 0 && headH > 0) scroll.style.maxHeight = Math.ceil(headH + rowH * 5 + 1) + 'px';
+}
+
+function scrollScoreTop(){
+  const scroll = document.getElementById('scoreScroll');
+  if(scroll) scroll.scrollTop = 0;
+}
+
 function renderAdminTable(){
   const fSchool = document.getElementById('filterSchool').value;
   const fGroup = document.getElementById('filterGroup').value;
+  const filterKey = (fSchool || '') + '|' + (fGroup || '');
+  const filterChanged = filterKey !== scoreFilterKey;
+  if(filterChanged){ scoreFilterKey = filterKey; scorePage = 1; }
   let list = visibleRecords().slice();
   if(fSchool){ list = list.filter(r => r.school === fSchool); }
   if(fGroup){ list = list.filter(r => r.group === fGroup); }
 
   if(!list.length){
     document.getElementById('adminTbody').innerHTML = '<tr><td colspan="10"><div class="empty">当前筛选条件下暂无记录</div></td></tr>';
+    renderScorePager(0);
+    fitScoreScrollHeight();
     return;
   }
+  list.sort((a,b)=>b.score-a.score);
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total / SCORE_PER_PAGE));
+  if(scorePage > pages) scorePage = pages;
+  if(scorePage < 1) scorePage = 1;
+  const shown = scoreExpanded
+    ? list.slice((scorePage - 1) * SCORE_PER_PAGE, scorePage * SCORE_PER_PAGE)
+    : list.slice(0, SCORE_COLLAPSED);
   let tbody = '';
-  list.sort((a,b)=>b.score-a.score).forEach(r => {
+  shown.forEach(r => {
     tbody += '<tr>'
       + '<td class="name-cell">' + esc(r.name) + '<br><span style="color:var(--muted);font-weight:400;font-size:12.5px">' + esc(r.school) + (r.examName ? ' · ' + esc(r.examName) : '') + '</span></td>'
       + '<td style="font-weight:600">' + esc(r.examNo || '') + '</td>'
@@ -4870,6 +4967,9 @@ function renderAdminTable(){
   document.querySelectorAll('[data-detail]').forEach(btn => {
     btn.addEventListener('click', () => showStudentDetail(parseInt(btn.dataset.detail, 10)));
   });
+  renderScorePager(total);
+  fitScoreScrollHeight();
+  if(filterChanged) scrollScoreTop();
 }
 
 function showStudentDetail(id){
@@ -5172,6 +5272,35 @@ document.getElementById('adminTabs').addEventListener('keydown', function(e){
 document.getElementById('adminLogout').addEventListener('click', () => { clearAdminSession(); currentAdmin = null; switchAdminPage('scores'); showView('view-login'); });
 document.getElementById('filterSchool').addEventListener('change', renderAdminTable);
 document.getElementById('filterGroup').addEventListener('change', renderAdminTable);
+document.getElementById('scoreMore').addEventListener('click', function(){
+  scoreExpanded = true;
+  scorePage = 1;
+  renderAdminTable();
+  scrollScoreTop();
+});
+document.getElementById('scoreCollapse').addEventListener('click', function(){
+  scoreExpanded = false;
+  scorePage = 1;
+  renderAdminTable();
+  scrollScoreTop();
+});
+document.getElementById('scorePager').addEventListener('click', function(e){
+  const btn = e.target.closest('[data-score-page]');
+  if(!btn || btn.disabled) return;
+  const action = btn.getAttribute('data-score-page');
+  const total = visibleRecords().filter(function(r){
+    const fs = document.getElementById('filterSchool').value;
+    const fg = document.getElementById('filterGroup').value;
+    return (!fs || r.school === fs) && (!fg || r.group === fg);
+  }).length;
+  const pages = Math.max(1, Math.ceil(total / SCORE_PER_PAGE));
+  if(action === 'prev') scorePage = Math.max(1, scorePage - 1);
+  else if(action === 'next') scorePage = Math.min(pages, scorePage + 1);
+  else scorePage = Math.max(1, Math.min(pages, parseInt(action, 10) || 1));
+  renderAdminTable();
+  scrollScoreTop();
+});
+window.addEventListener('resize', fitScoreScrollHeight);
 document.getElementById('modalMask').addEventListener('click', function(e){
   if(e.target === this) closeModal();
 });
