@@ -108,6 +108,7 @@ h2.sec-title::before{content:"";width:5px;height:19px;border-radius:3px;backgrou
 .q-no{background:linear-gradient(135deg,var(--accent-deep),#3f6fd0);color:#fff;font-weight:800;border-radius:9px;padding:5px 13px;font-size:14px}
 .q-tag{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,212,121,.4);border-radius:20px;padding:2px 11px}
 .q-stem{font-size:17.5px;font-weight:700;margin-bottom:20px;line-height:1.75}
+.q-stem img,.mini-stem img,.q-view-body img{display:block;max-width:100%;height:auto;border-radius:9px;margin:12px 0;background:rgba(0,0,0,.12)}
 .options{display:flex;flex-direction:column;gap:12px}
 .option{display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border-radius:12px;border:1px solid var(--line-strong);background:rgba(9,14,34,.75);cursor:pointer;transition:.18s;min-height:48px}
 .option:hover{border-color:var(--accent);background:rgba(91,200,255,.09)}
@@ -2324,6 +2325,7 @@ function updateCloudStatus(){
 const LOCAL_EXAMS_KEY = 'astro_quiz_exams';
 let EXAMS = [];
 let EXAM_IMPORT = null;
+let EXAM_IMAGES = {};
 let PORTAL_ON = true;
 
 function loadLocalExams(){
@@ -2546,12 +2548,12 @@ function downloadTextFile(name, content, mime){
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function downloadExamTemplate(){
-  const header = ['题号','题干','选项A','选项B','选项C','选项D','正确答案','分值','解析','知识点','易错提醒'];
-  const sample = ['1','示例：太阳系中体积最大的行星是？','水星','金星','木星','土星','C','4','木星是太阳系体积和质量最大的行星。','太阳系八大行星','注意区分体积最大与密度最大。'];
+  const header = ['题号','题干','选项A','选项B','选项C','选项D','正确答案','分值','解析','知识点','易错提醒','图片'];
+  const sample = ['1','示例：太阳系中体积最大的行星是？','水星','金星','木星','土星','C','4','木星是太阳系体积和质量最大的行星。','太阳系八大行星','注意区分体积最大与密度最大。',''];
   if(window.XLSX){
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([header, sample]);
-    ws['!cols'] = [{wch:8},{wch:52},{wch:18},{wch:18},{wch:18},{wch:18},{wch:10},{wch:8},{wch:60},{wch:24},{wch:28}];
+    ws['!cols'] = [{wch:8},{wch:52},{wch:18},{wch:18},{wch:18},{wch:18},{wch:10},{wch:8},{wch:60},{wch:24},{wch:28},{wch:30}];
     XLSX.utils.book_append_sheet(wb, ws, '试题');
     XLSX.writeFile(wb, '试题导入模板.xlsx');
   } else {
@@ -2578,6 +2580,38 @@ function parseCsvText(text){
   return text.replace(/^\ufeff/, '').split(/\r?\n/).filter(l => l.trim() !== '').map(splitCsvLine);
 }
 
+function normalizeImageList(value){
+  const out = [];
+  const push = function(item, idx){
+    if(!item) return;
+    const src = (typeof item === 'string') ? item : (item.src || item.url || item.image || '');
+    const s = String(src || '').trim();
+    if(!/^(https?:\/\/|data:image\/(?:png|jpe?g|webp|gif);base64,)/i.test(s)) return;
+    if(out.some(x => x.src === s)) return;
+    out.push({ src: s, alt: String((typeof item === 'object' && (item.alt || item.caption)) || ('题目图片 ' + (idx + 1))) });
+  };
+  if(Array.isArray(value)) value.forEach(push);
+  else if(typeof value === 'string'){
+    const text = value.trim();
+    if(!text) return out;
+    if(/^data:image\//i.test(text)) push(text, 0);
+    else text.split(/[|\n]+/).forEach(push);
+  }
+  else if(value && typeof value === 'object') push(value, 0);
+  return out.slice(0, 6);
+}
+
+function questionImageList(q){
+  if(!q) return [];
+  return normalizeImageList(q.images && q.images.length ? q.images : q.image);
+}
+
+function questionImagesHtml(q){
+  return questionImageList(q).map(function(img, idx){
+    return '<img src="' + esc(img.src) + '" alt="' + esc(img.alt || ('题目图片 ' + (idx + 1))) + '" loading="lazy">';
+  }).join('');
+}
+
 function normalizeQuestionRows(rows){
   if(!rows.length) return [];
   const first = String(rows[0][0] || '').trim();
@@ -2590,7 +2624,8 @@ function normalizeQuestionRows(rows){
     score: Number(r[7]) || 0,
     analysis: String(r[8] == null ? '' : r[8]).trim() ? [String(r[8]).trim()] : [],
     points: String(r[9] == null ? '' : r[9]).trim() ? [String(r[9]).trim()] : [],
-    tips: String(r[10] == null ? '' : r[10]).trim()
+    tips: String(r[10] == null ? '' : r[10]).trim(),
+    images: normalizeImageList(r[11])
   }));
 }
 
@@ -2612,7 +2647,8 @@ function normalizeQuestionObjects(arr){
       score: Number(o.score != null ? o.score : (o.分值 || 0)),
       analysis: (Array.isArray(analysis) ? analysis : String(analysis).split(/\n+/)).filter(Boolean).map(s => String(s).trim()),
       points: (Array.isArray(points) ? points : String(points).split(/\n+/)).filter(Boolean).map(s => String(s).trim()),
-      tips: String(o.tips != null ? o.tips : (o.易错提醒 || '')).trim()
+      tips: String(o.tips != null ? o.tips : (o.易错提醒 || '')).trim(),
+      images: normalizeImageList(o.images || o.image || o.图片 || o.图片集)
     };
   });
 }
@@ -2658,13 +2694,104 @@ function validateQuestionList(list){
   return errors;
 }
 
+/* ===== 导入时附加题目图片：按文件名题号自动匹配，压缩后随试题保存 ===== */
+const IMPORT_IMAGE_MAX_SIDE = 1000;
+const IMPORT_IMAGE_TOTAL_LIMIT = 4 * 1024 * 1024; // 约 4MB，避免撑爆本机缓存
+
+function imageNoFromFilename(name){
+  const base = String(name || '').replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '');
+  const m = base.match(/\d+/);
+  return m ? parseInt(m[0], 10) : 0;
+}
+
+function compressQuestionImage(file){
+  return new Promise(function(resolve, reject){
+    if(!file || !file.type || !/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) return reject(new Error('不支持的图片格式：' + ((file && file.name) || '')));
+    if(file.size > 15 * 1024 * 1024) return reject(new Error('图片过大（超过 15MB）：' + file.name));
+    const reader = new FileReader();
+    reader.onerror = function(){ reject(new Error('无法读取图片：' + file.name)); };
+    reader.onload = function(){
+      const img = new Image();
+      img.onerror = function(){ reject(new Error('图片解析失败：' + file.name)); };
+      img.onload = function(){
+        const scale = Math.min(1, IMPORT_IMAGE_MAX_SIDE / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+        const w = Math.max(1, Math.round((img.naturalWidth || 1) * scale));
+        const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        let src = canvas.toDataURL('image/webp', 0.8);
+        if(src.indexOf('data:image/webp') !== 0) src = canvas.toDataURL('image/jpeg', 0.82);
+        resolve({ no: imageNoFromFilename(file.name), name: file.name, src: src });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderImportImages(){
+  const status = document.getElementById('examImageStatus');
+  const preview = document.getElementById('examImagePreview');
+  if(!status || !preview) return;
+  const entries = Object.keys(EXAM_IMAGES).map(Number).sort(function(a, b){ return a - b; });
+  const list = (EXAM_IMPORT && EXAM_IMPORT.list) ? EXAM_IMPORT.list : [];
+  const validNos = {};
+  list.forEach(function(q){ validNos[q.no] = true; });
+  let totalBytes = 0, matched = 0, unmatched = 0;
+  entries.forEach(function(no){
+    (EXAM_IMAGES[no] || []).forEach(function(img){ totalBytes += (img.src || '').length; });
+    if(validNos[no]) matched += (EXAM_IMAGES[no] || []).length;
+    else unmatched += (EXAM_IMAGES[no] || []).length;
+  });
+  const mb = (totalBytes / 1048576).toFixed(1);
+  status.style.color = totalBytes > IMPORT_IMAGE_TOTAL_LIMIT ? 'var(--red)' : 'var(--muted)';
+  if(!entries.length){
+    status.textContent = '尚未选择图片。';
+    preview.innerHTML = '';
+    return;
+  }
+  status.textContent = '已处理 ' + entries.reduce(function(n, no){ return n + (EXAM_IMAGES[no] || []).length; }, 0)
+    + ' 张 · 已匹配 ' + matched + ' 张 · 未匹配 ' + unmatched + ' 张 · 约 ' + mb + ' MB'
+    + (list.length ? '' : '（请先选择题库文件，系统会按题号自动匹配）')
+    + (totalBytes > IMPORT_IMAGE_TOTAL_LIMIT ? '；图片总量偏大，请减少图片后再导入' : '');
+  preview.innerHTML = entries.map(function(no){
+    return (EXAM_IMAGES[no] || []).map(function(img){
+      return '<div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;margin:0 8px 6px 0;vertical-align:top">'
+        + '<img src="' + esc(img.src) + '" alt="' + esc(img.name) + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid rgba(91,200,255,.25)">'
+        + '<span style="font-size:10.5px;color:' + (validNos[no] ? 'var(--accent)' : 'var(--red)') + '">' + (validNos[no] ? ('第 ' + no + ' 题') : '未匹配') + '</span></div>';
+    }).join('');
+  }).join('');
+}
+
+function applyImportImages(list){
+  const plans = [];
+  let totalBytes = 0;
+  list.forEach(function(q){
+    const existing = questionImageList(q);
+    existing.forEach(function(img){ totalBytes += (img.src || '').length; });
+    const localImages = (EXAM_IMAGES[q.no] || []).map(function(img){
+      totalBytes += (img.src || '').length;
+      return { src: img.src, alt: ('第 ' + q.no + ' 题图片') };
+    });
+    plans.push({ q: q, images: localImages.length ? normalizeImageList(existing.concat(localImages)) : existing });
+  });
+  if(totalBytes > IMPORT_IMAGE_TOTAL_LIMIT) return { ok: false, totalBytes: totalBytes };
+  plans.forEach(function(plan){ plan.q.images = plan.images; });
+  return { ok: true, totalBytes: totalBytes };
+}
+
 function openImportModal(exam, group){
   EXAM_IMPORT = null;
+  EXAM_IMAGES = {};
   const existing = (exam.questions || {})[group] || [];
   openModal('<div class="modal-head"><h3>导入试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>'
     + '<button class="modal-close" id="modalX" type="button">×</button></div>'
     + '<p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:12px">支持 <b>.xlsx / .xls / .csv / .json</b>。表格首行可为表头，列顺序固定：'
-    + '题号、题干、选项A、选项B、选项C、选项D、正确答案、分值、解析、知识点（可选）、易错提醒（可选）。</p>'
+    + '题号、题干、选项A、选项B、选项C、选项D、正确答案、分值、解析、知识点（可选）、易错提醒（可选）、图片（可选，填网址）。</p>'
     + '<div class="field" style="margin-bottom:10px"><label>适用学段（可多选，同一份题会同时套用到所选学段）</label>'
     + '<div class="radio-row" style="flex-wrap:wrap">'
     + (exam.groups && exam.groups.length ? exam.groups : [group]).map(g => '<label class="radio-pill"><input type="checkbox" name="importSegment" value="' + g + '"' + (g === group ? ' checked' : '') + '><span>' + g + '</span></label>').join('')
@@ -2677,6 +2804,14 @@ function openImportModal(exam, group){
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<button class="btn btn-ghost btn-sm" id="examFilePickBtn" type="button">选择文件</button>'
     + '<span id="examFileName" style="font-size:12.5px;color:var(--muted)">未选择文件</span></div></div>'
+    + '<div class="field" style="margin-bottom:10px"><label>题目图片（可选，随试题一起保存到云端）</label>'
+    + '<p style="font-size:12.5px;color:var(--muted);line-height:1.8;margin:0 0 7px">选择本地图片，文件名以题号开头：<b style="color:var(--accent)">01.png</b>、<b style="color:var(--accent)">第2题-1.jpg</b>、<b style="color:var(--accent)">03-2.png</b>。同一题多张图会按文件名顺序排列；图片会自动压缩。</p>'
+    + '<input id="examImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn btn-ghost btn-sm" id="examImagePickBtn" type="button">选择题目图片</button>'
+    + '<span id="examImageName" style="font-size:12.5px;color:var(--muted)">未选择图片</span></div>'
+    + '<div id="examImageStatus" style="font-size:12.3px;line-height:1.8;margin-top:6px;color:var(--muted)">尚未选择图片。</div>'
+    + '<div id="examImagePreview" style="margin-top:6px;max-height:120px;overflow:auto"></div></div>'
     + '<div id="importPreview"></div>'
     + '<div style="display:flex;gap:10px;margin-top:16px">'
     + '<button class="btn btn-ghost" style="flex:1" id="importCancel" type="button">取消</button>'
@@ -2688,6 +2823,34 @@ function openImportModal(exam, group){
   const filePickBtn = document.getElementById('examFilePickBtn');
   const fileNameEl = document.getElementById('examFileName');
   if(filePickBtn){ filePickBtn.addEventListener('click', function(){ input.click(); }); }
+  const imageInput = document.getElementById('examImageInput');
+  const imagePickBtn = document.getElementById('examImagePickBtn');
+  const imageNameEl = document.getElementById('examImageName');
+  if(imagePickBtn){ imagePickBtn.addEventListener('click', function(){ imageInput.click(); }); }
+  imageInput.addEventListener('change', async function(){
+    const files = Array.from(imageInput.files || []);
+    if(!files.length) return;
+    if(imageNameEl) imageNameEl.textContent = '正在处理 ' + files.length + ' 张图片…';
+    const status = document.getElementById('examImageStatus');
+    if(status){ status.style.color = 'var(--muted)'; status.textContent = '正在压缩图片，请稍候…'; }
+    EXAM_IMAGES = {};
+    let okCount = 0;
+    const errors = [];
+    for(const file of files){
+      try {
+        const result = await compressQuestionImage(file);
+        const no = result.no || 0;
+        if(!EXAM_IMAGES[no]) EXAM_IMAGES[no] = [];
+        EXAM_IMAGES[no].push(result);
+        okCount++;
+      } catch(e){
+        errors.push(e.message || String(e));
+      }
+    }
+    if(imageNameEl) imageNameEl.textContent = files.length + ' 个文件，成功 ' + okCount + ' 张';
+    renderImportImages();
+    if(errors.length) toast('部分图片未处理：' + errors.slice(0, 2).join('；'));
+  });
   const confirmBtn = document.getElementById('importConfirm');
   document.querySelectorAll('input[name="importSegment"]').forEach(function(b){
     b.addEventListener('change', function(){
@@ -2715,11 +2878,14 @@ function openImportModal(exam, group){
       const min = list.length ? Math.min.apply(null, list.map(q => q.no)) : 0;
       const max = list.length ? Math.max.apply(null, list.map(q => q.no)) : 0;
       EXAM_IMPORT = errors.length ? null : { examId: exam.id, groups: segmentSel, list: list };
+      renderImportImages();
+      const attachedImageCount = Object.keys(EXAM_IMAGES).reduce(function(n, no){ return n + (EXAM_IMAGES[no] || []).length; }, 0);
       let head = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 8px;font-size:13px">'
         + '<span>题数 <b style="color:var(--gold)">' + list.length + '</b></span>'
         + '<span>总分 <b style="color:var(--gold)">' + total + '</b></span>'
         + '<span>题号范围 <b>' + min + ' - ' + max + '</b></span>'
         + '<span>适用学段 <b style="color:var(--accent)">' + esc(segmentSel.join('、') || '未选择') + '</b></span>'
+        + '<span>附加图片 <b style="color:var(--accent)">' + attachedImageCount + '</b> 张</span>'
         + '<span style="color:' + (errors.length ? 'var(--red)' : 'var(--green)') + '">' + (errors.length ? errors.length + ' 处待修正' : '校验通过') + '</span></div>';
       if(errors.length){
         head += '<div style="max-height:120px;overflow:auto;border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;color:var(--red);line-height:1.7">'
@@ -2758,11 +2924,21 @@ function openImportModal(exam, group){
     if(!exam2.questions) exam2.questions = {};
     const groups = EXAM_IMPORT.groups && EXAM_IMPORT.groups.length ? EXAM_IMPORT.groups : [];
     if(!groups.length){ toast('请至少选择一个适用学段'); return; }
+    const imageResult = applyImportImages(EXAM_IMPORT.list);
+    if(!imageResult.ok){
+      toast('题目图片总量约 ' + (imageResult.totalBytes / 1048576).toFixed(1) + ' MB，超过本机可安全保存的上限，请减少图片后重试');
+      return;
+    }
     groups.forEach(function(g){
       exam2.questions[g] = JSON.parse(JSON.stringify(EXAM_IMPORT.list));
     });
     exam2.updatedAt = new Date().toLocaleString();
-    saveLocalExams();
+    try {
+      saveLocalExams();
+    } catch(e){
+      toast('本机存储空间不足，图片未能保存；请减少图片数量后重试');
+      return;
+    }
     closeModal();
     renderExamBoard();
     log('导入试题', exam2.name + ' · ' + groups.join('/') + ' · ' + EXAM_IMPORT.list.length + ' 题');
@@ -2845,7 +3021,7 @@ function showExamQuestionsModal(exam, group, all){
       + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">'
       + '<b style="color:var(--accent)">第 ' + esc(no) + ' 题</b>'
       + '<span style="font-size:12.5px;color:var(--muted)">' + (Number(q.score) || 0) + ' 分 · 答案 <span style="color:var(--green);font-weight:700">' + esc(correct) + '</span></span></div>'
-      + '<div style="font-size:14px;line-height:1.85;margin-bottom:8px;white-space:pre-wrap">' + esc(q.stem || '') + '</div>'
+      + '<div class="q-view-body" style="font-size:14px;line-height:1.85;margin-bottom:8px;white-space:pre-wrap">' + esc(q.stem || '') + questionImagesHtml(q) + '</div>'
       + '<div style="font-size:13px;line-height:1.9;margin-bottom:8px">'
       + opts.map(function(o){ return '<div style="color:' + (o.key === correct ? 'var(--green)' : 'var(--muted)') + '">' + esc(o.key) + '. ' + esc(o.text) + '</div>'; }).join('')
       + '</div>'
@@ -5056,7 +5232,8 @@ function showStudentDetail(id){
   if(Array.isArray(r.details) && r.details.length){
     r._qs = r.details.map(d => ({
       no: d.no, stem: d.stem, options: d.options || [], answer: d.answer,
-      analysis: d.analysis || [], points: d.points || [], tips: d.tips || ''
+      analysis: d.analysis || [], points: d.points || [], tips: d.tips || '',
+      images: d.images || d.image || []
     }));
     if(!r.answers) r.answers = {};
     r.details.forEach(d => { r.answers[d.no] = d.stu; });
@@ -5098,7 +5275,7 @@ function showStudentDetail(id){
       + '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
       + '</button>'
       + '<div class="q-expand-body" id="expand-' + no + '" style="display:none">'
-      + '<div class="mini-stem">' + esc(q.stem) + '</div>';
+      + '<div class="mini-stem">' + esc(q.stem) + questionImagesHtml(q) + '</div>';
 
     getOptions(q).forEach(o => {
       let cls = 'mini-opt';
