@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/CGL36wVWoE
-https://aka.doubaocdn.com/s/Idvyc79xYu
+https://aka.doubaocdn.com/s/GEkgn2gX4j
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -12,3 +12,4 @@ https://aka.doubaocdn.com/s/Idvyc79xYu
 # tuned 2026-11-16 00:55 merge exam rows; move paper actions into 试题设置 modal
 # tuned 2026-11-16 01:05 glass fold bars under teacher accounts and school management
 # tuned 2026-11-16 01:12 keep fold label horizontal
+# tuned 2026-11-16 01:18 match 试题设置 button style to 考试设置
