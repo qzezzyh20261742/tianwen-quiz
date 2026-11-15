@@ -348,7 +348,12 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .log-shell{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(9,14,34,.42)}
 .log-scroll{padding:2px 14px}
 .log-shell.expanded .log-scroll{padding:2px 14px}
-.log-row{padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.6;overflow-wrap:anywhere}
+.log-row{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.6;overflow-wrap:anywhere;cursor:pointer}
+.log-row-main{flex:1 1 auto;min-width:0}
+.log-check{flex:0 0 auto;width:16px;height:16px;margin:3px 0 0;accent-color:var(--accent);cursor:pointer}
+.log-select-all{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none}
+.log-select-all:hover{color:var(--text)}
+.log-select-all input{width:15px;height:15px;margin:0;accent-color:var(--accent);cursor:pointer}
 .log-row:last-child{border-bottom:0}
 .log-row .log-time{color:var(--muted)}
 .log-row .log-op{color:var(--accent);font-weight:700}
@@ -579,6 +584,8 @@ tbody td.name-cell{text-align:left;font-weight:600}
             <option value="system">系统日志</option>
           </select>
           <button class="btn btn-ghost btn-sm" id="refreshLogsBtn" type="button">刷新日志</button>
+          <label class="log-select-all" title="全选当前筛选的日志"><input type="checkbox" id="logSelectAll"><span>全选</span></label>
+          <button class="btn btn-danger btn-sm" id="deleteLogsBtn" type="button">删除日志</button>
         </div>
       </div>
       <div class="log-shell" id="logShell">
@@ -1812,6 +1819,7 @@ const SETTINGS_CHANGE_KEY = 'astro_quiz_settings_change_at';
 const DELETED_ADMINS_KEY = 'astro_quiz_deleted_admins';
 const DELETED_SCHOOLS_KEY = 'astro_quiz_deleted_schools';
 const DELETED_STUDENTS_KEY = 'astro_quiz_deleted_students';
+const DELETED_LOGS_KEY = 'astro_quiz_deleted_logs';
 const DEFAULT_ADMINS = [
   { user: 'admin', pass: 'hi@tw2026', role: 'admin', name: '管理员' }
 ];
@@ -2106,11 +2114,56 @@ function logCategoryOf(item){
 function log(action, detail){
   const logs = getLogs();
   const opName = (currentAdmin && currentAdmin.name) ? currentAdmin.name + '（' + currentAdmin.user + '）' : ((currentAdmin && currentAdmin.user) || '');
-  const entry = { time: new Date().toLocaleString('zh-CN'), operator: opName, action: action, detail: detail || '' };
+  const entry = { id: 'log_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8), time: new Date().toLocaleString('zh-CN'), operator: opName, action: action, detail: detail || '' };
   entry.category = logCategoryOf(entry);
   logs.unshift(entry);
   if(logs.length > 500) logs.length = 500;
   saveLogs(logs);
+}
+function logHash(text){
+  let h = 2166136261;
+  const s = String(text || '');
+  for(let i = 0; i < s.length; i++){
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+function logSignature(item){
+  return [item && item.time, item && item.operator, item && item.action, item && item.detail, item && item.source, item && item.name, item && item.examNo, item && item.school, item && item.group, item && item.examId].join('\u0001');
+}
+function legacyLogId(item){
+  return 'legacy_' + logHash(logSignature(item));
+}
+function ensureLogIds(){
+  const logs = getLogs();
+  let changed = false;
+  logs.forEach(function(item){
+    if(item && !item.id){ item.id = legacyLogId(item); changed = true; }
+  });
+  if(changed){
+    localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+    triggerAutoSave();
+  }
+  const studentLogs = getStudentLogs();
+  let studentChanged = false;
+  studentLogs.forEach(function(item){
+    if(item && !item.id){ item.id = legacyLogId(item); studentChanged = true; }
+  });
+  if(studentChanged) localStorage.setItem(STUDENT_LOGS_KEY, JSON.stringify(studentLogs));
+}
+function getDeletedLogIds(){
+  try {
+    const value = JSON.parse(localStorage.getItem(DELETED_LOGS_KEY) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch(e){ return []; }
+}
+function writeDeletedLogIds(list){
+  const unique = Array.from(new Set((list || []).filter(Boolean))).slice(-2000);
+  localStorage.setItem(DELETED_LOGS_KEY, JSON.stringify(unique));
+}
+function addDeletedLogIds(ids){
+  writeDeletedLogIds(getDeletedLogIds().concat(ids || []));
 }
 function normalizeLogTime(value){
   if(!value) return '';
@@ -2132,6 +2185,7 @@ function derivedStudentLogsFromRecords(){
     return !existing.has(key);
   }).map(function(r){
     return {
+      id: 'record_' + logHash([r.examId, r.examNo, r.name, r.school, r.group, r.submitTime, '提交答卷'].join('\u0001')),
       time: normalizeLogTime(r.submitTime),
       operator: r.name || '',
       action: '提交答卷',
@@ -2147,8 +2201,12 @@ function derivedStudentLogsFromRecords(){
   });
 }
 function allAdminLogs(){
+  ensureLogIds();
   const merged = mergeLogs(mergeLogs(getLogs(), getStudentLogs()), derivedStudentLogsFromRecords());
-  return merged.slice().sort(function(a, b){ return logTimeValue(b) - logTimeValue(a); });
+  const deleted = new Set(getDeletedLogIds());
+  return merged.filter(function(item){ return !deleted.has(item.id || legacyLogId(item)); })
+    .slice()
+    .sort(function(a, b){ return logTimeValue(b) - logTimeValue(a); });
 }
 
 /* ===== 数据自动保存到文件 ===== */
@@ -3664,8 +3722,24 @@ async function refreshLogsNow(){
 document.getElementById('refreshLogsBtn').addEventListener('click', refreshLogsNow);
 document.getElementById('logTypeFilter').addEventListener('change', function(){
   logPage = 1;
+  logSelected.clear();
   renderLogs();
 });
+document.getElementById('logSelectAll').addEventListener('change', function(){
+  const logs = filteredAdminLogs();
+  if(this.checked){ logs.forEach(function(l){ logSelected.add(l.id); }); }
+  else { logs.forEach(function(l){ logSelected.delete(l.id); }); }
+  renderLogs();
+});
+document.getElementById('logBody').addEventListener('change', function(e){
+  const checkbox = e.target.closest('.log-check');
+  if(!checkbox) return;
+  const id = checkbox.dataset.logId || '';
+  if(checkbox.checked) logSelected.add(id);
+  else logSelected.delete(id);
+  syncLogSelectAllState();
+});
+document.getElementById('deleteLogsBtn').addEventListener('click', openLogDeleteModal);
 document.getElementById('logMore').addEventListener('click', function(){
   logExpanded = true;
   logPage = 1;
@@ -4643,6 +4717,7 @@ function deleteStudent(idx){
 /* ===== 操作日志：默认 5 条，展开后 15 条/页 ===== */
 let logExpanded = false;
 let logPage = 1;
+let logSelected = new Set();
 const LOG_COLLAPSED = 5;
 const LOG_PER_PAGE = 15;
 
@@ -4686,16 +4761,33 @@ function renderLogPager(total){
     + '<button type="button" class="log-page" data-page="next" ' + (logPage >= pages ? 'disabled' : '') + ' aria-label="下一页">' + logPageIcon('next') + '</button>';
 }
 
-function renderLogs(){
-  const el = document.getElementById('logBody');
-  if(!el) return;
+function filteredAdminLogs(){
   const filterEl = document.getElementById('logTypeFilter');
   const filter = filterEl ? filterEl.value : 'all';
   const allLogs = allAdminLogs();
-  const logs = filter === 'all' ? allLogs : allLogs.filter(function(l){ return logCategoryOf(l) === filter; });
+  return filter === 'all' ? allLogs : allLogs.filter(function(l){ return logCategoryOf(l) === filter; });
+}
+
+function syncLogSelectAllState(logs){
+  const checkbox = document.getElementById('logSelectAll');
+  if(!checkbox) return;
+  const items = logs || filteredAdminLogs();
+  const selected = items.filter(function(l){ return logSelected.has(l.id); }).length;
+  checkbox.disabled = items.length === 0;
+  checkbox.checked = items.length > 0 && selected === items.length;
+  checkbox.indeterminate = selected > 0 && selected < items.length;
+}
+
+function renderLogs(){
+  const el = document.getElementById('logBody');
+  if(!el) return;
+  const logs = filteredAdminLogs();
+  const visibleIds = new Set(logs.map(function(l){ return l.id; }));
+  logSelected.forEach(function(id){ if(!visibleIds.has(id)) logSelected.delete(id); });
   if(!logs.length){
-    el.innerHTML = '<div class="empty">' + (filter === 'all' ? '暂无操作日志' : '暂无此类日志') + '</div>';
+    el.innerHTML = '<div class="empty">' + (document.getElementById('logTypeFilter').value === 'all' ? '暂无操作日志' : '暂无此类日志') + '</div>';
     renderLogPager(0);
+    syncLogSelectAllState(logs);
     return;
   }
   const pages = Math.max(1, Math.ceil(logs.length / LOG_PER_PAGE));
@@ -4703,17 +4795,76 @@ function renderLogs(){
   const list = logExpanded
     ? logs.slice((logPage - 1) * LOG_PER_PAGE, logPage * LOG_PER_PAGE)
     : logs.slice(0, LOG_COLLAPSED);
-  el.innerHTML = list.map(l =>
-    '<div class="log-row">'
-    + '<span class="log-time">' + esc(l.time) + '</span>'
-    + ' <b class="log-op">' + esc(l.operator) + '</b>'
-    + ' <span>' + esc(l.action) + '</span>'
-    + (l.detail ? ' <span class="log-detail">' + esc(l.detail) + '</span>' : '')
-    + '</div>'
-  ).join('');
+  el.innerHTML = list.map(function(l){
+    const id = l.id || legacyLogId(l);
+    return '<label class="log-row">'
+      + '<input type="checkbox" class="log-check" data-log-id="' + esc(id) + '" aria-label="选择这条日志"' + (logSelected.has(id) ? ' checked' : '') + '>'
+      + '<span class="log-row-main">'
+      + '<span class="log-time">' + esc(l.time) + '</span>'
+      + ' <b class="log-op">' + esc(l.operator) + '</b>'
+      + ' <span>' + esc(l.action) + '</span>'
+      + (l.detail ? ' <span class="log-detail">' + esc(l.detail) + '</span>' : '')
+      + '</span></label>';
+  }).join('');
   renderLogPager(logs.length);
+  syncLogSelectAllState(logs);
 }
 
+function deleteLogsByIds(ids){
+  const targets = new Set(ids || []);
+  if(!targets.size) return 0;
+  const teacherLogs = getLogs();
+  const studentLogs = getStudentLogs();
+  const keptTeacher = teacherLogs.filter(function(l){ return !targets.has(l.id || legacyLogId(l)); });
+  const keptStudent = studentLogs.filter(function(l){ return !targets.has(l.id || legacyLogId(l)); });
+  const changed = keptTeacher.length !== teacherLogs.length || keptStudent.length !== studentLogs.length;
+  if(keptTeacher.length !== teacherLogs.length) saveLogs(keptTeacher);
+  if(keptStudent.length !== studentLogs.length) saveStudentLogs(keptStudent);
+  if(changed && !keptTeacher.length && !keptStudent.length) triggerAutoSave();
+  addDeletedLogIds(Array.from(targets));
+  logSelected.clear();
+  if(logPage > 1) logPage = 1;
+  renderLogs();
+  return targets.size;
+}
+
+function openLogDeleteModal(){
+  const selectedCount = logSelected.size;
+  const total = allAdminLogs().length;
+  openModal('<div class="modal-head"><h3>删除日志</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<p style="font-size:14px;line-height:1.8;color:var(--muted)">已勾选 <b style="color:var(--text)">' + selectedCount + '</b> 条日志。可只删除勾选项，也可以清空全部 <b style="color:var(--text)">' + total + '</b> 条日志。</p>'
+    + '<div style="display:flex;gap:10px;margin-top:18px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="logDelCancel" type="button">取消</button>'
+    + '<button class="btn btn-danger" style="flex:1" id="logDelSelected" type="button"' + (selectedCount ? '' : ' disabled') + '>删除选中（' + selectedCount + '）</button>'
+    + '</div>'
+    + '<div style="text-align:center;margin-top:12px">'
+    + '<button class="btn-text-danger" id="logDelAll" type="button"' + (total ? '' : ' disabled') + '>清空全部日志（' + total + ' 条）</button>'
+    + '</div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  document.getElementById('logDelCancel').addEventListener('click', closeModal);
+  document.getElementById('logDelSelected').addEventListener('click', function(){
+    if(!logSelected.size){
+      toast('请先在日志前勾选要删除的记录');
+      return;
+    }
+    const count = deleteLogsByIds(Array.from(logSelected));
+    closeModal();
+    toast('已删除 ' + count + ' 条日志');
+  });
+  document.getElementById('logDelAll').addEventListener('click', function(){
+    const logs = allAdminLogs();
+    const ids = logs.map(function(l){ return l.id || legacyLogId(l); });
+    saveLogs([]);
+    saveStudentLogs([]);
+    addDeletedLogIds(ids);
+    logSelected.clear();
+    logPage = 1;
+    logExpanded = false;
+    renderLogs();
+    closeModal();
+    toast('已清空全部日志' + (ids.length ? '（' + ids.length + ' 条）' : ''));
+  });
+}
 function parseSchoolGroupsCell(value){
   const hits = String(value == null ? '' : value).match(/小学|初中|高中/g) || [];
   const groups = [];
