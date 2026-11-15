@@ -2235,6 +2235,11 @@ function examStatusText(s){
 }
 function groupStats(exam, group){
   const qs = (exam.questions || {})[group] || [];
+  const meta = (exam.perGroup || {})[group];
+  if(!qs.length && meta){
+    /* 新域名/新设备还没缓存完整试题时，先用云端摘要显示题数与总分 */
+    return { count: Number(meta.count) || 0, total: Number(meta.totalScore) || 0 };
+  }
   return { count: qs.length, total: qs.reduce((s, q) => s + (Number(q.score) || 0), 0) };
 }
 
