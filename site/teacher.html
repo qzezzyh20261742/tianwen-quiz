@@ -2446,6 +2446,7 @@ function renderExamBoard(){
         + '<div style="font-size:13.5px"><span class="pill-tag">' + esc(g) + '</span>'
         + '<span style="color:var(--muted);margin-left:8px">' + st.count + ' 题 · ' + st.total + ' 分</span></div>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + '<button class="btn btn-ghost btn-sm" type="button" data-act="view" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">查看试题</button>'
         + '<button class="btn btn-ghost btn-sm" type="button" data-act="sync" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">同步试题</button>'
         + '<button class="btn btn-ghost btn-sm" type="button" data-act="import" data-id="' + esc(e.id) + '" data-group="' + esc(g) + '">'
         + (st.count ? '重新导入' : '导入试题') + '</button></div></div>';
@@ -2471,6 +2472,7 @@ function renderExamBoard(){
       const exam = EXAMS.find(x => x.id === btn.dataset.id);
       if(!exam) return;
       if(act === 'import') openImportModal(exam, btn.dataset.group);
+      else if(act === 'view') viewExamQuestions(exam, btn.dataset.group);
       else if(act === 'sync'){
         btn.disabled = true;
         const oldText = btn.textContent;
@@ -2821,6 +2823,60 @@ async function syncExamQuestions(exam, group){
   } catch(e){
     toast('同步试题失败：' + (e.message || e));
   }
+}
+
+/* 查看某一学段的完整试题（题干、选项、答案、解析与提示） */
+function viewExamQuestions(exam, group){
+  const all = ((exam.questions || {})[group] || []).slice();
+  const meta = ((exam.perGroup || {})[group]) || null;
+  const closeHtml = '<button class="modal-close" id="modalX" type="button">×</button>';
+  if(!all.length){
+    const cloudHint = meta && Number(meta.count) > 0;
+    openModal('<div class="modal-head"><h3>查看试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>' + closeHtml + '</div>'
+      + '<div class="empty" style="padding:32px 0;line-height:1.9">'
+      + (cloudHint
+        ? '本机还没有缓存该学段的完整试题。<br>云端记录为 ' + Number(meta.count) + ' 题 · ' + Number(meta.totalScore) + ' 分，可从云端同步后再查看。'
+        : '该学段还没有导入试题，请先点右侧「重新导入」。')
+      + '</div>'
+      + (cloudHint ? '<div style="text-align:center;padding-bottom:10px"><button class="btn btn-ghost" id="viewSyncBtn" type="button">从云端同步试题</button></div>' : ''));
+    document.getElementById('modalX').addEventListener('click', closeModal);
+    const syncBtn = document.getElementById('viewSyncBtn');
+    if(syncBtn) syncBtn.addEventListener('click', function(){
+      closeModal();
+      syncExamQuestions(exam, group);
+    });
+    return;
+  }
+  all.sort(function(a, b){ return (Number(a.no) || 0) - (Number(b.no) || 0); });
+  const total = all.reduce(function(s, q){ return s + (Number(q.score) || 0); }, 0);
+  let list = '';
+  all.forEach(function(q, idx){
+    const no = q.no || (idx + 1);
+    const opts = (q.options || []).map(function(o, i){
+      const key = (o && typeof o === 'object') ? (o.key || ['A','B','C','D'][i]) : ['A','B','C','D'][i];
+      const text = (o && typeof o === 'object') ? (o.text || o.value || '') : String(o || '');
+      return { key: String(key), text: String(text) };
+    });
+    const analysis = (Array.isArray(q.analysis) ? q.analysis : [q.analysis]).filter(Boolean).join('；');
+    const points = (Array.isArray(q.points) ? q.points : [q.points]).filter(Boolean).join('；');
+    const correct = String(q.answer || '').toUpperCase();
+    list += '<div style="background:rgba(91,200,255,.045);border-radius:12px;padding:14px 16px;margin-bottom:10px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">'
+      + '<b style="color:var(--accent)">第 ' + esc(no) + ' 题</b>'
+      + '<span style="font-size:12.5px;color:var(--muted)">' + (Number(q.score) || 0) + ' 分 · 答案 <span style="color:var(--green);font-weight:700">' + esc(correct) + '</span></span></div>'
+      + '<div style="font-size:14px;line-height:1.85;margin-bottom:8px;white-space:pre-wrap">' + esc(q.stem || '') + '</div>'
+      + '<div style="font-size:13px;line-height:1.9;margin-bottom:8px">'
+      + opts.map(function(o){ return '<div style="color:' + (o.key === correct ? 'var(--green)' : 'var(--muted)') + '">' + esc(o.key) + '. ' + esc(o.text) + '</div>'; }).join('')
+      + '</div>'
+      + (analysis ? '<div style="font-size:12.8px;line-height:1.8;color:var(--muted)"><span style="color:var(--gold)">解析：</span>' + esc(analysis) + '</div>' : '')
+      + (points ? '<div style="font-size:12.3px;line-height:1.8;color:#8fa6cc;margin-top:4px"><span style="color:var(--accent)">知识点：</span>' + esc(points) + '</div>' : '')
+      + (q.tips ? '<div style="font-size:12.3px;line-height:1.8;color:#9aa9c5;margin-top:2px"><span style="color:var(--gold)">提醒：</span>' + esc(q.tips) + '</div>' : '')
+      + '</div>';
+  });
+  openModal('<div class="modal-head"><h3>查看试题 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3>' + closeHtml + '</div>'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px">共 <b style="color:var(--gold)">' + all.length + '</b> 题 · 总分 <b style="color:var(--gold)">' + total + '</b> 分</div>'
+    + '<div style="max-height:62vh;overflow-y:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:rgba(91,200,255,.4) transparent">' + list + '</div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
 }
 
 function examPayload(exam){
