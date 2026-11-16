@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/nxBXc7BXOQ
-https://aka.doubaocdn.com/s/On1ps1tRZh
+https://aka.doubaocdn.com/s/D05EHlaR4h
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -28,3 +28,4 @@ https://aka.doubaocdn.com/s/On1ps1tRZh
 # tuned 2026-11-16 22:50 unify scores, manage and login to the same full-width container; reserve scrollbar gutter
 # tuned 2026-11-16 23:05 student page: same full-width container and stable scrollbar gutter
 # tuned 2026-11-16 23:35 question editor dropdowns use the dark nice-select style
+# tuned 2026-11-16 23:52 question editor number steppers use dark custom buttons
