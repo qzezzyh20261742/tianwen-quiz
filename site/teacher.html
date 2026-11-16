@@ -3227,6 +3227,7 @@ function initDateTimePicker(id, opts){
   wrap.appendChild(input);
   wrap.appendChild(trigger);
   wrap.appendChild(panel);
+  panel.addEventListener('click', function(ev){ ev.stopPropagation(); });
   const labelEl = trigger.querySelector('.dt-trigger-label');
   const monthEl = panel.querySelector('[data-dt-month]');
   const gridEl = panel.querySelector('[data-dt-grid]');
@@ -3332,7 +3333,12 @@ function initDateTimePicker(id, opts){
     closePicker();
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  function markChanged(){ syncTrigger(); }
+  function markChanged(){
+    if(state.sel){
+      input.value = dtFormatValue({ y: state.sel.y, m: state.sel.m, d: state.sel.d, hh: state.hour, mm: state.minute });
+    }
+    syncTrigger();
+  }
   trigger.addEventListener('click', function(ev){
     ev.preventDefault();
     ev.stopPropagation();
