@@ -235,6 +235,13 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .q-editor-form input,.q-editor-form textarea,.q-editor-form select{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:14px;font-family:inherit;line-height:1.6;outline:none;transition:border-color .18s,box-shadow .18s}
 .q-editor-form .nice-select{display:block;width:100%}
 .q-editor-form .nice-select-trigger{min-height:38px;padding:10px 12px;border-radius:10px}
+.q-number-wrap{position:relative}
+.q-number-wrap input[type="number"]{padding-right:36px;appearance:textfield;-moz-appearance:textfield}
+.q-number-wrap input[type="number"]::-webkit-outer-spin-button,.q-number-wrap input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.q-number-stepper{position:absolute;right:7px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;z-index:1}
+.q-number-stepper button{display:flex;align-items:center;justify-content:center;width:22px;height:14px;padding:0;border:1px solid rgba(132,168,255,.28);border-radius:4px;background:rgba(16,27,60,.95);color:#9db0d8;cursor:pointer;transition:border-color .16s,color .16s,background .16s}
+.q-number-stepper button:hover{border-color:var(--accent);color:var(--accent);background:rgba(25,46,85,.95)}
+.q-number-stepper button:disabled{opacity:.35;cursor:not-allowed}
 .q-editor-form textarea{resize:vertical;min-height:62px}
 .q-editor-form input:focus,.q-editor-form textarea:focus,.q-editor-form select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
 .q-editor-form input[readonly]{opacity:.72;cursor:default}
@@ -2868,8 +2875,8 @@ function openQuestionInfoModal(exam, group){
     + modeButtons
     + (existing.length ? '<div class="field" data-q-picker-wrap><label>选择要补充的题目</label><select id="qPickerSelect" data-q-picker>' + pickerOptions + '</select></div>' : '')
     + '<div class="q-editor-grid q-editor-grid-3">'
-    + '<div class="field"><label>题号</label><input type="number" min="1" step="1" data-q-no></div>'
-    + '<div class="field"><label>分值</label><input type="number" min="1" step="1" data-q-score></div>'
+    + '<div class="field"><label>题号</label><div class="q-number-wrap"><input type="number" min="1" step="1" data-q-no><span class="q-number-stepper"><button type="button" data-q-step="up" aria-label="题号增加"><svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" data-q-step="down" aria-label="题号减少"><svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div></div>'
+    + '<div class="field"><label>分值</label><div class="q-number-wrap"><input type="number" min="1" step="1" data-q-score><span class="q-number-stepper"><button type="button" data-q-step="up" aria-label="分值增加"><svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" data-q-step="down" aria-label="分值减少"><svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div></div>'
     + '<div class="field"><label>正确答案</label><select id="qAnswerSelect" data-q-answer>' + groupKeys.map(function(key){ return '<option value="' + key + '">' + key + '</option>'; }).join('') + '</select></div>'
     + '</div>'
     + '<div class="field"><label>题干</label><textarea data-q-stem rows="3" placeholder="输入题干文字；图片可在下方单独添加"></textarea></div>'
@@ -2910,6 +2917,11 @@ function openQuestionInfoModal(exam, group){
     errorEl.textContent = msg || '';
     errorEl.style.display = msg ? 'block' : 'none';
   }
+  function syncNoStepper(){
+    const wrap = noEl && noEl.closest('.q-number-wrap');
+    if(!wrap) return;
+    wrap.querySelectorAll('[data-q-step]').forEach(function(btn){ btn.disabled = !!noEl.readOnly; });
+  }
   function imageBytes(){
     return editImages.reduce(function(sum, img){ return sum + String((img && img.src) || '').length; }, 0);
   }
@@ -2930,6 +2942,7 @@ function openQuestionInfoModal(exam, group){
     if(!q){
       noEl.value = maxNo + 1;
       noEl.readOnly = false;
+      syncNoStepper();
       scoreEl.value = 5;
       stemEl.value = '';
       groupKeys.forEach(function(key){ form.querySelector('[data-q-option="' + key + '"]').value = ''; });
@@ -2944,6 +2957,7 @@ function openQuestionInfoModal(exam, group){
     }
     noEl.value = Number(q.no) || 1;
     noEl.readOnly = true;
+    syncNoStepper();
     scoreEl.value = Number(q.score) || 0;
     stemEl.value = String(q.stem || '');
     groupKeys.forEach(function(key){ form.querySelector('[data-q-option="' + key + '"]').value = qInfoOptionText(q, key); });
@@ -2977,6 +2991,18 @@ function openQuestionInfoModal(exam, group){
       showError('');
     });
   }
+  form.addEventListener('click', function(ev){
+    const stepBtn = ev.target.closest('[data-q-step]');
+    if(!stepBtn) return;
+    ev.preventDefault();
+    const wrap = stepBtn.closest('.q-number-wrap');
+    const input = wrap && wrap.querySelector('input[type="number"]');
+    if(!input || input.readOnly) return;
+    if(stepBtn.dataset.qStep === 'up') input.stepUp();
+    else input.stepDown();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus({ preventScroll: true });
+  });
   form.addEventListener('click', function(ev){
     const removeBtn = ev.target.closest('[data-q-img-remove]');
     if(!removeBtn) return;
