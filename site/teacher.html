@@ -2655,7 +2655,13 @@ function toLocalDatetimeValue(iso){
 function examHasAllGroupQuestions(exam){
   const groups = (exam && exam.groups) || [];
   if(!groups.length) return false;
-  return groups.every(function(g){ return (((exam.questions || {})[g]) || []).length > 0; });
+  return groups.every(function(g){
+    const local = (((exam.questions || {})[g]) || []);
+    if(local.length) return true;
+    /* 新设备尚未缓存完整试题时，云端摘要里的题数同样代表该组已导入 */
+    const meta = ((exam.perGroup || {})[g]) || null;
+    return !!(meta && Number(meta.count) > 0);
+  });
 }
 function effectiveExamStatus(exam){
   const now = Date.now();
@@ -4270,6 +4276,15 @@ document.addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape') closeExamSchoolPanels();
 });
+/* 定时到点后无需刷新页面：页面可见时每 30 秒重算一次考试状态 */
+setInterval(function(){
+  if(document.hidden) return;
+  const maskEl = document.getElementById('modalMask');
+  if(maskEl && maskEl.classList.contains('show')) return;
+  const examList = document.getElementById('examList');
+  if(!examList || !examList.offsetParent || !EXAMS.length) return;
+  renderExamBoard();
+}, 30000);
 
 function openCloudSetup(){
   const cfg = getCloudConfig();
