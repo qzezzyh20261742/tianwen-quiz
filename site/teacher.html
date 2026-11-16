@@ -199,6 +199,42 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .exam-mini-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);min-width:0}
 .exam-mini-field input{width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:13px;outline:none;color-scheme:dark}
 .exam-mini-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
+/* ===== 自定义日期时间选择器 ===== */
+.dt-picker{position:relative;width:100%;min-width:0}
+.dt-picker > input{display:none}
+.dt-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:36px;padding:8px 9px;border-radius:8px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:13px;font-family:inherit;line-height:1.35;text-align:left;cursor:pointer;outline:none;transition:border-color .18s,background .18s}
+.dt-trigger:hover{border-color:rgba(91,200,255,.42)}
+.dt-trigger:focus-visible,.dt-trigger.open{border-color:var(--accent);box-shadow:0 0 0 2px rgba(91,200,255,.14);background:rgba(12,26,52,.92)}
+.dt-trigger.dt-empty{color:var(--muted)}
+.dt-trigger-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dt-trigger-icon{flex:none;display:flex;align-items:center;color:var(--accent)}
+.dt-panel{position:absolute;top:calc(100% + 7px);left:0;z-index:135;width:332px;max-width:calc(100vw - 42px);max-height:calc(100vh - 24px);overflow-y:auto;padding:12px;border:1px solid rgba(120,160,220,.4);border-radius:12px;background:#0b1330;box-shadow:0 16px 38px rgba(0,0,0,.48);color:var(--text);font-family:inherit}
+.dt-picker.is-end .dt-panel{left:auto;right:0}
+.dt-picker.drop-up .dt-panel{top:auto;bottom:calc(100% + 7px)}
+.dt-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.dt-nav{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid rgba(132,168,255,.25);border-radius:7px;background:rgba(16,27,60,.9);color:var(--muted);cursor:pointer;font-family:inherit;font-size:18px;line-height:1;transition:border-color .16s,color .16s}
+.dt-nav:hover{border-color:var(--accent);color:var(--accent)}
+.dt-month{font-size:14px;font-weight:700;letter-spacing:.03em}
+.dt-week,.dt-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dt-week{margin-bottom:3px}
+.dt-week span{text-align:center;color:var(--muted);font-size:11px;line-height:24px}
+.dt-day{display:flex;align-items:center;justify-content:center;min-width:0;height:29px;padding:0;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text);font-family:inherit;font-size:13px;line-height:1;cursor:pointer;transition:background .14s,border-color .14s,color .14s}
+.dt-day:hover{background:rgba(255,255,255,.065)}
+.dt-day.other{color:var(--muted);opacity:.38}
+.dt-day.today{border-color:rgba(91,200,255,.5)}
+.dt-day.selected{background:rgba(73,174,255,.2);border-color:var(--accent);color:var(--accent);font-weight:700;opacity:1}
+.dt-time-row{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(132,168,255,.14)}
+.dt-time-row label{color:var(--muted);font-size:12px;flex:none}
+.dt-time-input{width:46px;height:30px;padding:0 5px;border:1px solid var(--line-strong);border-radius:6px;background:rgba(8,13,32,.85);color:var(--text);font-family:inherit;font-size:13px;text-align:center;outline:none;-moz-appearance:textfield;appearance:textfield}
+.dt-time-input::-webkit-outer-spin-button,.dt-time-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.dt-time-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(91,200,255,.14)}
+.dt-time-colon{color:var(--muted)}
+.dt-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+.dt-foot-left,.dt-foot-right{display:flex;align-items:center;gap:6px}
+.dt-link{padding:4px 6px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-family:inherit;font-size:12px;white-space:nowrap;flex:none;cursor:pointer}
+.dt-link:hover{color:var(--accent);background:rgba(91,200,255,.09)}
+.dt-ok{padding:6px 13px;border:1px solid rgba(91,200,255,.55);border-radius:7px;background:rgba(73,174,255,.16);color:var(--accent);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.dt-ok:hover{background:rgba(73,174,255,.26)}
 .exam-check-row{display:flex;gap:6px;flex-wrap:wrap}
 .exam-check{position:relative;min-width:0}
 .exam-check input{position:absolute;opacity:0;inset:0;cursor:pointer}
@@ -272,6 +308,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .modal-mask{position:fixed;inset:0;background:rgba(3,6,18,.72);z-index:50;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-mask.show{display:flex}
 .modal{width:100%;max-width:860px;max-height:88vh;overflow-y:auto;background:var(--card-solid);border:1px solid var(--line-strong);border-radius:16px;padding:24px}
+.modal.dt-picker-open{overflow:visible}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .modal-close{background:none;border:1px solid var(--line-strong);color:var(--text);width:36px;height:36px;border-radius:9px;cursor:pointer;font-size:17px}
 
@@ -3117,6 +3154,246 @@ function openQuestionInfoModal(exam, group){
   fillEditor(mode === 'edit' ? existing[0] : null);
 }
 
+var dtPickerRegistry = {};
+var dtPickerGlobalBound = false;
+function dtPad(n){ return String(n).padStart(2, '0'); }
+function dtParseValue(value){
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(value == null ? '' : value));
+  if(!m) return null;
+  const out = { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]), hh: Number(m[4]), mm: Number(m[5]) };
+  if(out.m < 1 || out.m > 12 || out.d < 1 || out.d > 31 || out.hh > 23 || out.mm > 59) return null;
+  return out;
+}
+function dtFormatDisplay(sel){
+  if(!sel) return '';
+  return sel.y + '/' + dtPad(sel.m) + '/' + dtPad(sel.d) + ' ' + dtPad(sel.hh) + ':' + dtPad(sel.mm);
+}
+function dtFormatValue(sel){
+  return sel.y + '-' + dtPad(sel.m) + '-' + dtPad(sel.d) + 'T' + dtPad(sel.hh) + ':' + dtPad(sel.mm);
+}
+function dtSameDate(a, y, m, d){
+  return !!(a && a.y === y && a.m === m && a.d === d);
+}
+function initDateTimePicker(id, opts){
+  opts = opts || {};
+  const input = document.getElementById(id);
+  if(!input || input.dataset.dtReady === '1') return;
+  input.dataset.dtReady = '1';
+  const now = new Date();
+  const initial = dtParseValue(input.value);
+  const state = {
+    viewY: initial ? initial.y : now.getFullYear(),
+    viewM: initial ? initial.m : now.getMonth() + 1,
+    sel: initial ? { y: initial.y, m: initial.m, d: initial.d } : null,
+    hour: initial ? initial.hh : now.getHours(),
+    minute: initial ? initial.mm : now.getMinutes()
+  };
+  const wrap = document.createElement('div');
+  wrap.className = 'dt-picker' + (opts.align === 'right' ? ' is-end' : '');
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'dt-trigger';
+  trigger.setAttribute('aria-haspopup', 'dialog');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.innerHTML = '<span class="dt-trigger-label"></span><span class="dt-trigger-icon"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 3v4M17 3v4M3 10h18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>';
+  const panel = document.createElement('div');
+  panel.className = 'dt-panel';
+  panel.hidden = true;
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', opts.caption || '选择日期时间');
+  panel.innerHTML = '<div class="dt-head"><button class="dt-nav" type="button" data-dt-prev aria-label="上个月">‹</button><div class="dt-month" data-dt-month></div><button class="dt-nav" type="button" data-dt-next aria-label="下个月">›</button></div>'
+    + '<div class="dt-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>'
+    + '<div class="dt-grid" data-dt-grid></div>'
+    + '<div class="dt-time-row"><label>时间</label><input class="dt-time-input" type="text" inputmode="numeric" maxlength="2" data-dt-hour aria-label="小时" placeholder="00"><span class="dt-time-colon">:</span><input class="dt-time-input" type="text" inputmode="numeric" maxlength="2" data-dt-minute aria-label="分钟" placeholder="00"><button class="dt-link" type="button" data-dt-now>现在</button></div>'
+    + '<div class="dt-foot"><div class="dt-foot-left"><button class="dt-link" type="button" data-dt-clear>清除</button><button class="dt-link" type="button" data-dt-today>今天</button></div><div class="dt-foot-right"><button class="dt-ok" type="button" data-dt-ok>确定</button></div></div>';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  wrap.appendChild(trigger);
+  wrap.appendChild(panel);
+  const labelEl = trigger.querySelector('.dt-trigger-label');
+  const monthEl = panel.querySelector('[data-dt-month]');
+  const gridEl = panel.querySelector('[data-dt-grid]');
+  const hourEl = panel.querySelector('[data-dt-hour]');
+  const minuteEl = panel.querySelector('[data-dt-minute]');
+  const item = { input: input, wrap: wrap, trigger: trigger, panel: panel, labelEl: labelEl, monthEl: monthEl, gridEl: gridEl, hourEl: hourEl, minuteEl: minuteEl, state: state, placeholder: opts.placeholder || 'yyyy/mm/dd --:--' };
+  dtPickerRegistry[id] = item;
+  function syncTrigger(){
+    const sel = state.sel;
+    const label = sel ? dtFormatDisplay(Object.assign({}, sel, { hh: state.hour, mm: state.minute })) : item.placeholder;
+    labelEl.textContent = label;
+    trigger.classList.toggle('dt-empty', !sel);
+  }
+  function syncTimeInputs(){
+    hourEl.value = dtPad(state.hour);
+    minuteEl.value = dtPad(state.minute);
+  }
+  function renderCalendar(){
+    monthEl.textContent = state.viewY + '年' + state.viewM + '月';
+    const first = new Date(state.viewY, state.viewM - 1, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const start = new Date(state.viewY, state.viewM - 1, 1 - offset);
+    const today = new Date();
+    let html = '';
+    for(let i = 0; i < 42; i++){
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const y = d.getFullYear();
+      const mo = d.getMonth() + 1;
+      const da = d.getDate();
+      const selected = dtSameDate(state.sel, y, mo, da);
+      const isToday = y === today.getFullYear() && mo === today.getMonth() + 1 && da === today.getDate();
+      const cls = 'dt-day' + (mo !== state.viewM ? ' other' : '') + (isToday ? ' today' : '') + (selected ? ' selected' : '');
+      html += '<button class="' + cls + '" type="button" data-dt-date="' + y + '-' + dtPad(mo) + '-' + dtPad(da) + '">' + da + '</button>';
+    }
+    gridEl.innerHTML = html;
+  }
+  function openPicker(){
+    Object.keys(dtPickerRegistry).forEach(function(key){ if(key !== id) closeDateTimePicker(key); });
+    const current = dtParseValue(input.value);
+    if(current){
+      state.sel = { y: current.y, m: current.m, d: current.d };
+      state.viewY = current.y;
+      state.viewM = current.m;
+      state.hour = current.hh;
+      state.minute = current.mm;
+    } else {
+      state.sel = null;
+      const nowDate = new Date();
+      state.viewY = nowDate.getFullYear();
+      state.viewM = nowDate.getMonth() + 1;
+      state.hour = nowDate.getHours();
+      state.minute = nowDate.getMinutes();
+    }
+    syncTimeInputs();
+    renderCalendar();
+    panel.hidden = false;
+    wrap.classList.add('open');
+    var modal = wrap.closest('.modal');
+    if(modal) modal.classList.add('dt-picker-open');
+    trigger.setAttribute('aria-expanded', 'true');
+    wrap.classList.remove('drop-up');
+    const rect = trigger.getBoundingClientRect();
+    const panelH = panel.offsetHeight || 0;
+    if(rect.bottom + panelH + 8 > window.innerHeight && rect.top - panelH - 12 > 0) wrap.classList.add('drop-up');
+  }
+  function closePicker(){
+    if(panel.hidden) return;
+    panel.hidden = true;
+    wrap.classList.remove('open', 'drop-up');
+    var modal = wrap.closest('.modal');
+    if(modal && !modal.querySelector('.dt-picker.open')) modal.classList.remove('dt-picker-open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  function applyPicker(){
+    const h = Math.max(0, Math.min(23, Number(hourEl.value) || 0));
+    const mm = Math.max(0, Math.min(59, Number(minuteEl.value) || 0));
+    const date = state.sel || { y: new Date().getFullYear(), m: new Date().getMonth() + 1, d: new Date().getDate() };
+    state.sel = { y: date.y, m: date.m, d: date.d };
+    state.hour = h;
+    state.minute = mm;
+    input.value = dtFormatValue({ y: date.y, m: date.m, d: date.d, hh: h, mm: mm });
+    syncTrigger();
+    closePicker();
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function markChanged(){ syncTrigger(); }
+  trigger.addEventListener('click', function(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
+    if(panel.hidden) openPicker();
+    else closePicker();
+  });
+  panel.querySelector('[data-dt-prev]').addEventListener('click', function(){
+    state.viewM -= 1;
+    if(state.viewM < 1){ state.viewM = 12; state.viewY -= 1; }
+    renderCalendar();
+  });
+  panel.querySelector('[data-dt-next]').addEventListener('click', function(){
+    state.viewM += 1;
+    if(state.viewM > 12){ state.viewM = 1; state.viewY += 1; }
+    renderCalendar();
+  });
+  gridEl.addEventListener('click', function(ev){
+    const btn = ev.target.closest('[data-dt-date]');
+    if(!btn) return;
+    const parts = btn.getAttribute('data-dt-date').split('-');
+    state.sel = { y: Number(parts[0]), m: Number(parts[1]), d: Number(parts[2]) };
+    state.viewY = state.sel.y;
+    state.viewM = state.sel.m;
+    renderCalendar();
+    markChanged();
+  });
+  function readHour(){
+    const n = Number(hourEl.value);
+    state.hour = Math.max(0, Math.min(23, isNaN(n) ? 0 : n));
+  }
+  function readMinute(){
+    const n = Number(minuteEl.value);
+    state.minute = Math.max(0, Math.min(59, isNaN(n) ? 0 : n));
+  }
+  hourEl.addEventListener('input', function(){
+    this.value = this.value.replace(/\D/g, '').slice(0, 2);
+    readHour();
+    markChanged();
+  });
+  minuteEl.addEventListener('input', function(){
+    this.value = this.value.replace(/\D/g, '').slice(0, 2);
+    readMinute();
+    markChanged();
+  });
+  hourEl.addEventListener('blur', function(){ this.value = dtPad(state.hour); });
+  minuteEl.addEventListener('blur', function(){ this.value = dtPad(state.minute); });
+  panel.querySelector('[data-dt-now]').addEventListener('click', function(){
+    const n = new Date();
+    state.hour = n.getHours();
+    state.minute = n.getMinutes();
+    syncTimeInputs();
+    markChanged();
+  });
+  panel.querySelector('[data-dt-clear]').addEventListener('click', function(){
+    input.value = '';
+    state.sel = null;
+    syncTimeInputs();
+    syncTrigger();
+    closePicker();
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  panel.querySelector('[data-dt-today]').addEventListener('click', function(){
+    const n = new Date();
+    state.sel = { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+    state.viewY = state.sel.y;
+    state.viewM = state.sel.m;
+    state.hour = n.getHours();
+    state.minute = n.getMinutes();
+    syncTimeInputs();
+    renderCalendar();
+    markChanged();
+  });
+  panel.querySelector('[data-dt-ok]').addEventListener('click', applyPicker);
+  if(!dtPickerGlobalBound){
+    dtPickerGlobalBound = true;
+    document.addEventListener('click', function(ev){
+      Object.keys(dtPickerRegistry).forEach(function(key){
+        const it = dtPickerRegistry[key];
+        if(it && !it.wrap.contains(ev.target)) closeDateTimePicker(key);
+      });
+    });
+    document.addEventListener('keydown', function(ev){
+      if(ev.key === 'Escape') Object.keys(dtPickerRegistry).forEach(function(key){ closeDateTimePicker(key); });
+    });
+    window.addEventListener('resize', function(){ Object.keys(dtPickerRegistry).forEach(function(key){ closeDateTimePicker(key); }); });
+  }
+  syncTimeInputs();
+  syncTrigger();
+}
+function closeDateTimePicker(id){
+  const item = dtPickerRegistry[id];
+  if(!item) return;
+  item.panel.hidden = true;
+  item.wrap.classList.remove('open', 'drop-up');
+  const modal = item.wrap.closest('.modal');
+  if(modal && !modal.querySelector('.dt-picker.open')) modal.classList.remove('dt-picker-open');
+  item.trigger.setAttribute('aria-expanded', 'false');
+}
 function openExamSettingsModal(exam){
   if(!exam) return;
   const groupChecks = ['小学组','初中组','高中组'].map(function(g){
@@ -3131,8 +3408,8 @@ function openExamSettingsModal(exam){
     + '<div class="field"><label>考试名称</label><input type="text" data-exam-name value="' + esc(exam.name) + '" placeholder="例如：2026 年预赛第一场"></div>'
     + '<div class="field"><label>参加组别</label><div class="exam-check-row">' + groupChecks + '</div></div>'
     + '<div class="exam-mini-grid">'
-    + '<label class="exam-mini-field">定时开始<input type="datetime-local" data-exam-start value="' + esc(startVal) + '"></label>'
-    + '<label class="exam-mini-field">定时结束<input type="datetime-local" data-exam-end value="' + esc(endVal) + '"></label>'
+    + '<label class="exam-mini-field">定时开始<input id="examStartAt" type="datetime-local" data-exam-start value="' + esc(startVal) + '"></label>'
+    + '<label class="exam-mini-field">定时结束<input id="examEndAt" type="datetime-local" data-exam-end value="' + esc(endVal) + '"></label>'
     + '</div>'
     + '<div class="field" style="margin-top:10px;margin-bottom:0"><label>参加学校</label>'
     + '<div class="exam-school-row"><span class="exam-school-summary" data-school-summary>' + esc(schoolSummary) + '</span>'
@@ -3144,6 +3421,8 @@ function openExamSettingsModal(exam){
   if(closeBtn) closeBtn.addEventListener('click', closeModal);
   const form = document.querySelector('[data-exam-settings-form]');
   if(!form) return;
+  initDateTimePicker('examStartAt', { placeholder: 'yyyy/mm/dd --:--' });
+  initDateTimePicker('examEndAt', { placeholder: 'yyyy/mm/dd --:--', align: 'right' });
   form.addEventListener('change', function(ev){
     if(ev.target.matches('[data-exam-school]')) refreshExamSchoolSummary(form);
     else if(ev.target.matches('[data-exam-group]')) refreshExamSchoolPanel(form);
@@ -4245,7 +4524,11 @@ function openModal(html){
   document.getElementById('modalBox').innerHTML = html;
   document.getElementById('modalMask').classList.add('show');
 }
-function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
+function closeModal(){
+  document.getElementById('modalMask').classList.remove('show');
+  var modal = document.querySelector('#modalMask .modal');
+  if(modal) modal.classList.remove('dt-picker-open');
+}
 
 /* ===== 列表式选择器：保留原 select 作为值存储，界面改用深色列表面板 ===== */
 var niceSelectRegistry = {};
