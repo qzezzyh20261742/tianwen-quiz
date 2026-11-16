@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/nxBXc7BXOQ
-https://aka.doubaocdn.com/s/2TC7AwRAZA
+https://aka.doubaocdn.com/s/JOzByTrapt
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -31,3 +31,4 @@ https://aka.doubaocdn.com/s/2TC7AwRAZA
 # tuned 2026-11-16 23:52 question editor number steppers use dark custom buttons
 # tuned 2026-11-17 exam settings: replace native datetime-local with dark custom picker
 # tuned 2026-11-17 datetime picker: compact layout for short viewports and clamp fully into view
+# tuned 2026-11-17 datetime picker: keep panel open after date click; sync value immediately
