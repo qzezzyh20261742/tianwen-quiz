@@ -1,4 +1,4 @@
-https://aka.doubaocdn.com/s/CGL36wVWoE
+https://aka.doubaocdn.com/s/nxBXc7BXOQ
 https://aka.doubaocdn.com/s/pFaQwtC1Vj
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
@@ -26,3 +26,4 @@ https://aka.doubaocdn.com/s/pFaQwtC1Vj
 # tuned 2026-11-16 02:38 responsive question editor grid
 # tuned 2026-11-16 02:44 constrain login card to 560px
 # tuned 2026-11-16 22:50 unify scores, manage and login to the same full-width container; reserve scrollbar gutter
+# tuned 2026-11-16 23:05 student page: same full-width container and stable scrollbar gutter
