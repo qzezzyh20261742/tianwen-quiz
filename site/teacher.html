@@ -233,6 +233,8 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .q-editor-grid-3{grid-template-columns:1fr 1fr 1fr}
 .q-editor-form .field{margin-bottom:10px}
 .q-editor-form input,.q-editor-form textarea,.q-editor-form select{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line-strong);background:rgba(8,13,32,.85);color:var(--text);font-size:14px;font-family:inherit;line-height:1.6;outline:none;transition:border-color .18s,box-shadow .18s}
+.q-editor-form .nice-select{display:block;width:100%}
+.q-editor-form .nice-select-trigger{min-height:38px;padding:10px 12px;border-radius:10px}
 .q-editor-form textarea{resize:vertical;min-height:62px}
 .q-editor-form input:focus,.q-editor-form textarea:focus,.q-editor-form select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
 .q-editor-form input[readonly]{opacity:.72;cursor:default}
@@ -2864,11 +2866,11 @@ function openQuestionInfoModal(exam, group){
   openModal('<div class="modal-head"><h3>添加题目信息 · ' + esc(exam.name) + ' · ' + esc(group) + '</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
     + '<div class="q-editor-form" data-q-editor>'
     + modeButtons
-    + (existing.length ? '<div class="field" data-q-picker-wrap><label>选择要补充的题目</label><select data-q-picker>' + pickerOptions + '</select></div>' : '')
+    + (existing.length ? '<div class="field" data-q-picker-wrap><label>选择要补充的题目</label><select id="qPickerSelect" data-q-picker>' + pickerOptions + '</select></div>' : '')
     + '<div class="q-editor-grid q-editor-grid-3">'
     + '<div class="field"><label>题号</label><input type="number" min="1" step="1" data-q-no></div>'
     + '<div class="field"><label>分值</label><input type="number" min="1" step="1" data-q-score></div>'
-    + '<div class="field"><label>正确答案</label><select data-q-answer>' + groupKeys.map(function(key){ return '<option value="' + key + '">' + key + '</option>'; }).join('') + '</select></div>'
+    + '<div class="field"><label>正确答案</label><select id="qAnswerSelect" data-q-answer>' + groupKeys.map(function(key){ return '<option value="' + key + '">' + key + '</option>'; }).join('') + '</select></div>'
     + '</div>'
     + '<div class="field"><label>题干</label><textarea data-q-stem rows="3" placeholder="输入题干文字；图片可在下方单独添加"></textarea></div>'
     + '<div class="q-editor-grid">' + optionFields + '</div>'
@@ -2901,6 +2903,8 @@ function openQuestionInfoModal(exam, group){
   const errorEl = form.querySelector('[data-q-error]');
   const imageInput = form.querySelector('[data-q-image-input]');
   const imageChoose = form.querySelector('[data-q-image-choose]');
+  if(pickerEl) initNiceSelect('qPickerSelect', { caption: '选择题目' });
+  if(answerEl) initNiceSelect('qAnswerSelect', { caption: '正确答案' });
   function showError(msg){
     if(!errorEl) return;
     errorEl.textContent = msg || '';
@@ -2935,6 +2939,7 @@ function openQuestionInfoModal(exam, group){
       tipsEl.value = '';
       editImages = [];
       renderEditorImages();
+      syncNiceSelect('qAnswerSelect');
       return;
     }
     noEl.value = Number(q.no) || 1;
@@ -2948,12 +2953,13 @@ function openQuestionInfoModal(exam, group){
     tipsEl.value = String(q.tips || '');
     editImages = questionImageList(q).map(function(img){ return { src: img.src, alt: img.alt || '' }; });
     renderEditorImages();
+    syncNiceSelect('qAnswerSelect');
   }
   function setMode(next){
     mode = next === 'edit' && existing.length ? 'edit' : 'new';
     form.querySelectorAll('[data-q-mode]').forEach(function(btn){ btn.classList.toggle('on', btn.dataset.qMode === mode); });
     if(pickerWrap) pickerWrap.style.display = mode === 'edit' ? '' : 'none';
-    if(pickerEl) pickerEl.value = String(editIndex);
+    if(pickerEl){ pickerEl.value = String(editIndex); syncNiceSelect('qPickerSelect'); }
     showError('');
     if(mode === 'edit') fillEditor(existing[editIndex] || existing[0]);
     else fillEditor(null);
