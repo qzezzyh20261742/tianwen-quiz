@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/CGL36wVWoE
-https://aka.doubaocdn.com/s/X0KKNaWSih
+https://aka.doubaocdn.com/s/kWP8A4cfEC
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -24,3 +24,4 @@ https://aka.doubaocdn.com/s/X0KKNaWSih
 # tuned 2026-11-16 02:30 add question info editor with new/edit and image upload
 # tuned 2026-11-16 02:36 require analysis for newly added questions
 # tuned 2026-11-16 02:38 responsive question editor grid
+# tuned 2026-11-16 02:44 constrain login card to 560px
