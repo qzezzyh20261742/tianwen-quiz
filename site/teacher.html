@@ -211,6 +211,7 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .dt-panel{position:absolute;top:calc(100% + 7px);left:0;z-index:135;width:332px;max-width:calc(100vw - 42px);max-height:calc(100vh - 24px);overflow-y:auto;padding:12px;border:1px solid rgba(120,160,220,.4);border-radius:12px;background:#0b1330;box-shadow:0 16px 38px rgba(0,0,0,.48);color:var(--text);font-family:inherit}
 .dt-picker.is-end .dt-panel{left:auto;right:0}
 .dt-picker.drop-up .dt-panel{top:auto;bottom:calc(100% + 7px)}
+.dt-picker.dt-clamped .dt-panel{position:fixed;top:8px;left:8px;right:auto;bottom:auto;max-height:calc(100vh - 16px);overflow-y:auto}
 .dt-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .dt-nav{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid rgba(132,168,255,.25);border-radius:7px;background:rgba(16,27,60,.9);color:var(--muted);cursor:pointer;font-family:inherit;font-size:18px;line-height:1;transition:border-color .16s,color .16s}
 .dt-nav:hover{border-color:var(--accent);color:var(--accent)}
@@ -235,6 +236,22 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .dt-link:hover{color:var(--accent);background:rgba(91,200,255,.09)}
 .dt-ok{padding:6px 13px;border:1px solid rgba(91,200,255,.55);border-radius:7px;background:rgba(73,174,255,.16);color:var(--accent);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .dt-ok:hover{background:rgba(73,174,255,.26)}
+@media (max-height: 560px){
+  .dt-panel{width:322px;padding:9px 10px;max-height:calc(100vh - 16px)}
+  .dt-head{margin-bottom:5px}
+  .dt-nav{width:26px;height:26px;font-size:16px}
+  .dt-month{font-size:13px}
+  .dt-week{margin-bottom:1px}
+  .dt-week span{line-height:18px;font-size:10px}
+  .dt-grid{gap:1px}
+  .dt-day{height:25px;font-size:12px;border-radius:6px}
+  .dt-time-row{margin-top:6px;padding-top:6px;gap:5px}
+  .dt-time-row label{font-size:11px}
+  .dt-time-input{width:42px;height:27px;font-size:12px}
+  .dt-link{font-size:11px;padding:3px 5px}
+  .dt-ok{padding:5px 10px;font-size:12px}
+  .dt-foot{margin-top:5px}
+}
 .exam-check-row{display:flex;gap:6px;flex-wrap:wrap}
 .exam-check{position:relative;min-width:0}
 .exam-check input{position:absolute;opacity:0;inset:0;cursor:pointer}
@@ -3246,6 +3263,13 @@ function initDateTimePicker(id, opts){
     }
     gridEl.innerHTML = html;
   }
+  function resetPanelPosition(){
+    wrap.classList.remove('drop-up', 'dt-clamped');
+    panel.style.top = '';
+    panel.style.left = '';
+    panel.style.right = '';
+    panel.style.width = '';
+  }
   function openPicker(){
     Object.keys(dtPickerRegistry).forEach(function(key){ if(key !== id) closeDateTimePicker(key); });
     const current = dtParseValue(input.value);
@@ -3265,20 +3289,33 @@ function initDateTimePicker(id, opts){
     }
     syncTimeInputs();
     renderCalendar();
+    resetPanelPosition();
     panel.hidden = false;
     wrap.classList.add('open');
     var modal = wrap.closest('.modal');
     if(modal) modal.classList.add('dt-picker-open');
     trigger.setAttribute('aria-expanded', 'true');
-    wrap.classList.remove('drop-up');
     const rect = trigger.getBoundingClientRect();
     const panelH = panel.offsetHeight || 0;
-    if(rect.bottom + panelH + 8 > window.innerHeight && rect.top - panelH - 12 > 0) wrap.classList.add('drop-up');
+    const belowFits = rect.bottom + panelH + 8 <= window.innerHeight;
+    const aboveFits = rect.top - panelH - 12 > 0;
+    if(!belowFits && aboveFits){
+      wrap.classList.add('drop-up');
+    } else if(!belowFits && !aboveFits){
+      const pw = Math.min(panel.offsetWidth || 332, window.innerWidth - 16);
+      let left = wrap.classList.contains('is-end') ? rect.right - pw : rect.left;
+      left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+      wrap.classList.add('dt-clamped');
+      panel.style.width = pw + 'px';
+      panel.style.left = left + 'px';
+      panel.style.top = '8px';
+    }
   }
   function closePicker(){
     if(panel.hidden) return;
     panel.hidden = true;
-    wrap.classList.remove('open', 'drop-up');
+    wrap.classList.remove('open');
+    resetPanelPosition();
     var modal = wrap.closest('.modal');
     if(modal && !modal.querySelector('.dt-picker.open')) modal.classList.remove('dt-picker-open');
     trigger.setAttribute('aria-expanded', 'false');
@@ -3389,7 +3426,11 @@ function closeDateTimePicker(id){
   const item = dtPickerRegistry[id];
   if(!item) return;
   item.panel.hidden = true;
-  item.wrap.classList.remove('open', 'drop-up');
+  item.wrap.classList.remove('open', 'drop-up', 'dt-clamped');
+  item.panel.style.top = '';
+  item.panel.style.left = '';
+  item.panel.style.right = '';
+  item.panel.style.width = '';
   const modal = item.wrap.closest('.modal');
   if(modal && !modal.querySelector('.dt-picker.open')) modal.classList.remove('dt-picker-open');
   item.trigger.setAttribute('aria-expanded', 'false');
