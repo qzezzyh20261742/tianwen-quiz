@@ -5912,7 +5912,7 @@ function renderAdminList(){
     }
     const targetRole = a.role || (s && s.role) || '';
     const forceBtn = (canManage && s && a.user !== currentAdmin.user
-      && (currentAdmin.role === 'admin' || !isSuperAdminRole(targetRole)))
+      && (isSuperAdminRole(currentAdmin.role) || !isSuperAdminRole(targetRole)))
       ? '<button type="button" class="btn btn-danger btn-sm" data-force-logout="' + esc(a.user) + '">强制下线</button>'
       : '';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px 14px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap">'
@@ -5990,7 +5990,7 @@ function forceLogoutAdmin(user){
   const target = getAdmins().find(function(a){ return a.user === user; });
   const targetRole = target ? target.role : '';
   const targetSessionRole = adminSessions[user] && adminSessions[user].role;
-  if(currentAdmin.role !== 'admin' && (isSuperAdminRole(targetRole) || isSuperAdminRole(targetSessionRole))){
+  if(!isSuperAdminRole(currentAdmin.role) && (isSuperAdminRole(targetRole) || isSuperAdminRole(targetSessionRole))){
     toast('子管理员不能下线超级管理员');
     return;
   }
