@@ -5079,6 +5079,9 @@ function roleLabel(a){
   if(a.role === 'subadmin') return '子管理员';
   return '普通教师 · ' + (a.scope || '小学组') + ' · ' + (a.schoolScope || '未关联学校');
 }
+function isSuperAdminRole(role){
+  return role === 'admin' || role === 'superadmin' || role === 'system';
+}
 function isBackendAdmin(){
   return !!(currentAdmin && (currentAdmin.role === 'admin' || currentAdmin.role === 'subadmin'));
 }
@@ -5907,7 +5910,9 @@ function renderAdminList(){
         sessionHtml = '<span style="font-size:12px;color:var(--muted)">登录：未登录</span>';
       }
     }
-    const forceBtn = (canManage && s && a.user !== currentAdmin.user)
+    const targetRole = a.role || (s && s.role) || '';
+    const forceBtn = (canManage && s && a.user !== currentAdmin.user
+      && (currentAdmin.role === 'admin' || !isSuperAdminRole(targetRole)))
       ? '<button type="button" class="btn btn-danger btn-sm" data-force-logout="' + esc(a.user) + '">强制下线</button>'
       : '';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px 14px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap">'
@@ -5983,6 +5988,12 @@ function forceLogoutAdmin(user){
   if(!user) return;
   if(user === currentAdmin.user){ toast('当前账号正在这台电脑使用，不能在这里强制下线自己'); return; }
   const target = getAdmins().find(function(a){ return a.user === user; });
+  const targetRole = target ? target.role : '';
+  const targetSessionRole = adminSessions[user] && adminSessions[user].role;
+  if(currentAdmin.role !== 'admin' && (isSuperAdminRole(targetRole) || isSuperAdminRole(targetSessionRole))){
+    toast('子管理员不能下线超级管理员');
+    return;
+  }
   const s = adminSessions[user];
   if(!s){ toast('该账号当前未登录'); return; }
   openModal('<div class="modal-head"><h3>强制下线？</h3></div>'
