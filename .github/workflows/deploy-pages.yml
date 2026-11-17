@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
 
 permissions:
   contents: write
@@ -19,9 +21,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Create image directory
+        run: mkdir -p site/question-images
+      - name: Backup question images
+        run: node scripts/backup-question-images.mjs
+        env:
+          PAGES_BASE_URL: https://zyh572.github.io/tianwen
       - name: Prepare site files
         run: |
-          mkdir -p out site
+          mkdir -p out
           S_URL=$(sed -n '1p' site/source.txt 2>/dev/null)
           T_URL=$(sed -n '2p' site/source.txt 2>/dev/null)
           if [ -n "$S_URL" ] && curl -fsSL -m 30 -A "Mozilla/5.0" "$S_URL" -o out/student.html; then
@@ -37,6 +48,9 @@ jobs:
             echo "teacher: using repo copy"
           fi
           cp site/cloud.json out/cloud.json
+          if [ -d site/question-images ]; then
+            cp -R site/question-images out/question-images
+          fi
           test -s out/student.html
           test -s out/teacher.html
           test -s out/cloud.json
@@ -75,10 +89,16 @@ jobs:
           </html>
           EOF
           ls -la out
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
+      - name: Upload question image manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: question-image-manifest
+          path: site/question-images/manifest.json
+          if-no-files-found: ignore
       - name: Archive site files in repo
         run: |
           cp out/student.html site/student.html
@@ -88,7 +108,7 @@ jobs:
             git config user.email "ci@users.noreply.github.com"
             git config user.name "deploy-bot"
             git commit -m "sync site files [skip ci]"
-            git push || true
+            git push
           fi
 
   deploy:
@@ -98,6 +118,16 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: question-image-manifest
+          path: question-image-manifest
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Apply GitHub image URLs to cloud data
+        run: node scripts/apply-question-image-map.mjs
+        env:
+          MANIFEST_PATH: ${{ github.workspace }}/question-image-manifest/manifest.json
+          PAGES_BASE_URL: https://zyh572.github.io/tianwen
