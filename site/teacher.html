@@ -5891,7 +5891,7 @@ function renderAdminList(){
   const sortedAdmins = admins.slice().sort(function(a, b){ return rank(a) - rank(b); });
   const visible = adminListExpanded ? sortedAdmins : sortedAdmins.slice(0, 5);
   let html = canManage
-    ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.7">登录状态来自云端：同一账号仅允许一台电脑登录，后登录的电脑会使前一台自动退出。可对已登录账号执行「强制下线」。</div>'
+    ? '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.7">登录状态来自云端：同一账号仅允许一台电脑登录，后登录的电脑会使前一台自动退出。可对已登录账号执行「强制下线」；超级管理员账号仅超级管理员可操作。</div>'
     : '';
   html += visible.map(a => {
     const s = canManage ? adminSessions[a.user] : null;
