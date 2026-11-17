@@ -2897,8 +2897,9 @@ function openExamPaperModal(exam){
   });
 }
 
-function openQuestionInfoModal(exam, group){
+async function openQuestionInfoModal(exam, group){
   if(!exam || !group) return;
+  await refreshQuestionsFromCloud(exam, group);
   const existing = ((exam.questions || {})[group] || []).slice().sort(function(a, b){
     return (Number(a && a.no) || 0) - (Number(b && b.no) || 0);
   });
@@ -2906,6 +2907,7 @@ function openQuestionInfoModal(exam, group){
   let mode = existing.length ? 'edit' : 'new';
   let editIndex = 0;
   let editImages = [];
+  let imageBusy = false;
   const groupKeys = ['A','B','C','D'];
   function qInfoLines(value){
     if(Array.isArray(value)) return value.filter(Boolean).map(function(x){ return String(x).trim(); }).filter(Boolean).join('\n');
@@ -3077,7 +3079,10 @@ function openQuestionInfoModal(exam, group){
     imageInput.addEventListener('change', async function(){
       const files = Array.prototype.slice.call(imageInput.files || []);
       if(!files.length) return;
+      const saveButton = form.querySelector('[data-q-save]');
+      imageBusy = true;
       imageChoose.disabled = true;
+      if(saveButton) saveButton.disabled = true;
       if(imageStatusEl) imageStatusEl.textContent = '正在处理图片…';
       try {
         for(let i = 0; i < files.length; i++){
@@ -3097,6 +3102,8 @@ function openQuestionInfoModal(exam, group){
       } finally {
         imageInput.value = '';
         imageChoose.disabled = false;
+        imageBusy = false;
+        if(saveButton) saveButton.disabled = false;
         renderEditorImages();
       }
     });
@@ -3136,7 +3143,8 @@ function openQuestionInfoModal(exam, group){
   const cancelBtn = form.querySelector('[data-q-cancel]');
   if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
   const saveBtn = form.querySelector('[data-q-save]');
-  if(saveBtn) saveBtn.addEventListener('click', function(){
+  if(saveBtn) saveBtn.addEventListener('click', async function(){
+    if(imageBusy){ showError('图片还在处理中，请稍候再保存'); return; }
     const q = collectQuestion();
     const error = validateQuestion(q);
     if(error){ showError(error); return; }
@@ -3174,7 +3182,9 @@ function openQuestionInfoModal(exam, group){
       return;
     }
     toast('已保存到本机，正在同步云端…');
-    uploadExam(exam, true);
+    const synced = await uploadExam(exam, true);
+    if(synced) toast('题目与图片已同步到云端；其他设备点「同步试题」即可查看');
+    else toast('云端同步失败，图片仍只在本机；请点「同步试题」重试');
   });
   fillEditor(mode === 'edit' ? existing[0] : null);
 }
@@ -3714,6 +3724,49 @@ function questionImageList(q){
   return normalizeImageList(q.images && q.images.length ? q.images : q.image);
 }
 
+/* 读取云端最新题库；只补入本机缺失的题目和缺失的题目图片，避免覆盖本机未同步的文字修改 */
+async function refreshQuestionsFromCloud(exam, group){
+  if(!exam || !group) return false;
+  try {
+    const j = await cloudCall('/exams-full');
+    const cloudExam = (j.exams || []).find(function(x){ return x.id === exam.id; });
+    const cloudQs = ((cloudExam && cloudExam.questions || {})[group]) || [];
+    if(!cloudQs.length) return false;
+    const localQs = ((exam.questions || {})[group]) || [];
+    let changed = false;
+    let next = localQs.slice();
+    if(!next.length){
+      next = JSON.parse(JSON.stringify(cloudQs));
+      changed = true;
+    } else {
+      const byNo = {};
+      next.forEach(function(q){ byNo[String(Number(q && q.no) || 0)] = q; });
+      cloudQs.forEach(function(cq){
+        const key = String(Number(cq && cq.no) || 0);
+        const lq = byNo[key];
+        if(!lq){
+          next.push(JSON.parse(JSON.stringify(cq)));
+          changed = true;
+          return;
+        }
+        if(!questionImageList(lq).length && questionImageList(cq).length){
+          lq.images = JSON.parse(JSON.stringify(cq.images || []));
+          changed = true;
+        }
+      });
+    }
+    if(!changed) return false;
+    if(!exam.questions) exam.questions = {};
+    exam.questions[group] = next.sort(function(a, b){ return (Number(a && a.no) || 0) - (Number(b && b.no) || 0); });
+    exam.updatedAt = cloudExam.updatedAt || exam.updatedAt || '';
+    saveLocalExams();
+    renderExamBoard();
+    return true;
+  } catch(e){
+    return false;
+  }
+}
+
 function questionImagesHtml(q){
   return questionImageList(q).map(function(img, idx){
     return '<img src="' + esc(img.src) + '" alt="' + esc(img.alt || ('题目图片 ' + (idx + 1))) + '" loading="lazy">';
@@ -4156,6 +4209,7 @@ function showExamQuestionsModal(exam, group, all){
 }
 
 async function viewExamQuestions(exam, group){
+  await refreshQuestionsFromCloud(exam, group);
   const all = ((exam.questions || {})[group] || []).slice();
   if(all.length){ showExamQuestionsModal(exam, group, all); return; }
   const meta = ((exam.perGroup || {})[group]) || null;
