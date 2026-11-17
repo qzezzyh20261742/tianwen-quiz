@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/nxBXc7BXOQ
-https://aka.doubaocdn.com/s/L2PrBW2Xk1
+https://aka.doubaocdn.com/s/CWWAuiPpf9
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -35,3 +35,4 @@ https://aka.doubaocdn.com/s/L2PrBW2Xk1
 # tuned 2026-11-17 exam auto-start: past start + all group questions; 30s status refresh; cloud perGroup fallback
 # tuned 2026-11-17 schedule reopen: manualClosed flag keeps explicit end; past start auto-opens after reschedule
 # tuned 2026-11-17 version strip: V2.1.1101
+# tuned 2026-11-17 question images: wait for compression before save; sync cloud images into local before edit/view
