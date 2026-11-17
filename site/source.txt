@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/nxBXc7BXOQ
-https://aka.doubaocdn.com/s/VLWVeaJR4F
+https://aka.doubaocdn.com/s/HPRjuc6zav
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -37,4 +37,4 @@ https://aka.doubaocdn.com/s/VLWVeaJR4F
 # tuned 2026-11-17 version strip: V2.1.1101
 # tuned 2026-11-17 question images: wait for compression before save; sync cloud images into local before edit/view
 # tuned 2026-11-17 permissions: subadmin cannot force-logout a super admin (UI + API)
-# tuned 2026-11-17 permissions: unify super-admin role check for UI and API
+# tuned 2026-11-17 permissions: unify super-admin role check for UI and API; clarify account-list hint
