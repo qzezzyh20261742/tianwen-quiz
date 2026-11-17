@@ -2668,13 +2668,14 @@ function effectiveExamStatus(exam){
   const start = exam && exam.startAt ? Date.parse(exam.startAt) : NaN;
   const end = exam && exam.endAt ? Date.parse(exam.endAt) : NaN;
   if(!isNaN(end) && now >= end) return 'closed';
-  if(!exam || exam.status === 'closed') return 'closed';
-  if(exam.status === 'open') return 'open';
+  if(exam && exam.manualClosed === true) return 'closed';
+  if(exam && exam.status === 'open') return 'open';
   if(!isNaN(start)){
     if(now < start) return 'draft';
     if(!examHasAllGroupQuestions(exam)) return 'draft';
     return 'open';
   }
+  if(exam && exam.status === 'closed') return 'closed';
   return 'draft';
 }
 function examSchoolPanelHtml(exam){
@@ -2716,6 +2717,7 @@ async function refreshExamBoard(isAuto){
         mergedExam.startAt = l.startAt || '';
         mergedExam.endAt = l.endAt || '';
         mergedExam.schools = Array.isArray(l.schools) ? l.schools : [];
+        mergedExam.manualClosed = l.manualClosed === true;
         mergedExam.settingsDirty = true;
       }
       return mergedExam;
@@ -3555,6 +3557,9 @@ async function saveExamSettings(exam, card, btn, onSaved){
   if(startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)){
     toast('定时结束时间必须晚于开始时间'); return;
   }
+  const previousStartAt = exam.startAt || '';
+  const previousEndAt = exam.endAt || '';
+  const scheduleChanged = previousStartAt !== startAt || previousEndAt !== endAt;
   const nextExam = Object.assign({}, exam, { groups: groups });
   const eligible = examCandidateSchools(nextExam);
   const boxes = Array.from(card.querySelectorAll('[data-exam-school]'));
@@ -3565,6 +3570,7 @@ async function saveExamSettings(exam, card, btn, onSaved){
   exam.groups = groups;
   exam.startAt = startAt;
   exam.endAt = endAt;
+  if(scheduleChanged) exam.manualClosed = false;
   exam.schools = schools;
   exam.updatedAt = new Date().toLocaleString();
   exam.settingsDirty = true;
@@ -3575,7 +3581,8 @@ async function saveExamSettings(exam, card, btn, onSaved){
   try {
     await cloudCall('/exam-settings', { method: 'POST', body: {
       id: exam.id, name: exam.name, groups: exam.groups,
-      startAt: exam.startAt, endAt: exam.endAt, schools: exam.schools
+      startAt: exam.startAt, endAt: exam.endAt, schools: exam.schools,
+      manualClosed: exam.manualClosed === true
     } });
     exam.settingsDirty = false;
     saveLocalExams();
@@ -3627,7 +3634,7 @@ function openCreateExam(){
     const groups = Array.from(document.querySelectorAll('input[name="newExamGroup"]:checked')).map(x => x.value);
     if(!name){ toast('请填写考试名称'); return; }
     if(!groups.length){ toast('请至少选择一个参加组别'); return; }
-    const exam = { id: 'exam_' + Date.now(), name: name, groups: groups, status: 'draft', questions: {}, schools: [], startAt: '', endAt: '', updatedAt: new Date().toLocaleString() };
+    const exam = { id: 'exam_' + Date.now(), name: name, groups: groups, status: 'draft', manualClosed: false, questions: {}, schools: [], startAt: '', endAt: '', updatedAt: new Date().toLocaleString() };
     EXAMS.push(exam);
     saveLocalExams();
     closeModal();
@@ -4095,6 +4102,7 @@ async function syncExamQuestions(exam, group){
     exam.name = cloudExam.name || exam.name;
     exam.groups = Array.isArray(cloudExam.groups) && cloudExam.groups.length ? cloudExam.groups : (exam.groups || []);
     exam.status = cloudExam.status || exam.status || 'draft';
+    exam.manualClosed = cloudExam.manualClosed === true;
     exam.startAt = cloudExam.startAt || exam.startAt || '';
     exam.endAt = cloudExam.endAt || exam.endAt || '';
     exam.schools = Array.isArray(cloudExam.schools) ? cloudExam.schools : (exam.schools || []);
@@ -4189,7 +4197,8 @@ function examPayload(exam){
     id: exam.id, name: exam.name, groups: exam.groups,
     schools: Array.isArray(exam.schools) ? exam.schools : [],
     startAt: exam.startAt || '', endAt: exam.endAt || '',
-    status: exam.status, questions: exam.questions || {}, updatedAt: exam.updatedAt || new Date().toLocaleString()
+    status: exam.status, manualClosed: exam.manualClosed === true,
+    questions: exam.questions || {}, updatedAt: exam.updatedAt || new Date().toLocaleString()
   };
 }
 
@@ -4222,11 +4231,12 @@ async function uploadExam(exam, silent){
 async function startExam(exam){
   const missing = (exam.groups || []).filter(g => !((exam.questions || {})[g] || []).length);
   if(missing.length){ toast('请先为 ' + missing.join('、') + ' 导入试题'); return; }
+  exam.manualClosed = false;
   const ok = await uploadExam(exam, true);
   if(!ok) return;
   try {
     await cloudCall('/exam-status', { method: 'POST', body: { id: exam.id, status: 'open' } });
-    exam.status = 'open'; exam.updatedAt = new Date().toLocaleString();
+    exam.status = 'open'; exam.manualClosed = false; exam.updatedAt = new Date().toLocaleString();
     saveLocalExams(); renderExamBoard();
     toast('考试已开始，学科竞赛学生入口现在可以看到入口');
     log('开始考试', exam.name);
@@ -4236,7 +4246,7 @@ async function startExam(exam){
 async function endExam(exam){
   try {
     await cloudCall('/exam-status', { method: 'POST', body: { id: exam.id, status: 'closed' } });
-    exam.status = 'closed'; exam.updatedAt = new Date().toLocaleString();
+    exam.status = 'closed'; exam.manualClosed = true; exam.updatedAt = new Date().toLocaleString();
     saveLocalExams(); renderExamBoard();
     toast('本场考试已结束');
     log('结束考试', exam.name);
