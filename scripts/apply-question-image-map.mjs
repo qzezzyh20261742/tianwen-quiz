@@ -34,14 +34,19 @@ async function imageUrlsReady(images) {
   return true;
 }
 
-async function waitForPagesManifest(images) {
+async function waitForPagesManifest(images, expectedGeneratedAt) {
   for (let attempt = 0; attempt < 12; attempt++) {
     try {
       const res = await fetch(pagesBase + '/question-images/manifest.json?t=' + Date.now(), {
         headers: { 'Cache-Control': 'no-cache' },
         signal: AbortSignal.timeout(15000)
       });
-      if (res.ok && await imageUrlsReady(images)) return true;
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload && payload.generatedAt === expectedGeneratedAt && await imageUrlsReady(images)) {
+          return true;
+        }
+      }
     } catch {
       // GitHub Pages 可能仍在传播，继续等待。
     }
@@ -63,7 +68,7 @@ async function main() {
   }
   if (!apiBase) throw new Error('未找到云端 API 地址');
 
-  const ready = await waitForPagesManifest(images);
+  const ready = await waitForPagesManifest(images, manifest.generatedAt);
   if (!ready) {
     throw new Error('GitHub Pages 上的图片目录尚未可访问，保留云端 base64，等待下一轮同步');
   }
