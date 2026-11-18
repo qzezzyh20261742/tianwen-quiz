@@ -1,5 +1,5 @@
 https://aka.doubaocdn.com/s/nxBXc7BXOQ
-https://aka.doubaocdn.com/s/OQUeA80BHQ
+https://aka.doubaocdn.com/s/kxGF4CEe4y
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -39,3 +39,4 @@ https://aka.doubaocdn.com/s/OQUeA80BHQ
 # tuned 2026-11-17 permissions: subadmin cannot force-logout a super admin (UI + API)
 # tuned 2026-11-17 permissions: unify super-admin role check for UI and API; clarify account-list hint
 # tuned 2026-11-18 question preview: cap images at 560px wide / 400px tall
+# tuned 2026-11-18 login: labels 账号/密码; remove admin wording; remove footer note
