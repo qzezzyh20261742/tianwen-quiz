@@ -532,11 +532,11 @@ tbody td.name-cell{text-align:left;font-weight:600}
   <div class="card">
     <form id="adminForm" autocomplete="off">
       <div class="field">
-        <label for="admUser">管理员账号</label>
-        <input id="admUser" type="text" placeholder="请输入管理员用户名" required>
+        <label for="admUser">账号</label>
+        <input id="admUser" type="text" placeholder="请输入用户名" required>
       </div>
       <div class="field">
-        <label for="admPass">管理员密码</label>
+        <label for="admPass">密码</label>
         <div class="pass-wrap">
           <input id="admPass" type="password" placeholder="请输入密码" required>
           <button type="button" id="toggleAdmPass" class="pass-toggle" aria-label="显示或隐藏密码">显示</button>
@@ -545,7 +545,6 @@ tbody td.name-cell{text-align:left;font-weight:600}
       <button type="submit" class="btn btn-primary">登录管理后台</button>
     </form>
   </div>
-  <p class="footer-note">学生提交成绩后，登录后台即可汇总查看、筛选与导出。同一账号仅允许一台电脑登录，后登录的电脑会使前一台自动退出。</p>
 </section>
 <!-- ===== 视图：管理员 ===== -->
 <section id="view-admin" class="view">
@@ -4887,7 +4886,7 @@ document.getElementById('adminForm').addEventListener('submit', async function(e
   const u = document.getElementById('admUser').value.trim();
   const p = document.getElementById('admPass').value;
   const submitBtn = this.querySelector('button[type="submit"]');
-  if(!u || !p){ toast('请输入管理员账号和密码'); return; }
+  if(!u || !p){ toast('请输入账号和密码'); return; }
   if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = '登录中…'; }
   try {
     const j = await cloudCall('/admin-login', {
