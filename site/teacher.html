@@ -4369,14 +4369,19 @@ async function viewExamQuestions(exam, group){
 }
 
 function examPayload(exam){
-  return {
+  const payload = {
     id: exam.id, name: exam.name, groups: exam.groups,
     schools: Array.isArray(exam.schools) ? exam.schools : [],
     startAt: exam.startAt || '', endAt: exam.endAt || '',
     status: exam.status, manualClosed: exam.manualClosed === true,
-    notice: exam.notice || '', noticeUpdatedAt: exam.noticeUpdatedAt || '',
     questions: exam.questions || {}, updatedAt: exam.updatedAt || new Date().toLocaleString()
   };
+  /* 注意事项走 /exam-notice 专用接口；只有本机有未上传修改时才随整场考试一起补传，避免旧值覆盖云端新内容 */
+  if(exam.noticeDirty){
+    payload.notice = exam.notice || '';
+    payload.noticeUpdatedAt = exam.noticeUpdatedAt || '';
+  }
+  return payload;
 }
 
 async function uploadExam(exam, silent){
