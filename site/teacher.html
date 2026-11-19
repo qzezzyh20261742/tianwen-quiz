@@ -299,6 +299,8 @@ tbody td.name-cell{text-align:left;font-weight:600}
 .q-editor-form textarea{resize:vertical;min-height:62px}
 .q-editor-form input:focus,.q-editor-form textarea:focus,.q-editor-form select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,200,255,.15)}
 .q-editor-form input[readonly]{opacity:.72;cursor:default}
+.notice-editor-form textarea{min-height:220px}
+.notice-editor-tip{font-size:12.5px;color:var(--muted);line-height:1.7;margin:10px 0 16px}
 .q-editor-images{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
 .q-editor-image{width:88px;border:1px solid rgba(91,200,255,.22);border-radius:9px;overflow:hidden;background:rgba(8,13,32,.6)}
 .q-editor-image img{display:block;width:100%;height:70px;object-fit:cover}
@@ -2720,6 +2722,12 @@ async function refreshExamBoard(isAuto){
         mergedExam.manualClosed = l.manualClosed === true;
         mergedExam.settingsDirty = true;
       }
+      if(l.noticeDirty){
+        /* 注意事项尚未成功上传云端时，刷新不得用旧云端内容覆盖 */
+        mergedExam.notice = l.notice || '';
+        mergedExam.noticeUpdatedAt = l.noticeUpdatedAt || '';
+        mergedExam.noticeDirty = true;
+      }
       return mergedExam;
     });
     /* 保留尚未上传的本地考试草稿 */
@@ -2865,12 +2873,14 @@ function openExamPaperModal(exam){
     + (groups.length ? '<div class="field" style="margin-bottom:0"><label>参加组别</label><div class="paper-settings-groups">' + groupButtons + '</div></div>' : '')
     + '<div class="paper-settings-stats" data-paper-stats>' + initialStats + '</div>'
     + '<div class="paper-settings-actions">'
+    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeEdit">填写注意事项</button>'
+    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeSync">同步注意事项</button>'
     + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="sync"' + disabled + '>同步试题</button>'
     + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="view"' + disabled + '>查看试题</button>'
     + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="addinfo"' + disabled + '>添加题目信息</button>'
     + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="import"' + disabled + '>重新导入</button>'
     + '</div>'
-    + '<div class="paper-settings-note">按重要程度排序：同步试题 → 查看试题 → 添加题目信息 → 重新导入。修改考试名称、定时和参加学校请点「考试设置」。</div>'
+    + '<div class="paper-settings-note">按重要程度排序：填写注意事项 → 同步注意事项 → 同步试题 → 查看试题 → 添加题目信息 → 重新导入。修改考试名称、定时和参加学校请点「考试设置」。</div>'
     + '</div>');
   const closeBtn = document.getElementById('modalX');
   if(closeBtn) closeBtn.addEventListener('click', closeModal);
@@ -2889,12 +2899,120 @@ function openExamPaperModal(exam){
       const act = btn.dataset.paperAction;
       const group = selectedGroup;
       closeModal();
-      if(act === 'sync') syncExamQuestions(exam, group);
+      if(act === 'noticeEdit') openExamNoticeModal(exam);
+      else if(act === 'noticeSync') syncExamNotice(exam);
+      else if(act === 'sync') syncExamQuestions(exam, group);
       else if(act === 'view') viewExamQuestions(exam, group);
       else if(act === 'addinfo') openQuestionInfoModal(exam, group);
       else if(act === 'import') openImportModal(exam, group);
     });
   });
+}
+
+async function openExamNoticeModal(exam){
+  if(!exam) return;
+  let cloud = null;
+  try {
+    cloud = await cloudCall('/exam-notice?id=' + encodeURIComponent(exam.id));
+  } catch(e){}
+  if(cloud && String(cloud.notice || '').trim()){
+    const cloudAt = String(cloud.noticeUpdatedAt || '');
+    const localAt = String(exam.noticeUpdatedAt || '');
+    if(!String(exam.notice || '').trim() || (!exam.noticeDirty && cloudAt > localAt)){
+      exam.notice = String(cloud.notice || '').trim();
+      exam.noticeUpdatedAt = cloudAt;
+      exam.noticeDirty = false;
+      saveLocalExams();
+    }
+  }
+  const notice = String(exam.notice || '');
+  openModal('<div class="modal-head"><h3>答题注意事项 · ' + esc(exam.name) + '</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
+    + '<div class="q-editor-form notice-editor-form">'
+    + '<div class="field"><label for="examNoticeText">注意事项内容</label>'
+    + '<textarea id="examNoticeText" rows="9" maxlength="5000" placeholder="填写学生进入答题前需要阅读的注意事项，例如考试纪律、计时规则和提交要求">' + esc(notice) + '</textarea></div>'
+    + '</div>'
+    + '<div class="notice-editor-tip">学生填写完个人信息后，会先看到这段内容；勾选确认后才能进入答题。保存后立即上传云端，其他设备点「同步注意事项」即可读取。</div>'
+    + '<div style="display:flex;gap:10px">'
+    + '<button class="btn btn-ghost" style="flex:1" id="noticeCancel" type="button">取消</button>'
+    + '<button class="btn btn-gold" style="flex:1" id="noticeSave" type="button">保存并上传</button>'
+    + '</div>');
+  document.getElementById('modalX').addEventListener('click', closeModal);
+  document.getElementById('noticeCancel').addEventListener('click', closeModal);
+  document.getElementById('noticeSave').addEventListener('click', async function(){
+    const btn = this;
+    const text = String(document.getElementById('examNoticeText').value || '').trim();
+    btn.disabled = true;
+    btn.textContent = '上传中…';
+    try {
+      const j = await cloudCall('/exam-notice', {
+        method: 'POST',
+        body: { id: exam.id, notice: text }
+      });
+      exam.notice = String(j.notice || '');
+      exam.noticeUpdatedAt = String(j.noticeUpdatedAt || '');
+      exam.noticeDirty = false;
+      saveLocalExams();
+      closeModal();
+      renderExamBoard();
+      toast(text ? '注意事项已保存并上传云端；其他设备点「同步注意事项」即可获取' : '注意事项已清空并同步云端');
+      log('保存注意事项', exam.name + (text ? ' · ' + text.length + ' 字' : ' · 已清空'));
+    } catch(e) {
+      exam.notice = text;
+      exam.noticeDirty = true;
+      exam.noticeUpdatedAt = new Date().toLocaleString();
+      const saved = saveLocalExams();
+      closeModal();
+      renderExamBoard();
+      toast(saved ? '云端上传失败，注意事项已保存在本机；请稍后点「同步注意事项」重试' : '云端上传失败，且本机存储空间不足');
+    }
+  });
+}
+
+async function syncExamNotice(exam){
+  if(!exam) return;
+  try {
+    const j = await cloudCall('/exam-notice?id=' + encodeURIComponent(exam.id));
+    const cloudNotice = String(j.notice || '').trim();
+    const localNotice = String(exam.notice || '').trim();
+    const cloudAt = String(j.noticeUpdatedAt || '');
+    if(exam.noticeDirty){
+      /* 本机有尚未上传的修改时，「同步注意事项」先把它补传，避免丢失 */
+      const r = await cloudCall('/exam-notice', {
+        method: 'POST',
+        body: { id: exam.id, notice: localNotice }
+      });
+      exam.notice = String(r.notice || '');
+      exam.noticeUpdatedAt = String(r.noticeUpdatedAt || '');
+      exam.noticeDirty = false;
+      saveLocalExams();
+      renderExamBoard();
+      toast('本机注意事项已上传云端，其他设备可以同步获取');
+      log('同步注意事项', exam.name + ' · 上传本机内容');
+      return;
+    }
+    if(!cloudNotice){
+      if(localNotice){
+        exam.notice = '';
+        exam.noticeUpdatedAt = cloudAt;
+        exam.noticeDirty = false;
+        saveLocalExams();
+        renderExamBoard();
+        toast('云端已清空注意事项，本机旧内容已清除');
+      } else {
+        toast('云端暂无注意事项，请先填写');
+      }
+      return;
+    }
+    exam.notice = cloudNotice;
+    exam.noticeUpdatedAt = cloudAt;
+    exam.noticeDirty = false;
+    saveLocalExams();
+    renderExamBoard();
+    toast('已从云端同步注意事项');
+    log('同步注意事项', exam.name + ' · 从云端读取');
+  } catch(e) {
+    toast('同步注意事项失败：' + (e && e.message ? e.message : '云端暂时不可用'));
+  }
 }
 
 async function openQuestionInfoModal(exam, group){
@@ -4159,6 +4277,10 @@ async function syncExamQuestions(exam, group){
     exam.startAt = cloudExam.startAt || exam.startAt || '';
     exam.endAt = cloudExam.endAt || exam.endAt || '';
     exam.schools = Array.isArray(cloudExam.schools) ? cloudExam.schools : (exam.schools || []);
+    if(!exam.noticeDirty && typeof cloudExam.notice === 'string'){
+      exam.notice = cloudExam.notice;
+      exam.noticeUpdatedAt = cloudExam.noticeUpdatedAt || '';
+    }
     exam.updatedAt = cloudExam.updatedAt || exam.updatedAt || '';
     exam.questions = JSON.parse(JSON.stringify(cloudExam.questions || {}));
     const idx = EXAMS.findIndex(function(x){ return x.id === exam.id; });
@@ -4252,6 +4374,7 @@ function examPayload(exam){
     schools: Array.isArray(exam.schools) ? exam.schools : [],
     startAt: exam.startAt || '', endAt: exam.endAt || '',
     status: exam.status, manualClosed: exam.manualClosed === true,
+    notice: exam.notice || '', noticeUpdatedAt: exam.noticeUpdatedAt || '',
     questions: exam.questions || {}, updatedAt: exam.updatedAt || new Date().toLocaleString()
   };
 }
@@ -4272,6 +4395,7 @@ async function uploadExam(exam, silent){
       toast('上传后核对不一致：' + mismatch.join('；') + '。请重新导入后再上传');
       return false;
     }
+    exam.noticeDirty = false;
     toast('已上传到云端并核对一致：' + (exam.groups || []).join('、') + '，题数与总分均与本地相同');
     log('上传考试', exam.name);
     return true;
