@@ -2665,6 +2665,15 @@ function examHasAllGroupQuestions(exam){
     return !!(meta && Number(meta.count) > 0);
   });
 }
+function examHasAnyQuestions(exam){
+  const groups = (exam && exam.groups) || [];
+  return groups.some(function(g){
+    const local = (((exam.questions || {})[g]) || []);
+    if(local.length) return true;
+    const meta = ((exam.perGroup || {})[g]) || null;
+    return !!(meta && Number(meta.count) > 0);
+  });
+}
 function effectiveExamStatus(exam){
   const now = Date.now();
   const start = exam && exam.startAt ? Date.parse(exam.startAt) : NaN;
@@ -2867,13 +2876,14 @@ function openExamPaperModal(exam){
     return '<button class="paper-group-btn' + (g === selectedGroup ? ' on' : '') + '" type="button" data-paper-group="' + esc(g) + '">' + esc(g) + '</button>';
   }).join('');
   const disabled = groups.length ? '' : ' disabled';
+  const importLabel = examHasAnyQuestions(exam) ? '重新导入' : '导入试题';
   const initialStats = selectedGroup ? paperStatsText(selectedGroup) : '尚未设置参加组别，请先到「考试设置」选择。';
   openModal('<div class="modal-head"><h3>试题设置 · ' + esc(exam.name) + '</h3><button class="modal-close" id="modalX" type="button">×</button></div>'
     + '<div class="exam-config-form" data-exam-paper-form>'
     + (groups.length ? '<div class="field" style="margin-bottom:0"><label>参加组别</label><div class="paper-settings-groups">' + groupButtons + '</div></div>' : '')
     + '<div class="paper-settings-stats" data-paper-stats>' + initialStats + '</div>'
     + '<div class="paper-settings-actions">'
-    + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="import"' + disabled + '>导入试题 / 重新导入</button>'
+    + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="import"' + disabled + '>' + importLabel + '</button>'
     + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="addinfo"' + disabled + '>添加题目信息</button>'
     + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="view"' + disabled + '>查看试题</button>'
     + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeEdit">填写注意事项</button>'
