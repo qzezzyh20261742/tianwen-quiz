@@ -5,25 +5,33 @@ const CLOUD_URL = String(process.env.CLOUD_URL || 'https://astro-quiz-api.pages.
 const API_KEY = String(process.env.API_KEY || 'astro2026');
 const OUTPUT = String(process.env.OUTPUT || 'site/exam-notices.json');
 
-const res = await fetch(CLOUD_URL + '/exams-full', {
-  headers: { 'X-API-Key': API_KEY }
-});
-if (!res.ok) {
-  throw new Error('读取云端考试数据失败：HTTP ' + res.status);
-}
-const json = await res.json();
-if (!json.ok || !Array.isArray(json.exams)) {
-  throw new Error('云端考试数据格式不正确');
-}
-
 const notices = {};
-for (const exam of json.exams) {
-  if (!exam || !exam.id) continue;
-  notices[String(exam.id)] = {
-    name: String(exam.name || ''),
-    notice: String(exam.notice || ''),
-    noticeUpdatedAt: String(exam.noticeUpdatedAt || '')
-  };
+let warning = '';
+try {
+  const res = await fetch(CLOUD_URL + '/exams-full', {
+    headers: { 'X-API-Key': API_KEY }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  if (!json.ok || !Array.isArray(json.exams)) throw new Error('云端考试数据格式不正确');
+  for (const exam of json.exams) {
+    if (!exam || !exam.id) continue;
+    notices[String(exam.id)] = {
+      name: String(exam.name || ''),
+      notice: String(exam.notice || ''),
+      noticeUpdatedAt: String(exam.noticeUpdatedAt || '')
+    };
+  }
+} catch (e) {
+  warning = e && e.message ? e.message : String(e);
+  /* 云端临时不可达时保留上一次备份，避免把 GitHub 仓库里的注意事项备份清空 */
+  try {
+    const previous = JSON.parse(fs.readFileSync(OUTPUT, 'utf8'));
+    if (previous && previous.notices && typeof previous.notices === 'object') {
+      Object.assign(notices, previous.notices);
+    }
+  } catch (readError) {}
+  console.warn('读取云端考试数据失败，保留上一次备份：' + warning);
 }
 
 const payload = {
@@ -33,4 +41,4 @@ const payload = {
 
 fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
 fs.writeFileSync(OUTPUT, JSON.stringify(payload, null, 2) + '\n', 'utf8');
-console.log('exam notices backup: ' + OUTPUT + ' (' + Object.keys(notices).length + ' exams)');
+console.log('exam notices backup: ' + OUTPUT + ' (' + Object.keys(notices).length + ' exams)' + (warning ? ' [fallback]' : ''));
