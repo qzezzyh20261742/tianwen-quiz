@@ -2873,14 +2873,13 @@ function openExamPaperModal(exam){
     + (groups.length ? '<div class="field" style="margin-bottom:0"><label>参加组别</label><div class="paper-settings-groups">' + groupButtons + '</div></div>' : '')
     + '<div class="paper-settings-stats" data-paper-stats>' + initialStats + '</div>'
     + '<div class="paper-settings-actions">'
-    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeEdit">填写注意事项</button>'
-    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeSync">同步注意事项</button>'
-    + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="sync"' + disabled + '>同步试题</button>'
+    + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="import"' + disabled + '>导入试题 / 重新导入</button>'
+    + '<button class="btn btn-gold btn-sm" type="button" data-paper-action="addinfo"' + disabled + '>添加题目信息</button>'
     + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="view"' + disabled + '>查看试题</button>'
-    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="addinfo"' + disabled + '>添加题目信息</button>'
-    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="import"' + disabled + '>重新导入</button>'
+    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeEdit">填写注意事项</button>'
+    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="sync"' + disabled + '>同步试题</button>'
+    + '<button class="btn btn-ghost btn-sm" type="button" data-paper-action="noticeSync">同步注意事项</button>'
     + '</div>'
-    + '<div class="paper-settings-note">按重要程度排序：填写注意事项 → 同步注意事项 → 同步试题 → 查看试题 → 添加题目信息 → 重新导入。修改考试名称、定时和参加学校请点「考试设置」。</div>'
     + '</div>');
   const closeBtn = document.getElementById('modalX');
   if(closeBtn) closeBtn.addEventListener('click', closeModal);
