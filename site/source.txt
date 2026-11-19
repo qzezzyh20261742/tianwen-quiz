@@ -1,5 +1,5 @@
-https://aka.doubaocdn.com/s/V1GIe4gdX9
-https://aka.doubaocdn.com/s/o09AXU7JWC
+https://aka.doubaocdn.com/s/R5BxxD8d74
+https://aka.doubaocdn.com/s/XocN26JpZu
 # tuned 2026-11-16 01:15 add V1.5.9021 version strip
 # tuned 2026-11-15 23:16 subadmin backend parity; hide 5 superadmin save/backup buttons
 # tuned 2026-11-15 23:24 version strip text 14px, lifted 5px
@@ -43,3 +43,4 @@ https://aka.doubaocdn.com/s/o09AXU7JWC
 # tuned 2026-11-19 student entry: remove score-rule footer note
 # tuned 2026-11-20 00:40 exam notice: teacher fill/sync buttons; student confirm page; GitHub backup
 # tuned 2026-11-20 01:00 exam paper: reorder actions 导入→添加信息→查看→填写注意→同步试题→同步注意; remove hint line
+# tuned 2026-11-20 01:15 version: both footers V2.1.2
