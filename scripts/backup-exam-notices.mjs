@@ -7,6 +7,8 @@ const OUTPUT = String(process.env.OUTPUT || 'site/exam-notices.json');
 
 const notices = {};
 let warning = '';
+let previous = null;
+try { previous = JSON.parse(fs.readFileSync(OUTPUT, 'utf8')); } catch (readError) {}
 try {
   const res = await fetch(CLOUD_URL + '/exams-full', {
     headers: { 'X-API-Key': API_KEY }
@@ -25,17 +27,18 @@ try {
 } catch (e) {
   warning = e && e.message ? e.message : String(e);
   /* 云端临时不可达时保留上一次备份，避免把 GitHub 仓库里的注意事项备份清空 */
-  try {
-    const previous = JSON.parse(fs.readFileSync(OUTPUT, 'utf8'));
-    if (previous && previous.notices && typeof previous.notices === 'object') {
-      Object.assign(notices, previous.notices);
-    }
-  } catch (readError) {}
+  if (previous && previous.notices && typeof previous.notices === 'object') {
+    Object.assign(notices, previous.notices);
+  }
   console.warn('读取云端考试数据失败，保留上一次备份：' + warning);
 }
 
+const contentChanged = !previous || JSON.stringify(previous.notices || {}) !== JSON.stringify(notices);
+const generatedAt = contentChanged
+  ? new Date().toISOString()
+  : String((previous && previous.generatedAt) || new Date().toISOString());
 const payload = {
-  generatedAt: new Date().toISOString(),
+  generatedAt,
   notices
 };
 
