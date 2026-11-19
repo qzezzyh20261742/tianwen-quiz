@@ -30,6 +30,10 @@ jobs:
         run: node scripts/backup-question-images.mjs
         env:
           PAGES_BASE_URL: https://zyh572.github.io/tianwen
+      - name: Backup exam notices
+        run: node scripts/backup-exam-notices.mjs
+        env:
+          CLOUD_URL: https://astro-quiz-api.pages.dev
       - name: Prepare site files
         run: |
           mkdir -p out
@@ -48,12 +52,14 @@ jobs:
             echo "teacher: using repo copy"
           fi
           cp site/cloud.json out/cloud.json
+          cp site/exam-notices.json out/exam-notices.json
           if [ -d site/question-images ]; then
             cp -R site/question-images out/question-images
           fi
           test -s out/student.html
           test -s out/teacher.html
           test -s out/cloud.json
+          test -s out/exam-notices.json
           cat > out/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="zh-CN">
